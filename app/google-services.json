@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "538099221336",
+    "project_id": "firedatabase-assis-9b8d3",
+    "storage_bucket": "firedatabase-assis-9b8d3.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:538099221336:android:a099992b819b5c4cb19b2d",
+        "android_client_info": {
+          "package_name": "com.example.firedatabase_assis"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKAHoyJrzAWJtVHihEVEmHTs4z3Vf06lo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

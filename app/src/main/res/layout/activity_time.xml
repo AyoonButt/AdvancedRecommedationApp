@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context=".TimeActivity">
+
+
+    <Button
+        android:id="@+id/btTime1"
+        android:layout_width="match_parent"
+        android:layout_height="93dp"
+        android:layout_marginHorizontal="150dp"
+        android:layout_marginVertical="100dp"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="20dp"
+        android:layout_marginTop="20dp"
+        android:layout_marginEnd="10dp"
+        android:text="Select Time"
+        android:background="@color/orange"
+        android:textSize="30sp" />
+
+    <TextView
+        android:id="@+id/tv_textTime"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginVertical="50dp"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="20dp"
+        android:text="Select Date"
+        android:textAlignment="center"
+        android:textColor="@color/black"
+        android:textSize="30sp"
+        tools:layout_editor_absoluteY="356dp" />
+
+</LinearLayout>

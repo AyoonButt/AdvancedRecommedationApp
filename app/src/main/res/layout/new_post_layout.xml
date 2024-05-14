@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <EditText
+        android:id="@+id/new_post_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Post title" />
+
+    <EditText
+        android:id="@+id/new_post_content"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Post content"
+        android:inputType="textMultiLine" />
+
+    <EditText
+        android:id="@+id/new_post_community"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Community" />
+
+
+</LinearLayout>

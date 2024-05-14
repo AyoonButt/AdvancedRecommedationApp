@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:title="Home"
+        android:icon="@drawable/icon_home"
+        android:id="@+id/bottom_menu_home"/>
+    <item android:title="Explore"
+        android:icon="@drawable/icon_explore"
+        android:id="@+id/bottom_menu_explore"/>
+    <item android:title="Communities"
+        android:icon="@drawable/icon_communities"
+        android:id="@+id/bottom_menu_communities"/>
+    <!--<item android:title="Profile"
+        android:icon="@drawable/icon_profile"
+        android:id="@+id/bottom_menu_profile"/>_-->
+    <item android:title="Settings"
+        android:icon="@drawable/icon_settings"
+        android:id="@+id/bottom_menu_settings"/>
+</menu>

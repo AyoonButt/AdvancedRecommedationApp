@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/containerLayout"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- ImageView for the image -->
+    <ImageView
+        android:id="@+id/imageView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:scaleType="centerCrop"
+        android:src="@drawable/lotr" />
+
+
+    <!-- Button for dislike -->
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="horizontal">
+
+        <!-- Button for like -->
+        <ToggleButton
+            android:id="@+id/btnLike"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Like"
+            android:textOff="Like"
+            android:textOn="Liked"
+            android:drawableStart="@drawable/icon_thumb_up_unfilled" />
+
+        <!-- Button for dislike -->
+        <ToggleButton
+            android:id="@+id/btnDislike"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Dislike"
+            android:textOff="Dislike"
+            android:textOn="Disliked"
+            android:drawableStart="@drawable/icon_thumb_down_unfilled" />/>
+
+
+        <!-- Button for saved -->
+        <ToggleButton
+            android:id="@+id/btnSaved"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:text="Save"
+            android:textOff="Save"
+            android:textOn="Saved"
+            android:drawableStart="@drawable/icon_bookmark_unfilled" />/>
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/captionTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:paddingTop="8dp"
+        android:text="Your Caption Here"
+        android:textSize="16sp" />
+
+</LinearLayout>
+
+
