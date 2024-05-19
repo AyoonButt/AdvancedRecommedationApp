@@ -1,10 +1,8 @@
 package com.example.firedatabase_assis
 
 import android.content.Context
-import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
-import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
@@ -87,7 +85,6 @@ class SetupActivity : AppCompatActivity() {
         saveAndContinue.setOnClickListener {
             saveStates()
             updateDatabase()
-            launchSetup(it)
 
         }
 
@@ -150,11 +147,6 @@ class SetupActivity : AppCompatActivity() {
 
     private fun getLoggedInUser(): String? {
         return sharedPreferences.getString("LoggedInUser", null)
-    }
-
-    private fun launchSetup(view: View) {
-        val intent = Intent(this, StreamingAPI::class.java)
-        startActivity(intent)
     }
 
 

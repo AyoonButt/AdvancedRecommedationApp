@@ -2,6 +2,7 @@ package com.example.firedatabase_assis
 
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.CoroutineScope
@@ -12,20 +13,21 @@ import kotlinx.coroutines.launch
 class MovieWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
 
     private val apiWorkerParams = ApiWorkerParams(
-        apiKey = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJkOWRkOWQzYWU4MzhkYjE4ZDUxZjg4Y2Q1MGU0NzllNCIsInN1YiI6IjY2MjZiM2ZkMjU4ODIzMDE2NDkxODliMSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.wIF16waIO_pGrRKxWr4ye8QFYUFMGP6WBDX5Wg2JOpM",
-        watchProviders = "8",
-        watchRegion = "US",
-        language = "en-US",
+        apiKey = "d9dd9d3ae838db18d51f88cd50e479e4",
         includeAdult = false,
-        includeVideo = true,
-        sortBy = "popularity.desc",
+        includeVideo = false,
+        language = "en-US",
+        page = 1,
         releaseDateGte = "2022-01-01",
-        page = 1
+        sortBy = "popularity.desc",
+        watchRegion = "US",
+        watchProviders = "8",
     )
 
     private val apiWorker = ApiWorker(applicationContext, params, apiWorkerParams)
 
     override fun doWork(): Result {
+        Log.d("MovieWorker", "Worker started")
         CoroutineScope(Dispatchers.IO).launch {
             apiWorker.doWork()
         }

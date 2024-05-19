@@ -1,22 +1,12 @@
 package com.example.firedatabase_assis
 
 
-import android.content.ContentValues
-import android.content.Intent
 import android.os.Bundle
-import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
 import com.example.firedatabase_assis.databinding.ActivityUserBinding
-import com.example.firedatabase_assis.databinding.ActivityWelcomeWindowBinding
-import com.google.firebase.Firebase
-import com.google.firebase.auth.FirebaseAuthException
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
-import java.net.Authenticator
 
 
-class UserActivity : AppCompatActivity(){
+class UserActivity : AppCompatActivity() {
     private lateinit var binding: ActivityUserBinding
     private lateinit var dbHelper: DB_class
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,4 +48,5 @@ class UserActivity : AppCompatActivity(){
 //        db.update(DB_class.TABLE_CONTACTS, values, null, null)
 //        db.close()
 //    }
-}}
+    }
+}

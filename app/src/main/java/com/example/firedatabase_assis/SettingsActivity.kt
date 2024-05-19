@@ -6,11 +6,11 @@ import android.content.SharedPreferences
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
+import android.widget.Switch
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.SwitchCompat
-import android.widget.Switch
-import android.widget.Toast
 import com.example.firedatabase_assis.databinding.ActivitySettingsBinding
 
 
@@ -48,10 +48,7 @@ class SettingsActivity : AppCompatActivity() {
             openPreferences(it)
         }
 
-        val back_to_main = findViewById<Button>(R.id.backSettings)
-        back_to_main.setOnClickListener {
-            backtomain(it)
-        }
+
 
         sharedPreferences = getSharedPreferences("NighModeSett", Context.MODE_PRIVATE)
         nightModeSwitch = findViewById<SwitchCompat>(R.id.nightmode)
@@ -73,7 +70,11 @@ class SettingsActivity : AppCompatActivity() {
         notificationsSwitch = findViewById(R.id.switch_notifications)
         notificationsSwitch.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
-                Toast.makeText(this, "You will now receive notifications on any news relating to your preferences!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    "You will now receive notifications on any news relating to your preferences!",
+                    Toast.LENGTH_SHORT
+                ).show()
             } else {
                 Toast.makeText(this, "Notifications Disabled :(", Toast.LENGTH_SHORT).show()
             }
@@ -101,8 +102,5 @@ class SettingsActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
-    private fun backtomain(view: View) {
-        val intent = Intent(this, HomePage::class.java)
-        startActivity(intent)
-    }
+
 }
