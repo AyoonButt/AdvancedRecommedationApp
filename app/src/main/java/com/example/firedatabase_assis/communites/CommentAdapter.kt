@@ -1,10 +1,11 @@
-package com.example.firedatabase_assis
+package com.example.firedatabase_assis.communites
 
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.example.firedatabase_assis.R
 
 class CommentAdapter(private val comments: List<Comment>) :
     RecyclerView.Adapter<CommentAdapter.CommentViewHolder>() {

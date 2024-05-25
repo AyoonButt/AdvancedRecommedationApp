@@ -5,12 +5,12 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background"
-    tools:context=".MainActivity">
+    tools:context=".login_setup.MainActivity">
+
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/main_header"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        >
+        android:layout_height="match_parent">
 
         <ImageView
             android:id="@+id/image_view3"
@@ -30,6 +30,7 @@
             android:src="@drawable/shape"
             app:layout_constraintBaseline_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
+
         <TextView
             android:id="@+id/text1"
             android:layout_width="wrap_content"
@@ -42,8 +43,8 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHorizontal_bias="0.497"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            />
+            app:layout_constraintTop_toTopOf="parent" />
+
         <EditText
             android:id="@+id/logtxt"
             android:layout_width="320dp"
@@ -54,8 +55,8 @@
             android:paddingLeft="20dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/text1"
-            />
+            app:layout_constraintTop_toBottomOf="@+id/text1" />
+
         <EditText
             android:id="@+id/ed3"
             android:layout_width="320dp"
@@ -70,8 +71,8 @@
             android:longClickable="false"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/logtxt"
-            />
+            app:layout_constraintTop_toBottomOf="@+id/logtxt" />
+
         <Button
             android:id="@+id/btnlogin"
             android:layout_width="320dp"
@@ -84,8 +85,8 @@
             android:backgroundTint="@color/teal_200"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/ed3"
-            />
+            app:layout_constraintTop_toBottomOf="@+id/ed3" />
+
         <LinearLayout
             android:id="@+id/lin2"
             android:layout_width="match_parent"
@@ -111,8 +112,7 @@
                 android:layout_height="wrap_content"
                 android:text="Click here"
                 android:textColor="@color/teal_200"
-                android:textSize="16dp"
-                />
+                android:textSize="16dp" />
         </LinearLayout>
 
 

@@ -1,4 +1,4 @@
-package com.example.firedatabase_assis
+package com.example.firedatabase_assis.login_setup
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -9,6 +9,8 @@ import android.widget.CheckBox
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.appcompat.app.AppCompatActivity
+import com.example.firedatabase_assis.DB_class
+import com.example.firedatabase_assis.R
 
 class SetupActivity : AppCompatActivity() {
 

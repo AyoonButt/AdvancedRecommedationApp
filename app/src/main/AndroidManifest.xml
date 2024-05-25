@@ -12,7 +12,7 @@
         android:theme="@style/Theme.Firedatabase_assis">
 
         <activity
-            android:name=".CommunitiesActivity"
+            android:name=".communites.CommunitiesActivity"
             android:exported="true"
             android:theme="@style/Theme.AppCompat.DayNight" />
 
@@ -30,14 +30,14 @@
             android:exported="true"
             android:theme="@style/Theme.AppCompat.DayNight" />
         <activity
-            android:name=".SetupActivity"
+            android:name=".login_setup.SetupActivity"
             android:exported="true"
             android:theme="@style/Theme.AppCompat.DayNight" />
         <activity
             android:name=".welcome_window"
             android:exported="false" />
         <activity
-            android:name=".MainActivity"
+            android:name=".login_setup.MainActivity"
             android:exported="false" />
         <activity
             android:name=".HomePage"
@@ -45,7 +45,7 @@
 
         </activity>
         <activity
-            android:name=".login_form"
+            android:name=".login_setup.login_form"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

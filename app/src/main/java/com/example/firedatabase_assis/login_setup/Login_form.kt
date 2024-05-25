@@ -1,4 +1,4 @@
-package com.example.firedatabase_assis
+package com.example.firedatabase_assis.login_setup
 
 
 import android.annotation.SuppressLint
@@ -8,6 +8,7 @@ import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.example.firedatabase_assis.DB_class
 import com.example.firedatabase_assis.databinding.ActivityLoginFormBinding
 
 class login_form : AppCompatActivity() {

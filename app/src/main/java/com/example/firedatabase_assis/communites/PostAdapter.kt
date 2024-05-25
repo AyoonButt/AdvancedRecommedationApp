@@ -1,4 +1,4 @@
-package com.example.firedatabase_assis
+package com.example.firedatabase_assis.communites
 
 import android.view.LayoutInflater
 import android.view.View
@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.firedatabase_assis.R
 
 class PostAdapter(private val posts: MutableList<Post>, private val activity: AppCompatActivity) :
     RecyclerView.Adapter<PostAdapter.PostViewHolder>() {
