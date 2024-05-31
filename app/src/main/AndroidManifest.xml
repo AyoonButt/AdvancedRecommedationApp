@@ -40,7 +40,7 @@
             android:name=".login_setup.MainActivity"
             android:exported="false" />
         <activity
-            android:name=".HomePage"
+            android:name=".home_page.HomePage"
             android:exported="true">
 
         </activity>
@@ -71,13 +71,7 @@
             android:theme="@style/Theme.AppCompat.DayNight">
 
         </activity>
-
-        <activity
-            android:name=".StreamingAPI"
-            android:exported="true">
-
-        </activity>
-
+        
     </application>
 
 </manifest>

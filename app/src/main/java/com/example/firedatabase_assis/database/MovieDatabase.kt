@@ -4,15 +4,18 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.example.firedatabase_assis.home_page.Comment
 
 @Database(
-    entities = [MovieTable::class, DisneyMovieTable::class, PrimeMovieTable::class],
-    version = 1,
+    entities = [MovieTable::class, DisneyMovieTable::class, PrimeMovieTable::class, Comment::class],
+    version = 2,
     exportSchema = false
 )
 abstract class MovieDatabase : RoomDatabase() {
     abstract fun primeMovieDao(): PrimeDao
     abstract fun disneyMovieDao(): DisneyDao
+
+    abstract fun commentDao(): CommentDao
 
     companion object {
         @Volatile

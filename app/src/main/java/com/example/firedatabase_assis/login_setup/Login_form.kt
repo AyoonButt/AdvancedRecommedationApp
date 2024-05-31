@@ -10,6 +10,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.example.firedatabase_assis.DB_class
 import com.example.firedatabase_assis.databinding.ActivityLoginFormBinding
+import com.example.firedatabase_assis.home_page.HomePage
 
 class login_form : AppCompatActivity() {
     private lateinit var bind: ActivityLoginFormBinding
@@ -39,7 +40,7 @@ class login_form : AppCompatActivity() {
                 // Save the username of the logged-in user to SharedPreferences
                 saveLoggedInUser(username)
 
-                // startActivity(Intent(this, StreamingAPI::class.java))
+                startActivity(Intent(this, HomePage::class.java))
             } else {
                 val ad = AlertDialog.Builder(this)
                 ad.setTitle("Message")

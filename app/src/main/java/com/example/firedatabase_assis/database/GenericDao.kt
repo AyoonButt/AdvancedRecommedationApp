@@ -6,4 +6,5 @@ import androidx.room.OnConflictStrategy
 interface GenericDao<T> {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(entities: List<T>)
+
 }
