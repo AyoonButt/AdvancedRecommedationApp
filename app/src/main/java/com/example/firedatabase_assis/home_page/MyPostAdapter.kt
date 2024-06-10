@@ -16,6 +16,7 @@ import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.database.CommentDao
 import com.squareup.picasso.Picasso
 
+
 class MyPostAdapter(
     private val context: Context,
     private val movies: List<Post>,
@@ -94,7 +95,18 @@ class MyPostAdapter(
                 transaction.commit()
 
             }
+
+            // Unregister swipe gesture listener when comment section closes
+            holder.comments.addOnAttachStateChangeListener(object :
+                View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) {}
+
+                override fun onViewDetachedFromWindow(v: View) {
+                    fragmentContainer.setOnTouchListener(null)
+                }
+            })
         }
+
 
         var isSaved = false
         holder.saved.setOnClickListener {
@@ -123,20 +135,4 @@ class MyPostAdapter(
     }
 }
 
-abstract class DoubleClickListener : View.OnClickListener {
-    private var lastClickTime: Long = 0
 
-    companion object {
-        private const val DOUBLE_CLICK_TIME_DELTA = 300 // milliseconds
-    }
-
-    override fun onClick(v: View?) {
-        val clickTime = System.currentTimeMillis()
-        if (clickTime - lastClickTime < DOUBLE_CLICK_TIME_DELTA) {
-            onDoubleClick(v)
-        }
-        lastClickTime = clickTime
-    }
-
-    abstract fun onDoubleClick(v: View?)
-}

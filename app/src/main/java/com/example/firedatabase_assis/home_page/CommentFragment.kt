@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
@@ -20,34 +21,48 @@ class CommentFragment(private val postId: Int, private val commentDao: CommentDa
 
     private lateinit var commentsRecyclerView: RecyclerView
     private lateinit var commentsAdapter: CommentsAdapter
+    private lateinit var swipeGestureListener: SwipeGestureListener
+    private lateinit var fragmentContainerLayout: View
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        try {
-            val view = inflater.inflate(R.layout.fragment_comment, container, false)
-            commentsRecyclerView = view.findViewById(R.id.comment_recycler_view)
-            commentsRecyclerView.layoutManager = LinearLayoutManager(requireContext())
+        Log.d("CommentFragment", "onCreateView called")
+        val view = inflater.inflate(R.layout.fragment_comment, container, false)
+        commentsRecyclerView = view.findViewById(R.id.comment_recycler_view)
+        commentsRecyclerView.layoutManager = LinearLayoutManager(requireContext())
 
-            // Initialize the adapter with an empty list (or null if you prefer)
-            commentsAdapter =
-                CommentsAdapter(requireContext(), viewLifecycleOwner, listOf(), commentDao, postId)
+        commentsAdapter =
+            CommentsAdapter(requireContext(), viewLifecycleOwner, listOf(), commentDao, postId)
+        commentsRecyclerView.adapter = commentsAdapter
 
-            // Set the adapter to the RecyclerView
-            commentsRecyclerView.adapter = commentsAdapter
+        // Get the fragment container layout
+        fragmentContainerLayout = requireActivity().findViewById(R.id.fragment_container)
 
-            
-            loadComments()
-
-            return view
-        } catch (e: Exception) {
-            Log.e("CommentFragment", "Error inflating fragment: ${e.message}")
-            e.printStackTrace()
-            return null
+        // Set up swipe gesture listener for the fragment_container layout
+        swipeGestureListener = SwipeGestureListener(requireContext()) {
+            Log.d("SwipeGestureListener", "Swipe down action triggered")
+            fragmentContainerLayout.visibility = View.GONE
+            requireActivity().supportFragmentManager.popBackStack()
         }
-    }
 
+        fragmentContainerLayout.setOnTouchListener { _, event ->
+            val result = swipeGestureListener.onTouch(fragmentContainerLayout, event)
+            Log.d("CommentFragment", "Touch event: $event, result: $result")
+            result
+        }
+
+        // Bring the fragment_container layout to the front
+        fragmentContainerLayout.bringToFront()
+        fragmentContainerLayout.requestFocus()
+
+        // Log when the listener is attached
+        Log.d("CommentFragment", "SwipeGestureListener attached to fragment_container layout")
+
+        loadComments()
+        return view
+    }
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -60,10 +75,19 @@ class CommentFragment(private val postId: Int, private val commentDao: CommentDa
                 commentDao.getCommentsForPost(postId)
             }
             if (comments.isNotEmpty()) {
-                // Initialize the adapter with the fetched comments
                 commentsAdapter.updateComments(comments)
             }
         }
     }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // Remove the swipe listener when the view is destroyed
+        fragmentContainerLayout.setOnTouchListener(null)
+        Log.d("CommentFragment", "Swipe listener removed")
+    }
+
+    fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        return fragmentContainerLayout.dispatchTouchEvent(event)
+    }
 }

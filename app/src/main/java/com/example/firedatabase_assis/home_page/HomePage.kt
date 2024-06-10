@@ -22,8 +22,6 @@ class HomePage : AppCompatActivity() {
     // Flag to indicate whether data is currently being loaded
     private var isLoading = false
 
-    private lateinit var swipeGestureListener: SwipeGestureListener
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home_page)
@@ -35,23 +33,6 @@ class HomePage : AppCompatActivity() {
         recyclerView.layoutManager = LinearLayoutManager(this)
         adapter = MyPostAdapter(this, movies = postData, commentDao = commentDao)
         recyclerView.adapter = adapter
-
-        val postId = 0
-        val fragmentContainer = findViewById<View>(R.id.fragment_container)
-
-        val swipeGestureListener = SwipeGestureListener(this) {
-            fragmentContainer.visibility = View.GONE
-            supportFragmentManager.popBackStack()
-        }
-
-        fragmentContainer.setOnTouchListener { view, event ->
-            swipeGestureListener.onTouch(view, event)
-        }
-
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, CommentFragment(postId, commentDao))
-            .addToBackStack(null)
-            .commit()
 
         loadData()
 
@@ -72,13 +53,6 @@ class HomePage : AppCompatActivity() {
         })
     }
 
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        val fragmentContainer = findViewById<View>(R.id.fragment_container)
-        swipeGestureListener.onTouch(fragmentContainer, event)
-        return super.onTouchEvent(event)
-    }
-
-
     private var offset = 0
     private val limit = 10
     private fun loadData() {
@@ -93,5 +67,22 @@ class HomePage : AppCompatActivity() {
                 offset += limit
             }
         }
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        // Check if CommentFragment is visible
+        val fragmentContainer = findViewById<View>(R.id.fragment_container)
+        if (fragmentContainer != null && fragmentContainer.visibility == View.VISIBLE) {
+            // If CommentFragment is visible, pass the event to it
+            val fragment = supportFragmentManager.findFragmentById(R.id.fragment_container)
+            if (fragment is CommentFragment) {
+                val result = fragment.dispatchTouchEvent(event)
+                if (result) {
+                    return true
+                }
+            }
+        }
+        // Otherwise, handle the event in the HomePage activity
+        return super.dispatchTouchEvent(event)
     }
 }
