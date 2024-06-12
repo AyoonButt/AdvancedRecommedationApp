@@ -23,6 +23,7 @@ class CommentFragment(private val postId: Int, private val commentDao: CommentDa
     private lateinit var commentsAdapter: CommentsAdapter
     private lateinit var swipeGestureListener: SwipeGestureListener
     private lateinit var fragmentContainerLayout: View
+    private var isLoading = false
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -37,11 +38,11 @@ class CommentFragment(private val postId: Int, private val commentDao: CommentDa
             CommentsAdapter(requireContext(), viewLifecycleOwner, listOf(), commentDao, postId)
         commentsRecyclerView.adapter = commentsAdapter
 
-        // Get the fragment container layout
+        // define the fragment container
         fragmentContainerLayout = requireActivity().findViewById(R.id.fragment_container)
 
         // Set up swipe gesture listener for the fragment_container layout
-        swipeGestureListener = SwipeGestureListener(requireContext()) {
+        swipeGestureListener = SwipeGestureListener(requireContext(), fragmentContainerLayout) {
             Log.d("SwipeGestureListener", "Swipe down action triggered")
             fragmentContainerLayout.visibility = View.GONE
             requireActivity().supportFragmentManager.popBackStack()
@@ -53,12 +54,41 @@ class CommentFragment(private val postId: Int, private val commentDao: CommentDa
             result
         }
 
+        commentsRecyclerView.setOnTouchListener { _, event ->
+
+            val result = swipeGestureListener.onTouch(commentsRecyclerView, event)
+            Log.d("CommentFragment", "RecyclerView touch event: $event, result: $result")
+            result
+
+        }
+
+        // Listen for changes in layout size and update the swipe gesture listener
+        fragmentContainerLayout.viewTreeObserver.addOnGlobalLayoutListener {
+            swipeGestureListener.updateViewBounds(fragmentContainerLayout)
+        }
+
         // Bring the fragment_container layout to the front
         fragmentContainerLayout.bringToFront()
         fragmentContainerLayout.requestFocus()
 
         // Log when the listener is attached
         Log.d("CommentFragment", "SwipeGestureListener attached to fragment_container layout")
+
+        commentsRecyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                val visibleItemCount = layoutManager.childCount
+                val totalItemCount = layoutManager.itemCount
+                val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
+
+                if (!isLoading && (visibleItemCount + firstVisibleItemPosition) >= totalItemCount
+                    && firstVisibleItemPosition >= 0
+                ) {
+                    loadData()
+                }
+            }
+        })
 
         loadComments()
         return view
@@ -80,10 +110,29 @@ class CommentFragment(private val postId: Int, private val commentDao: CommentDa
         }
     }
 
+    private fun loadData() {
+        isLoading = true
+        lifecycleScope.launch(Dispatchers.Main) {
+            // Simulate network load with delay
+            withContext(Dispatchers.IO) {
+                // Add your data loading logic here
+                val newComments = commentDao.getCommentsForPost(postId) // Example load more data
+                withContext(Dispatchers.Main) {
+                    if (newComments.isNotEmpty()) {
+                        commentsAdapter.updateComments(newComments)
+                    }
+                    isLoading = false
+                }
+            }
+        }
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         // Remove the swipe listener when the view is destroyed
         fragmentContainerLayout.setOnTouchListener(null)
+        // Remove the layout change listener
+        fragmentContainerLayout.viewTreeObserver.removeOnGlobalLayoutListener { }
         Log.d("CommentFragment", "Swipe listener removed")
     }
 

@@ -89,22 +89,27 @@ class MyPostAdapter(
             val fragmentContainer = activity.findViewById<View>(R.id.fragment_container)
             if (fragmentContainer != null) {
                 fragmentContainer.visibility = View.VISIBLE
+                // Set the top margin of the fragment container layout to 0
+                val layoutParams = fragmentContainer.layoutParams as ViewGroup.MarginLayoutParams
+                layoutParams.topMargin = 0
+                fragmentContainer.layoutParams = layoutParams
+
                 val transaction = fragmentManager.beginTransaction()
-                transaction.replace(R.id.fragment_container, CommentFragment(movie.id, commentDao))
+                val commentFragment = CommentFragment(movie.id, commentDao)
+                transaction.replace(R.id.fragment_container, commentFragment)
                 transaction.addToBackStack(null)
                 transaction.commit()
 
+                // Unregister swipe gesture listener when comment section closes
+                commentFragment.view?.addOnAttachStateChangeListener(object :
+                    View.OnAttachStateChangeListener {
+                    override fun onViewAttachedToWindow(v: View) {}
+
+                    override fun onViewDetachedFromWindow(v: View) {
+                        fragmentContainer.setOnTouchListener(null)
+                    }
+                })
             }
-
-            // Unregister swipe gesture listener when comment section closes
-            holder.comments.addOnAttachStateChangeListener(object :
-                View.OnAttachStateChangeListener {
-                override fun onViewAttachedToWindow(v: View) {}
-
-                override fun onViewDetachedFromWindow(v: View) {
-                    fragmentContainer.setOnTouchListener(null)
-                }
-            })
         }
 
 

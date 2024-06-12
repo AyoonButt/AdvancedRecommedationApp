@@ -35,6 +35,8 @@ class CommentsAdapter(
         holder.username.text = comment.username
         holder.content.text = comment.content
 
+
+
         holder.addCommentButton.setOnClickListener {
             val commentText = holder.commentInput.text.toString().trim()
             if (commentText.isNotEmpty()) {
