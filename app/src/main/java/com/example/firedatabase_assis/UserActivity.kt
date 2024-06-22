@@ -4,6 +4,7 @@ package com.example.firedatabase_assis
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.example.firedatabase_assis.databinding.ActivityUserBinding
+import com.example.firedatabase_assis.login_setup.DB_class
 
 
 class UserActivity : AppCompatActivity() {

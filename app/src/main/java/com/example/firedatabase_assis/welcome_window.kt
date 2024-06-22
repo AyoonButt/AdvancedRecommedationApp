@@ -4,7 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.example.firedatabase_assis.databinding.ActivityWelcomeWindowBinding
-import com.example.firedatabase_assis.login_setup.login_form
+import com.example.firedatabase_assis.login_setup.LoginForm
 
 class welcome_window : AppCompatActivity() {
     private lateinit var bind: ActivityWelcomeWindowBinding
@@ -15,7 +15,7 @@ class welcome_window : AppCompatActivity() {
         var value = intent.getStringExtra("name")
         bind.uname.text = value
         bind.logout.setOnClickListener {
-            startActivity(Intent(this, login_form::class.java))
+            startActivity(Intent(this, LoginForm::class.java))
         }
     }
 }

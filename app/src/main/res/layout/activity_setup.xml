@@ -1,247 +1,293 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/main"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    tools:context=".login_setup.SetupActivity">
-
-    <TextView
-        android:id="@+id/textViewSubscriptions"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:layout_marginTop="50dp"
-        android:text="Select Subscriptions"
-        android:textColor="@color/black"
-        android:textSize="20sp"
-        android:textStyle="bold" />
+    android:layout_height="match_parent">
 
     <LinearLayout
+        android:id="@+id/main"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/lightor_backgroung"
-        android:padding="15dp"
-        android:orientation="vertical"
-        android:layout_marginTop="30dp">
+        android:orientation="vertical">
 
-        <RelativeLayout
+        <TextView
+            android:id="@+id/textViewLanguages"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Language"
+            android:textSize="16sp" />
+
+        <!-- Language and Region Dropdowns -->
+        <Spinner
+            android:id="@+id/spinnerLanguage"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp" />
 
-            <CheckBox
-                android:id="@+id/checkBoxNetflix"
-                android:layout_width="match_parent"
+        <TextView
+            android:id="@+id/textViewCountry"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Country"
+            android:textSize="16sp" />
+
+
+        <Spinner
+            android:id="@+id/spinnerRegion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp" />
+
+        <!-- Movie Length Preference -->
+        <TextView
+            android:id="@+id/textViewLengthPreference"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Do you have a minimum or maximum length preference for movies?"
+            android:textSize="16sp" />
+
+        <EditText
+            android:id="@+id/editTextLengthMax"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Specify Max"
+            android:layout_marginTop="10dp" />
+
+        <EditText
+            android:id="@+id/editTextLenghtMin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Specify Min"
+            android:layout_marginTop="10dp" />
+
+        <!-- Date Range Selection -->
+        <TextView
+            android:id="@+id/textViewDateRange"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Set a date range for movies/series"
+            android:textSize="16sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/textViewOldestDate"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Netflix"
+                android:text="Oldest Date"
                 android:layout_marginTop="10dp" />
 
-        </RelativeLayout>
-
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <CheckBox
-                android:id="@+id/checkBoxPrime"
-                android:layout_width="match_parent"
+            <Button
+                android:id="@+id/buttonSelectOldestDate"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Prime"
+                android:layout_marginStart="10dp"
+                android:drawableLeft="@android:drawable/ic_menu_my_calendar"
+                android:text="Select Date"
                 android:layout_marginTop="10dp" />
-        </RelativeLayout>
+        </LinearLayout>
 
-        <RelativeLayout
+        <TextView
+            android:id="@+id/textViewSelectedOldestDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Selected Oldest Date: None" />
+
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-            <CheckBox
-                android:id="@+id/checkBoxHBOMax"
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/textViewMostRecentDate"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="HBOMax"
-                android:layout_marginTop="10dp" />
-
-        </RelativeLayout>
-
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <CheckBox
-                android:id="@+id/checkBoxHulu"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Hulu"
+                android:text="Most Recent Date"
                 android:layout_marginTop="10dp" />
 
-        </RelativeLayout>
-
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <CheckBox
-                android:id="@+id/checkBoxAppleTV"
-                android:layout_width="match_parent"
+            <Button
+                android:id="@+id/buttonSelectMostRecentDate"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="AppleTV"
+                android:layout_marginStart="10dp"
+                android:drawableLeft="@android:drawable/ic_menu_my_calendar"
+                android:text="Select Date"
                 android:layout_marginTop="10dp" />
+        </LinearLayout>
 
-        </RelativeLayout>
+        <TextView
+            android:id="@+id/textViewSelectedMostRecentDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Selected Most Recent Date: None" />
 
-        <RelativeLayout
+
+        <!-- Subscription Selection -->
+
+        <LinearLayout
+            android:id="@+id/linearLayoutSubscriptions"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="10dp">
 
-            <CheckBox
-                android:id="@+id/checkBoxPeacock"
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/textViewSubscriptions"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Peacock"
-                android:layout_marginTop="10dp" />
-
-        </RelativeLayout>
-
-
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/textViewGenres"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:layout_marginTop="30dp"
-        android:text="Select Genres"
-        android:textColor="@color/black"
-        android:textSize="20sp"
-        android:textStyle="bold" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/lightor_backgroung"
-        android:padding="15dp"
-        android:orientation="vertical"
-        android:layout_marginTop="30dp">
-
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+                android:layout_marginTop="20dp"
+                android:text="Select Subscriptions"
+                android:textSize="16sp" />
 
             <CheckBox
                 android:id="@+id/checkBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Action"
+                android:text="Netflix"
                 android:layout_marginTop="10dp" />
-
-        </RelativeLayout>
-
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
 
             <CheckBox
                 android:id="@+id/checkBox2"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Comedy"
+                android:text="Prime"
                 android:layout_marginTop="10dp" />
-        </RelativeLayout>
-
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
 
             <CheckBox
                 android:id="@+id/checkBox3"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Drama"
+                android:text="HBOMax"
                 android:layout_marginTop="10dp" />
-
-        </RelativeLayout>
-
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
 
             <CheckBox
                 android:id="@+id/checkBox4"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Fantasy"
+                android:text="Hulu"
                 android:layout_marginTop="10dp" />
-
-        </RelativeLayout>
-
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
 
             <CheckBox
                 android:id="@+id/checkBox5"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Horror"
+                android:text="AppleTV"
                 android:layout_marginTop="10dp" />
-
-        </RelativeLayout>
-
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
 
             <CheckBox
                 android:id="@+id/checkBox6"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Mystery"
+                android:text="Peacock"
                 android:layout_marginTop="10dp" />
 
-        </RelativeLayout>
+        </LinearLayout>
 
-        <RelativeLayout
+        <EditText
+            android:id="@+id/editTextAddSubscription"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:hint="Enter subscription name"
+            android:layout_marginTop="10dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp" />
 
-            <CheckBox
-                android:id="@+id/checkBox7"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Thriller"
-                android:layout_marginTop="10dp" />
-
-        </RelativeLayout>
-
-        <RelativeLayout
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/providersRecyclerView"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:paddingTop="16dp" />
 
-            <CheckBox
-                android:id="@+id/checkBox8"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Romance"
-                android:layout_marginTop="10dp" />
 
-        </RelativeLayout>
+        <Button
+            android:id="@+id/buttonAddSubscription"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="10dp"
+            android:text="Add Subscription" />
+
+        <Button
+            android:id="@+id/buttonSave"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Save"
+            android:layout_marginTop="10dp"
+            android:layout_gravity="center_horizontal" />
+
+        <!-- Genre Selection -->
+        <TextView
+            android:id="@+id/textViewGenres"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Select Genres"
+            android:textSize="16sp" />
+
+        <LinearLayout
+            android:id="@+id/linearLayoutGenres"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@color/light_blue_600"
+
+            android:layout_margin="8dp"
+            android:layout_marginTop="10dp">
+
+        </LinearLayout>
+
+        <EditText
+            android:id="@+id/editTextAddGenre"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Enter genre name"
+            android:layout_marginTop="10dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp" />
+
+        <Button
+            android:id="@+id/buttonAddGenre"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Add Genre"
+            android:layout_marginTop="10dp"
+            android:layout_gravity="center_horizontal" />
+
+        <EditText
+            android:id="@+id/editTextAvoidGenres"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Specify any genres you want to avoid completely"
+            android:layout_marginTop="10dp" />
+
+        <!-- Save and Continue Buttons -->
+        <Button
+            android:id="@+id/saveSettings"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Save"
+            android:layout_marginTop="20dp"
+            android:layout_gravity="center_horizontal" />
+
+        <Button
+            android:id="@+id/continueSettings"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Continue"
+            android:layout_marginTop="10dp"
+            android:layout_gravity="center_horizontal" />
+
 
     </LinearLayout>
-
-    <Button
-        android:id="@+id/saveSettings"
-        android:layout_width="150dp"
-        android:layout_height="50dp"
-        android:layout_gravity="center"
-        android:layout_marginStart="10dp"
-        android:layout_marginLeft="10dp"
-        android:layout_marginTop="20dp"
-        android:layout_marginEnd="10dp"
-        android:layout_marginRight="10dp"
-        android:layout_marginBottom="30dp"
-        android:text="Save and Continue" />
-
-</LinearLayout>
-
+</ScrollView>

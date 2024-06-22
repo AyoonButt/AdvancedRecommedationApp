@@ -1,155 +1,267 @@
 package com.example.firedatabase_assis.login_setup
 
-import android.content.Context
-import android.content.SharedPreferences
+import android.content.ClipData
 import android.os.Bundle
-import android.view.ViewGroup
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.DragEvent
+import android.view.LayoutInflater
+import android.view.MotionEvent
+import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
+import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.ScrollView
+import android.widget.Spinner
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import com.example.firedatabase_assis.DB_class
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.R
+import com.example.firedatabase_assis.utils.SpinnerUtils
 
 class SetupActivity : AppCompatActivity() {
 
-    private lateinit var btNetflix: CheckBox
-    private lateinit var btPrime: CheckBox
-    private lateinit var btHBOMax: CheckBox
-    private lateinit var btHulu: CheckBox
-    private lateinit var btAppleTV: CheckBox
-    private lateinit var btPeacock: CheckBox
+    private lateinit var spinnerLanguage: Spinner
+    private lateinit var spinnerRegion: Spinner
+    private lateinit var textViewSelectedOldestDate: TextView
+    private lateinit var textViewSelectedMostRecentDate: TextView
+    private lateinit var linearLayoutGenres: LinearLayout
+    private lateinit var linearLayoutSubscriptions: LinearLayout
+    private lateinit var buttonSave: Button
+    private lateinit var editTextAddSubscription: EditText
+    private lateinit var editTextAddGenre: EditText
+    private lateinit var providersRecyclerView: RecyclerView
+    private lateinit var providerSearch: ProviderSearch
 
-    private lateinit var btAction: CheckBox
-    private lateinit var btComedy: CheckBox
-    private lateinit var btDrama: CheckBox
-    private lateinit var btFantasy: CheckBox
-    private lateinit var btHorror: CheckBox
-    private lateinit var btMystery: CheckBox
-    private lateinit var btThriller: CheckBox
-    private lateinit var btRomance: CheckBox
+    private val genres = mutableListOf(
+        Genre("Action"), Genre("Comedy"), Genre("Drama"), Genre("Fantasy"), Genre("Horror"),
+        Genre("Mystery"), Genre("Thriller"), Genre("Romance")
+    )
 
-    private lateinit var sharedPreferences: SharedPreferences
+    private var isSaved = false
+
+    private lateinit var dbHelper: InfoDatabase
+    private lateinit var providers: List<Provider>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val scrollView = ScrollView(this)
-        scrollView.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.MATCH_PARENT
-        )
-        val inflater = layoutInflater
-        val container = inflater.inflate(R.layout.activity_setup, null) as ViewGroup
-        scrollView.addView(container)
-        setContentView(scrollView)
+        setContentView(R.layout.activity_setup)
 
-        sharedPreferences = getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
+        // Initialize database helper
+        dbHelper = InfoDatabase(applicationContext)
 
-        // Initialize checkboxes for subscriptions
-        btNetflix = findViewById(R.id.checkBoxNetflix)
-        btPrime = findViewById(R.id.checkBoxPrime)
-        btHBOMax = findViewById(R.id.checkBoxHBOMax)
-        btHulu = findViewById(R.id.checkBoxHulu)
-        btAppleTV = findViewById(R.id.checkBoxAppleTV)
-        btPeacock = findViewById(R.id.checkBoxPeacock)
+        // Retrieve providers from database
+        providers = dbHelper.getAllProviders()
 
-        // Initialize checkboxes for genres
-        btAction = findViewById(R.id.checkBox)
-        btComedy = findViewById(R.id.checkBox2)
-        btDrama = findViewById(R.id.checkBox3)
-        btFantasy = findViewById(R.id.checkBox4)
-        btHorror = findViewById(R.id.checkBox5)
-        btMystery = findViewById(R.id.checkBox6)
-        btThriller = findViewById(R.id.checkBox7)
-        btRomance = findViewById(R.id.checkBox8)
+        // Initialize views
+        spinnerLanguage = findViewById(R.id.spinnerLanguage)
+        spinnerRegion = findViewById(R.id.spinnerRegion)
+        textViewSelectedOldestDate = findViewById(R.id.textViewSelectedOldestDate)
+        textViewSelectedMostRecentDate = findViewById(R.id.textViewSelectedMostRecentDate)
+        linearLayoutGenres = findViewById(R.id.linearLayoutGenres)
+        linearLayoutSubscriptions = findViewById(R.id.linearLayoutSubscriptions)
+        buttonSave = findViewById(R.id.buttonSave)
+        editTextAddSubscription = findViewById(R.id.editTextAddSubscription)
+        editTextAddGenre = findViewById(R.id.editTextAddGenre)
+        providersRecyclerView = findViewById(R.id.providersRecyclerView)
 
-
-        // Load saved states of checkboxes for subscriptions
-        btNetflix.isChecked = sharedPreferences.getBoolean("Netflix", false)
-        btPrime.isChecked = sharedPreferences.getBoolean("Prime", false)
-        btHBOMax.isChecked = sharedPreferences.getBoolean("HBOMax", false)
-        btHulu.isChecked = sharedPreferences.getBoolean("Hulu", false)
-        btAppleTV.isChecked = sharedPreferences.getBoolean("AppleTV", false)
-        btPeacock.isChecked = sharedPreferences.getBoolean("Peacock", false)
-
-        // Load saved states of checkboxes for genres
-        btAction.isChecked = sharedPreferences.getBoolean("Action", false)
-        btComedy.isChecked = sharedPreferences.getBoolean("Comedy", false)
-        btDrama.isChecked = sharedPreferences.getBoolean("Drama", false)
-        btFantasy.isChecked = sharedPreferences.getBoolean("Fantasy", false)
-        btHorror.isChecked = sharedPreferences.getBoolean("Horror", false)
-        btMystery.isChecked = sharedPreferences.getBoolean("Mystery", false)
-        btThriller.isChecked = sharedPreferences.getBoolean("Thriller", false)
-        btRomance.isChecked = sharedPreferences.getBoolean("Romance", false)
-
-        val saveAndContinue = findViewById<Button>(R.id.saveSettings)
-        saveAndContinue.setOnClickListener {
-            saveStates()
-            updateDatabase()
-
+        // Add initial custom View elements to LinearLayout
+        genres.forEach { genre ->
+            val genreView = createGenreView(genre.name)
+            linearLayoutGenres.addView(genreView)
         }
 
-    }
-
-    private fun saveStates() {
-        val editor = sharedPreferences.edit()
-
-        // Save states of checkboxes for subscriptions
-        editor.putBoolean("Netflix", btNetflix.isChecked)
-        editor.putBoolean("Prime", btPrime.isChecked)
-        editor.putBoolean("HBOMax", btHBOMax.isChecked)
-        editor.putBoolean("Hulu", btHulu.isChecked)
-        editor.putBoolean("AppleTV", btAppleTV.isChecked)
-        editor.putBoolean("Peacock", btPeacock.isChecked)
-
-        // Save states of checkboxes for genres
-        editor.putBoolean("Action", btAction.isChecked)
-        editor.putBoolean("Comedy", btComedy.isChecked)
-        editor.putBoolean("Drama", btDrama.isChecked)
-        editor.putBoolean("Fantasy", btFantasy.isChecked)
-        editor.putBoolean("Horror", btHorror.isChecked)
-        editor.putBoolean("Mystery", btMystery.isChecked)
-        editor.putBoolean("Thriller", btThriller.isChecked)
-        editor.putBoolean("Romance", btRomance.isChecked)
-
-        editor.apply()
-    }
-
-    private fun updateDatabase() {
-        val username = getLoggedInUser()
-        if (username.isNullOrEmpty()) {
-            // No logged-in user, cannot update database
-            return
+        // Set up drag listeners for LinearLayouts
+        linearLayoutGenres.setOnDragListener { v, event ->
+            handleDragEvent(v, event, linearLayoutGenres)
+        }
+        linearLayoutSubscriptions.setOnDragListener { v, event ->
+            handleDragEvent(v, event, linearLayoutSubscriptions)
         }
 
-        val dbhelper = DB_class(applicationContext)
-        val selectedServices = mutableListOf<String>()
-        if (btNetflix.isChecked) selectedServices.add("Netflix")
-        if (btPrime.isChecked) selectedServices.add("Prime")
-        if (btHBOMax.isChecked) selectedServices.add("HBOMax")
-        if (btHulu.isChecked) selectedServices.add("Hulu")
-        if (btAppleTV.isChecked) selectedServices.add("AppleTV")
-        if (btPeacock.isChecked) selectedServices.add("Peacock")
+        // Set up save button click listener
+        buttonSave.setOnClickListener {
+            handleSaveButtonClick()
+        }
 
-        dbhelper.updateServicesList(username, selectedServices)
+        // Add subscription button click listener
+        findViewById<Button>(R.id.buttonAddSubscription).setOnClickListener {
+            handleAddSubscriptionButtonClick()
+        }
 
-        val selectedGenres = mutableListOf<String>()
-        if (btAction.isChecked) selectedGenres.add("Action")
-        if (btComedy.isChecked) selectedGenres.add("Comedy")
-        if (btDrama.isChecked) selectedGenres.add("Drama")
-        if (btFantasy.isChecked) selectedGenres.add("Fantasy")
-        if (btHorror.isChecked) selectedGenres.add("Horror")
-        if (btMystery.isChecked) selectedGenres.add("Mystery")
-        if (btThriller.isChecked) selectedGenres.add("Thriller")
-        if (btRomance.isChecked) selectedGenres.add("Romance")
+        // Add genre button click listener
+        findViewById<Button>(R.id.buttonAddGenre).setOnClickListener {
+            handleAddGenreButtonClick()
+        }
 
-        dbhelper.updateGenresList(username, selectedGenres)
+        // Populate spinners with data
+        setupLanguageSpinner()
+        setupRegionSpinner()
+
+        // Setup RecyclerView and Adapter
+        providerSearch = ProviderSearch(providers)
+        providersRecyclerView.layoutManager = LinearLayoutManager(this)
+        providersRecyclerView.adapter = providerSearch
+
+        // Setup search functionality
+        editTextAddSubscription.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                providerSearch.filter(s.toString())
+            }
+
+            override fun afterTextChanged(s: Editable?) {}
+        })
     }
 
-    private fun getLoggedInUser(): String? {
-        return sharedPreferences.getString("LoggedInUser", null)
+    private fun createGenreView(name: String): View {
+        val inflater = LayoutInflater.from(this)
+        val genreView = inflater.inflate(R.layout.genre_item, linearLayoutGenres, false)
+        val textView = genreView.findViewById<TextView>(R.id.textViewGenreName)
+        textView.text = name
+
+        genreView.setOnTouchListener { v, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                val shadowBuilder = View.DragShadowBuilder(v)
+                val dragData = ClipData.newPlainText("", "")
+
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                    v.startDragAndDrop(dragData, shadowBuilder, v, 0)
+                } else {
+                    @Suppress("DEPRECATION")
+                    v.startDrag(dragData, shadowBuilder, v, 0)
+                }
+
+                v.visibility = View.INVISIBLE
+                true
+            } else {
+                false
+            }
+        }
+
+        return genreView
     }
 
+    private fun createSubscriptionView(name: String): View {
+        val inflater = LayoutInflater.from(this)
+        val subscriptionView =
+            inflater.inflate(R.layout.subscription_item, linearLayoutSubscriptions, false)
+        val textView = subscriptionView.findViewById<TextView>(R.id.textViewSubscriptionName)
+        textView.text = name
 
+        subscriptionView.setOnTouchListener { v, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                val shadowBuilder = View.DragShadowBuilder(v)
+                val dragData = ClipData.newPlainText("", "")
+
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                    v.startDragAndDrop(dragData, shadowBuilder, v, 0)
+                } else {
+                    @Suppress("DEPRECATION")
+                    v.startDrag(dragData, shadowBuilder, v, 0)
+                }
+
+                v.visibility = View.INVISIBLE
+                true
+            } else {
+                false
+            }
+        }
+
+        return subscriptionView
+    }
+
+    private fun handleSaveButtonClick() {
+        val checkedSubscriptions = mutableListOf<String>()
+
+        // Collect checked subscriptions
+        for (i in 0 until linearLayoutSubscriptions.childCount) {
+            val view = linearLayoutSubscriptions.getChildAt(i)
+            if (view is CheckBox && view.isChecked) {
+                checkedSubscriptions.add(view.text.toString())
+            }
+        }
+
+        // Clear existing checkboxes
+        linearLayoutSubscriptions.removeAllViews()
+        linearLayoutSubscriptions.setBackgroundResource(R.color.light_blue_600)
+
+        // Add checked subscriptions dynamically as views
+        checkedSubscriptions.forEach { subscription ->
+            val subscriptionView = createSubscriptionView(subscription)
+            linearLayoutSubscriptions.addView(subscriptionView)
+        }
+
+        // Set the flag to indicate that the save button has been pressed
+        isSaved = true
+    }
+
+    private fun handleAddSubscriptionButtonClick() {
+        val subscriptionName = editTextAddSubscription.text.toString().trim()
+        if (subscriptionName.isNotEmpty()) {
+            if (isSaved) {
+                // Add as subscription view
+                val subscriptionView = createSubscriptionView(subscriptionName)
+                linearLayoutSubscriptions.addView(subscriptionView)
+            } else {
+                // Add as checkbox
+                val checkBox = CheckBox(this)
+                checkBox.text = subscriptionName
+                linearLayoutSubscriptions.addView(checkBox)
+            }
+            editTextAddSubscription.text.clear()
+        }
+    }
+
+    private fun handleAddGenreButtonClick() {
+        val genreName = editTextAddGenre.text.toString().trim()
+        if (genreName.isNotEmpty()) {
+            val genreView = createGenreView(genreName)
+            linearLayoutGenres.addView(genreView)
+            editTextAddGenre.text.clear()
+        }
+    }
+
+    private fun handleDragEvent(v: View, event: DragEvent, targetLayout: LinearLayout): Boolean {
+        return when (event.action) {
+            DragEvent.ACTION_DRAG_STARTED -> true
+            DragEvent.ACTION_DRAG_ENTERED -> {
+                v.invalidate()
+                true
+            }
+
+            DragEvent.ACTION_DRAG_LOCATION -> true
+            DragEvent.ACTION_DRAG_EXITED -> {
+                v.invalidate()
+                true
+            }
+
+            DragEvent.ACTION_DROP -> {
+                val view = event.localState as View
+                val owner = view.parent as LinearLayout
+                owner.removeView(view)
+                targetLayout.addView(view)
+                view.visibility = View.VISIBLE
+                true
+            }
+
+            DragEvent.ACTION_DRAG_ENDED -> {
+                val view = event.localState as View
+                view.visibility = View.VISIBLE
+                v.invalidate()
+                true
+            }
+
+            else -> false
+        }
+    }
+
+    private fun setupLanguageSpinner() {
+        SpinnerUtils.setupLanguageSpinner(this, spinnerLanguage)
+    }
+
+    private fun setupRegionSpinner() {
+        SpinnerUtils.setupRegionSpinner(this, spinnerRegion)
+    }
 }

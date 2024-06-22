@@ -1,4 +1,4 @@
-package com.example.firedatabase_assis
+package com.example.firedatabase_assis.login_setup
 
 import android.content.ContentValues
 import android.content.Context

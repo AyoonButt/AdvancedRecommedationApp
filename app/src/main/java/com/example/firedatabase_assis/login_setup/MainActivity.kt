@@ -13,8 +13,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.work.Constraints
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
-import androidx.work.WorkManager
-import com.example.firedatabase_assis.DB_class
 import com.example.firedatabase_assis.databinding.ActivityMainBinding
 import com.example.firedatabase_assis.workers.DisneyWorker
 import com.example.firedatabase_assis.workers.PrimeWorker
@@ -41,7 +39,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.loginLink.setOnClickListener {
-            val intent = Intent(this, login_form::class.java)
+            val intent = Intent(this, LoginForm::class.java)
             startActivity(intent)
         }
     }
@@ -59,14 +57,14 @@ class MainActivity : AppCompatActivity() {
             .setConstraints(constraints)
             .build()
 
-        WorkManager.getInstance(applicationContext).enqueue(primeWorkerRequest)
-        WorkManager.getInstance(applicationContext).enqueue(disneyWorkerRequest)
+        //WorkManager.getInstance(applicationContext).enqueue(primeWorkerRequest)
+        //WorkManager.getInstance(applicationContext).enqueue(disneyWorkerRequest)
     }
 
     private fun handleRegistration(db: SQLiteDatabase) {
         val name = binding.ed1.text.toString()
         val username = binding.ed2.text.toString()
-        val password = binding.ed3.text.toString()
+        val password = binding.ed4.text.toString()
 
         val passwordPattern =
             "^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[*#&@!$])[a-zA-Z0-9*#&@!$]{8,}\$".toRegex()

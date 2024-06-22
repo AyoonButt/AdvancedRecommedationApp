@@ -29,10 +29,10 @@
             android:name=".SubscriptionsActivity"
             android:exported="true"
             android:theme="@style/Theme.AppCompat.DayNight" />
+
         <activity
             android:name=".login_setup.SetupActivity"
-            android:exported="true"
-            android:theme="@style/Theme.AppCompat.DayNight" />
+            android:exported="true" />
         <activity
             android:name=".welcome_window"
             android:exported="false" />
@@ -40,12 +40,16 @@
             android:name=".login_setup.MainActivity"
             android:exported="false" />
         <activity
+            android:name=".login_setup.BozoActivity"
+            android:exported="true" />
+
+        <activity
             android:name=".home_page.HomePage"
             android:exported="true">
 
         </activity>
         <activity
-            android:name=".login_setup.login_form"
+            android:name=".login_setup.LoginForm"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -71,7 +75,7 @@
             android:theme="@style/Theme.AppCompat.DayNight">
 
         </activity>
-        
+
     </application>
 
 </manifest>

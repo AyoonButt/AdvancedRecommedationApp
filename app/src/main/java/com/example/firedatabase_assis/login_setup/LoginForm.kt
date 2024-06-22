@@ -2,17 +2,15 @@ package com.example.firedatabase_assis.login_setup
 
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import com.example.firedatabase_assis.DB_class
 import com.example.firedatabase_assis.databinding.ActivityLoginFormBinding
 import com.example.firedatabase_assis.home_page.HomePage
 
-class login_form : AppCompatActivity() {
+class LoginForm : AppCompatActivity() {
     private lateinit var bind: ActivityLoginFormBinding
     private lateinit var sharedPreferences: SharedPreferences
 
@@ -23,7 +21,8 @@ class login_form : AppCompatActivity() {
         setContentView(bind.root)
 
         // Initialize SharedPreferences
-        sharedPreferences = getSharedPreferences("UserInfo", Context.MODE_PRIVATE)
+        sharedPreferences = getSharedPreferences("UserInfo", MODE_PRIVATE)
+
 
         var dbhelp = DB_class(applicationContext)
         var db = dbhelp.readableDatabase
