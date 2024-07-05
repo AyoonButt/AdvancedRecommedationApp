@@ -23,6 +23,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.utils.DataManager
+import com.example.firedatabase_assis.utils.DataManager.getGenreIds
 import com.example.firedatabase_assis.utils.Genre
 import com.example.firedatabase_assis.utils.SpinnerUtils
 import java.util.Calendar
@@ -550,11 +551,18 @@ SetupActivity : AppCompatActivity() {
     }
 
     private fun getProviderIds(names: List<String>): List<Int> {
-        val dbHelper =
-            InfoDatabase(applicationContext)  // Replace `context` with your actual context if needed
+        val dbHelper = InfoDatabase(applicationContext)
         val allProviders = dbHelper.getAllProviders()
-        return allProviders.filter { it.provider_name in names }.map { it.provider_id }
+
+        // Filter providers based on selected names
+        val selectedProviders = allProviders.filter { names.contains(it.provider_name) }
+
+        // Extract IDs of selected providers
+        val selectedProviderIds = selectedProviders.map { it.provider_id }
+
+        return selectedProviderIds
     }
+
 
     private fun getOrderOfItemNames(layout: LinearLayout): List<String> {
         val order = mutableListOf<String>()
@@ -612,10 +620,12 @@ SetupActivity : AppCompatActivity() {
         val genresToAvoid = selectedGenres.joinToString(", ")
         val subscriptionNames = getOrderOfSubscriptionItemNames(linearLayoutSubscriptions)
         val genreNames = getOrderOfItemNames(linearLayoutGenres)
+        val subscriptionIds = getProviderIds(subscriptionNames)
+        val genreIds = getGenreIds(genreNames)
 
         Log.d(
             "SettingsInfo",
-            "GenresToAvoid: $genresToAvoid, Subscriptions: $subscriptionNames, Genres: $genreNames"
+            "GenresToAvoid: $genresToAvoid, Subscriptions: $subscriptionIds, Genres: $genreIds"
         )
 
 
@@ -633,8 +643,8 @@ SetupActivity : AppCompatActivity() {
             put(DB_class.KEY_MAX_TV, selectedMaxTV)
             put(DB_class.KEY_OLDEST_DATE, selectedOldestDate)
             put(DB_class.KEY_RECENT_DATE, selectedMostRecentDate)
-            put(DB_class.KEY_SUBSCRIPTIONS, subscriptionNames.joinToString(", "))
-            put(DB_class.KEY_GENRES, genreNames.joinToString(", "))
+            put(DB_class.KEY_SUBSCRIPTIONS, subscriptionIds.joinToString(", "))
+            put(DB_class.KEY_GENRES, genreIds.joinToString(", "))
             put(DB_class.KEY_AVOID_GENRES, genresToAvoid)
         }
 

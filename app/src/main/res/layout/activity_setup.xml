@@ -181,14 +181,14 @@
                 android:id="@+id/checkBox2"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Prime"
+                android:text="Amazon Prime Video"
                 android:layout_marginTop="10dp" />
 
             <CheckBox
                 android:id="@+id/checkBox3"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="HBOMax"
+                android:text="HBO Max"
                 android:layout_marginTop="10dp" />
 
             <CheckBox
@@ -202,7 +202,7 @@
                 android:id="@+id/checkBox5"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="AppleTV"
+                android:text="Apple TV"
                 android:layout_marginTop="10dp" />
 
             <CheckBox
