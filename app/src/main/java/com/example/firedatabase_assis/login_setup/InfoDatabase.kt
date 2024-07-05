@@ -5,6 +5,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
+
 class InfoDatabase(context: Context) :
     SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
 
@@ -49,8 +50,7 @@ class InfoDatabase(context: Context) :
 
             while (it.moveToNext()) {
                 val providerName = if (nameIndex != -1) it.getString(nameIndex) else null
-                val providerId =
-                    if (idIndex != -1) it.getInt(idIndex) else -1 // Handle default value appropriately
+                val providerId = if (idIndex != -1) it.getInt(idIndex) else -1
 
                 if (providerName != null && providerId != -1) {
                     providers.add(Provider(providerName, providerId))
@@ -58,8 +58,30 @@ class InfoDatabase(context: Context) :
             }
         }
 
-
         db.close()
         return providers
+    }
+
+    fun getProviderByName(providerName: String): Provider? {
+        val db = readableDatabase
+        val cursor = db.rawQuery(
+            "SELECT * FROM $TABLE_PROVIDERS WHERE $COLUMN_PROVIDER_NAME = ?",
+            arrayOf(providerName)
+        )
+
+        var provider: Provider? = null
+        cursor.use {
+            if (it.moveToFirst()) {
+                val idIndex = it.getColumnIndex(COLUMN_PROVIDER_ID)
+                val providerId = if (idIndex != -1) it.getInt(idIndex) else -1
+
+                if (providerId != -1) {
+                    provider = Provider(providerName, providerId)
+                }
+            }
+        }
+
+        db.close()
+        return provider
     }
 }

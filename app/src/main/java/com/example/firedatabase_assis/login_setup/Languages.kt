@@ -429,4 +429,3 @@ fun getIso6391(englishName: String): String {
 data class Provider(val provider_name: String, val provider_id: Int)
 
 
-data class Genre(val name: String, var isChecked: Boolean = false)

@@ -4,6 +4,7 @@ import android.content.Context
 import android.widget.ArrayAdapter
 import android.widget.Spinner
 
+
 object SpinnerUtils {
     fun setupLanguageSpinner(context: Context, spinner: Spinner) {
         val languages = mutableListOf("Select Language")
@@ -79,4 +80,54 @@ object SpinnerUtils {
         regionAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinner.adapter = regionAdapter
     }
+}
+
+data class Genre(val id: Int, var name: String)
+object DataManager {
+    val genres = mutableSetOf<Genre>()
+
+    // Initialize with default genres
+    init {
+        val defaultGenres = listOf(
+            Genre(28, "Action"),
+            Genre(12, "Adventure"),
+            Genre(16, "Animation"),
+            Genre(35, "Comedy"),
+            Genre(80, "Crime"),
+            Genre(99, "Documentary"),
+            Genre(18, "Drama"),
+            Genre(10751, "Family"),
+            Genre(14, "Fantasy"),
+            Genre(36, "History"),
+            Genre(27, "Horror"),
+            Genre(10402, "Music"),
+            Genre(9648, "Mystery"),
+            Genre(10749, "Romance"),
+            Genre(878, "Science Fiction"),
+            Genre(10770, "TV Movie"),
+            Genre(53, "Thriller"),
+            Genre(10752, "War"),
+            Genre(37, "Western"),
+            Genre(10759, "Action & Adventure"),
+            Genre(10762, "Kids"),
+            Genre(10763, "News"),
+            Genre(10764, "Reality"),
+            Genre(10765, "Sci-Fi & Fantasy"),
+            Genre(10766, "Soap"),
+            Genre(10767, "Talk"),
+            Genre(10768, "War & Politics")
+        )
+        genres.addAll(defaultGenres)
+    }
+
+    fun getGenres(): List<Genre> {
+        return genres.toList()
+    }
+    
+
+    fun getGenreIds(names: List<String>): List<Int> {
+        return genres.filter { it.name in names }.map { it.id }
+    }
+
+
 }

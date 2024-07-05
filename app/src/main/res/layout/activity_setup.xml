@@ -48,19 +48,40 @@
             android:text="Do you have a minimum or maximum length preference for movies?"
             android:textSize="16sp" />
 
-        <EditText
-            android:id="@+id/editTextLengthMax"
-            android:layout_width="match_parent"
+        <Spinner
+            android:id="@+id/spinner_min"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:hint="Specify Max"
-            android:layout_marginTop="10dp" />
+            android:spinnerMode="dropdown" />
 
-        <EditText
-            android:id="@+id/editTextLenghtMin"
-            android:layout_width="match_parent"
+        <Spinner
+            android:id="@+id/spinner_max"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:hint="Specify Min"
-            android:layout_marginTop="10dp" />
+            android:spinnerMode="dropdown" />
+
+        <!-- Movie Length Preference -->
+
+        <TextView
+            android:id="@+id/textViewTVLengthPreference"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Do you have a minimum or maximum length preference for tv episodes?"
+            android:textSize="16sp" />
+
+        <Spinner
+            android:id="@+id/spinner_minTV"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:spinnerMode="dropdown" />
+
+        <Spinner
+            android:id="@+id/spinner_maxTV"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:spinnerMode="dropdown" />
+
 
         <!-- Date Range Selection -->
         <TextView
@@ -191,7 +212,22 @@
                 android:text="Peacock"
                 android:layout_marginTop="10dp" />
 
+            <TextView
+                android:id="@+id/textViewSubscriptionName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="16sp"
+                android:textColor="@android:color/black" />
+
         </LinearLayout>
+
+
+        <LinearLayout
+            android:id="@+id/linearLayoutProviders"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="vertical" />
 
         <EditText
             android:id="@+id/editTextAddSubscription"
@@ -202,20 +238,12 @@
             android:layout_marginStart="10dp"
             android:layout_marginEnd="10dp" />
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/providersRecyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:paddingTop="16dp" />
-
 
         <Button
             android:id="@+id/buttonAddSubscription"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="10dp"
             android:text="Add Subscription" />
 
         <Button
@@ -247,6 +275,13 @@
 
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/linearLayoutGenresSearch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="vertical" />
+
         <EditText
             android:id="@+id/editTextAddGenre"
             android:layout_width="match_parent"
@@ -264,12 +299,31 @@
             android:layout_marginTop="10dp"
             android:layout_gravity="center_horizontal" />
 
+        <LinearLayout
+            android:id="@+id/linearLayoutAvoidGenres"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="vertical" />
+
         <EditText
             android:id="@+id/editTextAvoidGenres"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Specify any genres you want to avoid completely"
             android:layout_marginTop="10dp" />
+
+        <Button
+            android:id="@+id/buttonAdd"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Add" />
+
+        <TextView
+            android:id="@+id/textViewSelectedGenres"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Selected Genres: " />
 
         <!-- Save and Continue Buttons -->
         <Button

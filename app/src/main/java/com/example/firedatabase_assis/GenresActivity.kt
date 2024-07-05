@@ -90,7 +90,7 @@ class GenresActivity : AppCompatActivity() {
         if (btThriller.isChecked) selectedGenres.add("Thriller")
         if (btRomance.isChecked) selectedGenres.add("Romance")
 
-        dbhelper.updateGenresList(username, selectedGenres)
+        //dbhelper.updateGenresList(username, selectedGenres)
 
     }
 

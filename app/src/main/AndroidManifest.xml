@@ -37,7 +37,7 @@
             android:name=".welcome_window"
             android:exported="false" />
         <activity
-            android:name=".login_setup.MainActivity"
+            android:name=".login_setup.RegisterActivity"
             android:exported="false" />
         <activity
             android:name=".login_setup.BozoActivity"
