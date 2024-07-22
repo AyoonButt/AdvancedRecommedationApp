@@ -123,7 +123,7 @@ object DataManager {
     fun getGenres(): List<Genre> {
         return genres.toList()
     }
-    
+
 
     fun getGenreIds(names: List<String>): List<Int> {
         return genres.filter { it.name in names }.map { it.id }

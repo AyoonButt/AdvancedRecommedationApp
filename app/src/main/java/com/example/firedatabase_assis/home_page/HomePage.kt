@@ -1,5 +1,6 @@
 package com.example.firedatabase_assis.home_page
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.MotionEvent
 import android.view.View
@@ -8,11 +9,15 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.R
+import com.example.firedatabase_assis.SettingsActivity
 import com.example.firedatabase_assis.database.MovieDatabase
+import com.example.firedatabase_assis.databinding.ActivityHomePageBinding
+import com.example.firedatabase_assis.explore.LoadVideos
+import com.example.firedatabase_assis.search.SearchActivity
 import kotlinx.coroutines.launch
 
 class HomePage : AppCompatActivity() {
-
+    private lateinit var binding: ActivityHomePageBinding
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: MyPostAdapter
 
@@ -24,7 +29,8 @@ class HomePage : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_home_page)
+        binding = ActivityHomePageBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         val database = MovieDatabase.getDatabase(applicationContext)
         val commentDao = database.commentDao()
@@ -51,6 +57,36 @@ class HomePage : AppCompatActivity() {
                 }
             }
         })
+
+        binding.bottomNavBar.setOnItemSelectedListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.bottom_menu_home -> {
+                    val intent = Intent(this, HomePage::class.java)
+                    startActivity(intent)
+                    true
+                }
+
+                R.id.bottom_menu_explore -> {
+                    val intent = Intent(this, LoadVideos::class.java)
+                    startActivity(intent)
+                    true
+                }
+
+                R.id.bottom_menu_communities -> {
+                    val intent = Intent(this, SearchActivity::class.java)
+                    startActivity(intent)
+                    true
+                }
+
+                R.id.bottom_menu_settings -> {
+                    val intent = Intent(this, SettingsActivity::class.java)
+                    startActivity(intent)
+                    true
+                }
+
+                else -> false
+            }
+        }
     }
 
     private var offset = 0

@@ -35,7 +35,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val edituser = findViewById<Button>(R.id.Edituser)
         edituser.setOnClickListener {
-            openUser(it)
+
         }
 
         val subscriptions = findViewById<Button>(R.id.btSubscriptions)
@@ -87,10 +87,6 @@ class SettingsActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
-    private fun openUser(view: View) {
-        val intent = Intent(this, UserActivity::class.java)
-        startActivity(intent)
-    }
 
     private fun openPreferences(view: View) {
         val intent = Intent(this, GenresActivity::class.java)

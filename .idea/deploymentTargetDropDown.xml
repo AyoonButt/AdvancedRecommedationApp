@@ -5,6 +5,9 @@
       <entry key="BozoActivity">
         <State />
       </entry>
+      <entry key="LoadVideos">
+        <State />
+      </entry>
       <entry key="SetupActivity">
         <State />
       </entry>
@@ -23,9 +26,6 @@
           </targetSelectedWithDropDown>
           <timeTargetWasSelectedWithDropDown value="2024-07-02T00:51:09.199373300Z" />
         </State>
-      </entry>
-      <entry key="login_form">
-        <State />
       </entry>
     </value>
   </component>

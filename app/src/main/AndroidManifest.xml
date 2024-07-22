@@ -11,13 +11,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Firedatabase_assis">
 
-        <activity
-            android:name=".communites.CommunitiesActivity"
-            android:exported="true"
-            android:theme="@style/Theme.AppCompat.DayNight" />
 
         <activity
-            android:name=".ReviewActivity"
+            android:name=".explore.LoadVideos"
             android:exported="true"
             android:theme="@style/Theme.AppCompat.DayNight" />
 
@@ -33,9 +29,7 @@
         <activity
             android:name=".login_setup.SetupActivity"
             android:exported="true" />
-        <activity
-            android:name=".welcome_window"
-            android:exported="false" />
+
         <activity
             android:name=".login_setup.RegisterActivity"
             android:exported="false" />
@@ -57,6 +51,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
         <activity
             android:name=".SettingsActivity"
             android:exported="true"
@@ -69,12 +64,7 @@
             android:theme="@style/Theme.AppCompat.DayNight">
 
         </activity>
-        <activity
-            android:name=".UserActivity"
-            android:exported="true"
-            android:theme="@style/Theme.AppCompat.DayNight">
 
-        </activity>
 
     </application>
 
