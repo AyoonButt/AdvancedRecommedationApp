@@ -81,7 +81,7 @@ class CustomPlayer(
         }
 
         saved.setOnClickListener {
-            saved.setImageResource(if (saved.tag == "saved") R.drawable.icon_bookmark_unfilled else R.drawable.icon_bookmark_filled)
+            saved.setImageResource(if (saved.tag == "saved") R.drawable.icon_bookmark_videos else R.drawable.icon_bookmark_filled)
             saved.tag = if (saved.tag == "saved") "unsaved" else "saved"
         }
 
@@ -94,7 +94,7 @@ class CustomPlayer(
         heart.setImageResource(
             if (heart.tag == "liked") {
                 heart.tag = "unliked"
-                R.drawable.heart_outline
+                R.drawable.heart_white_outline
             } else {
                 heart.tag = "liked"
                 R.drawable.heart_red
@@ -131,7 +131,7 @@ class CustomPlayer(
     private fun toggleMute() {
         isMuted = !isMuted
         youTubePlayer.setVolume(if (isMuted) 0 else 100)
-        muteIcon.setImageResource(if (isMuted) R.drawable.unmute else R.drawable.mute)
+        muteIcon.setImageResource(if (isMuted) R.drawable.unmute_white else R.drawable.mute_white)
 
     }
 

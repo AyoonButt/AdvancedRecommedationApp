@@ -1,4 +1,4 @@
-package com.example.firedatabase_assis
+package com.example.firedatabase_assis.settings
 
 import android.content.Context
 import android.content.Intent
@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.SwitchCompat
+import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.databinding.ActivitySettingsBinding
 
 

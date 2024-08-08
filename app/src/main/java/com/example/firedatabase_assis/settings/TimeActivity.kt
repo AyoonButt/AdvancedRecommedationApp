@@ -1,4 +1,4 @@
-package com.example.firedatabase_assis
+package com.example.firedatabase_assis.settings
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
@@ -8,6 +8,7 @@ import android.widget.DatePicker
 import android.widget.TextView
 import android.widget.TimePicker
 import androidx.appcompat.app.AppCompatActivity
+import com.example.firedatabase_assis.R
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale

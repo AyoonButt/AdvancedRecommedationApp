@@ -1,4 +1,4 @@
-package com.example.firedatabase_assis
+package com.example.firedatabase_assis.settings
 
 import android.content.Context
 import android.content.Intent
@@ -8,6 +8,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
 import androidx.appcompat.app.AppCompatActivity
+import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.login_setup.DB_class
 
 class GenresActivity : AppCompatActivity() {

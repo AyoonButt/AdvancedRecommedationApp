@@ -9,11 +9,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.SettingsActivity
 import com.example.firedatabase_assis.database.MovieDatabase
 import com.example.firedatabase_assis.databinding.ActivityHomePageBinding
 import com.example.firedatabase_assis.explore.LoadVideos
 import com.example.firedatabase_assis.search.SearchActivity
+import com.example.firedatabase_assis.settings.SettingsActivity
 import kotlinx.coroutines.launch
 
 class HomePage : AppCompatActivity() {
@@ -72,7 +72,7 @@ class HomePage : AppCompatActivity() {
                     true
                 }
 
-                R.id.bottom_menu_communities -> {
+                R.id.bottom_menu_search -> {
                     val intent = Intent(this, SearchActivity::class.java)
                     startActivity(intent)
                     true

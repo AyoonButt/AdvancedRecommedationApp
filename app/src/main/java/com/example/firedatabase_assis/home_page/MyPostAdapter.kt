@@ -35,8 +35,12 @@ class MyPostAdapter(
         holder.overview.text = movie.overview
 
         // Load image using Picasso
-        val baseURL = "https://image.tmdb.org/t/p/w185${movie.posterPath}"
-        Picasso.get().load(baseURL).into(holder.imageView)
+        val baseURL = "https://image.tmdb.org/t/p/original${movie.posterPath}"
+        Picasso.get()
+            .load(baseURL)
+            .resize(350, 500) // Adjust width to match your aspect ratio or desired width
+            .centerCrop()
+            .into(holder.imageView)
 
         // Add double click listener to card view
         holder.cardView.setOnClickListener(object : DoubleClickListener() {

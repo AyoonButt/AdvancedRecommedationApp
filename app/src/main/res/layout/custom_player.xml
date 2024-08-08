@@ -27,7 +27,9 @@
         android:id="@+id/unmute"
         android:layout_width="30dp"
         android:layout_height="30dp"
-        android:src="@drawable/unmute"
+        android:src="@drawable/unmute_white"
+        android:layout_marginStart="30dp"
+        android:layout_marginTop="573dp"
         android:visibility="visible" />
 
     <ImageView
@@ -55,7 +57,7 @@
             android:layout_marginTop="8dp"
             android:layout_marginEnd="50dp"
             android:layout_marginBottom="25dp"
-            app:srcCompat="@drawable/heart_outline" />
+            app:srcCompat="@drawable/heart_white_outline" />
 
         <ImageView
             android:id="@+id/comments"
@@ -65,7 +67,7 @@
             android:layout_marginTop="8dp"
             android:layout_marginEnd="50dp"
             android:layout_marginBottom="25dp"
-            app:srcCompat="@drawable/chat" />
+            app:srcCompat="@drawable/chat_white" />
 
         <ImageView
             android:id="@+id/saved"
@@ -74,7 +76,7 @@
             android:layout_marginStart="10dp"
             android:layout_marginTop="8dp"
             android:layout_marginEnd="12dp"
-            app:srcCompat="@drawable/icon_bookmark_unfilled" />
+            app:srcCompat="@drawable/icon_bookmark_videos" />
 
     </LinearLayout>
 
