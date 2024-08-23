@@ -9,35 +9,39 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.database.MovieDatabase
+import com.example.firedatabase_assis.database.Post
+import com.example.firedatabase_assis.database.Posts
 import com.example.firedatabase_assis.databinding.ActivityHomePageBinding
 import com.example.firedatabase_assis.explore.LoadVideos
 import com.example.firedatabase_assis.search.SearchActivity
 import com.example.firedatabase_assis.settings.SettingsActivity
 import kotlinx.coroutines.launch
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.transaction
+
 
 class HomePage : AppCompatActivity() {
     private lateinit var binding: ActivityHomePageBinding
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: MyPostAdapter
 
-    // Dummy data source
+    // Mutable list to hold the posts data
     private var postData: MutableList<Post> = mutableListOf()
 
     // Flag to indicate whether data is currently being loaded
     private var isLoading = false
+
+    private var offset = 0
+    private val limit = 10
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityHomePageBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val database = MovieDatabase.getDatabase(applicationContext)
-        val commentDao = database.commentDao()
-
         recyclerView = findViewById(R.id.recycler_view)
         recyclerView.layoutManager = LinearLayoutManager(this)
-        adapter = MyPostAdapter(this, movies = postData, commentDao = commentDao)
+        adapter = MyPostAdapter(this, movies = postData)
         recyclerView.adapter = adapter
 
         loadData()
@@ -89,27 +93,49 @@ class HomePage : AppCompatActivity() {
         }
     }
 
-    private var offset = 0
-    private val limit = 10
     private fun loadData() {
-        val database = MovieDatabase.getDatabase(applicationContext)
-        val primeDao = database.primeMovieDao()
+        isLoading = true
 
         lifecycleScope.launch {
-            val newMovies = primeDao.getMoviesWithPagination(limit, offset)
+            val newMovies = fetchPostsFromDatabase(limit, offset)
             if (newMovies.isNotEmpty()) {
                 postData.addAll(newMovies)
                 adapter.notifyDataSetChanged()
                 offset += limit
             }
+            isLoading = false
+        }
+    }
+
+    private suspend fun fetchPostsFromDatabase(limit: Int, offset: Int): List<Post> {
+        return transaction {
+            Posts.selectAll()
+                .limit(limit, offset.toLong())
+                .map { row ->
+                    Post(
+                        postId = row[Posts.postId],
+                        tmdbId = row[Posts.tmdbId],
+                        type = row[Posts.type],
+                        title = row[Posts.title],
+                        subscription = row[Posts.subscription],
+                        releaseDate = row[Posts.releaseDate],
+                        overview = row[Posts.overview],
+                        posterPath = row[Posts.posterPath],
+                        voteAverage = row[Posts.voteAverage],
+                        voteCount = row[Posts.voteCount],
+                        originalLanguage = row[Posts.originalLanguage],
+                        originalTitle = row[Posts.originalTitle],
+                        popularity = row[Posts.popularity],
+                        genreIds = row[Posts.genreIds],
+                        videoKey = row[Posts.videoKey]
+                    )
+                }
         }
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        // Check if CommentFragment is visible
         val fragmentContainer = findViewById<View>(R.id.fragment_container)
         if (fragmentContainer != null && fragmentContainer.visibility == View.VISIBLE) {
-            // If CommentFragment is visible, pass the event to it
             val fragment = supportFragmentManager.findFragmentById(R.id.fragment_container)
             if (fragment is CommentFragment) {
                 val result = fragment.dispatchTouchEvent(event)
@@ -118,7 +144,6 @@ class HomePage : AppCompatActivity() {
                 }
             }
         }
-        // Otherwise, handle the event in the HomePage activity
         return super.dispatchTouchEvent(event)
     }
 }

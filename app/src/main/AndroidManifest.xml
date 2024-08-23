@@ -39,7 +39,7 @@
             android:name=".login_setup.RegisterActivity"
             android:exported="false" />
         <activity
-            android:name=".login_setup.BozoActivity"
+            android:name=".login_setup.ProvidersActivity"
             android:exported="true" />
 
         <activity

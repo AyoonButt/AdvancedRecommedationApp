@@ -11,7 +11,6 @@ import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.database.MovieDatabase
 import com.example.firedatabase_assis.home_page.CommentFragment
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants.PlayerState
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
@@ -70,10 +69,7 @@ class CustomPlayer(
                 activity.supportFragmentManager.beginTransaction()
                     .replace(
                         R.id.fragment_container,
-                        CommentFragment(
-                            postId = 0,
-                            MovieDatabase.getDatabase(context.applicationContext).commentDao()
-                        )
+                        CommentFragment(postId = 0)
                     )
                     .addToBackStack(null)
                     .commit()

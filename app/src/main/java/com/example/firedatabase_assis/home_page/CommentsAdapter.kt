@@ -1,4 +1,4 @@
-package com.example.firedatabase_assis.home_page
+package com.example.firedatabase_assis.adapters
 
 import android.content.Context
 import android.view.LayoutInflater
@@ -12,16 +12,18 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.database.CommentDao
+import com.example.firedatabase_assis.database.Comment
+import com.example.firedatabase_assis.database.Comments
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.transactions.transaction
 
 class CommentsAdapter(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner,
     private var comments: List<Comment>,
-    private val commentDao: CommentDao,
     private val postId: Int
 ) : RecyclerView.Adapter<CommentsAdapter.CommentViewHolder>() {
 
@@ -35,27 +37,42 @@ class CommentsAdapter(
         holder.username.text = comment.username
         holder.content.text = comment.content
 
-
-
         holder.addCommentButton.setOnClickListener {
             val commentText = holder.commentInput.text.toString().trim()
             if (commentText.isNotEmpty()) {
                 val newComment = Comment(
+                    commentId = 0, // ID will be auto-generated
                     postId = postId,
+                    userId = 0, // Default value; should be updated based on the actual user
                     username = "User", // Replace "User" with actual username
-                    content = commentText
+                    content = commentText,
+                    sentiment = "Neutral" // Default value; update if needed
                 )
                 lifecycleOwner.lifecycleScope.launch {
                     try {
                         withContext(Dispatchers.IO) {
-                            commentDao.insertComment(newComment)
+                            // Insert new comment into the database
+                            transaction {
+                                Comments.insert {
+                                    it[postId] = newComment.postId
+                                    it[username] = newComment.username
+                                    it[content] = newComment.content
+                                    // Handle additional fields if necessary
+                                }
+                            }
                         }
                         // Update the UI on the main thread
-                        holder.commentInput.text.clear()
-                        Toast.makeText(context, "Comment added", Toast.LENGTH_SHORT).show()
+                        withContext(Dispatchers.Main) {
+                            holder.commentInput.text.clear()
+                            Toast.makeText(context, "Comment added", Toast.LENGTH_SHORT).show()
+                            // Optionally refresh the comments list here
+                        }
                     } catch (e: Exception) {
                         // Handle exceptions
-                        Toast.makeText(context, "Failed to add comment", Toast.LENGTH_SHORT).show()
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Failed to add comment", Toast.LENGTH_SHORT)
+                                .show()
+                        }
                         e.printStackTrace()
                     }
                 }
@@ -77,7 +94,7 @@ class CommentsAdapter(
     inner class CommentViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val username: TextView = itemView.findViewById(R.id.comment_username)
         val content: TextView = itemView.findViewById(R.id.comment_content)
-        var commentInput: EditText = itemView.findViewById(R.id.comment_input)
-        var addCommentButton: Button = itemView.findViewById(R.id.add_comment_button)
+        val commentInput: EditText = itemView.findViewById(R.id.comment_input)
+        val addCommentButton: Button = itemView.findViewById(R.id.add_comment_button)
     }
 }

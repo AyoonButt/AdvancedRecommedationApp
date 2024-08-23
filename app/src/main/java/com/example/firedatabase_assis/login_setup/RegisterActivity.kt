@@ -10,9 +10,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.work.Constraints
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
+import androidx.work.WorkManager
 import com.example.firedatabase_assis.databinding.ActivityMainBinding
-import com.example.firedatabase_assis.workers.DisneyWorker
-import com.example.firedatabase_assis.workers.PrimeWorker
+import com.example.firedatabase_assis.workers.ApiWorker
 import com.jakewharton.threetenabp.AndroidThreeTen
 
 class RegisterActivity : AppCompatActivity() {
@@ -42,16 +42,13 @@ class RegisterActivity : AppCompatActivity() {
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        val primeWorkerRequest = OneTimeWorkRequest.Builder(PrimeWorker::class.java)
+        val WorkerRequest = OneTimeWorkRequest.Builder(ApiWorker::class.java)
             .setConstraints(constraints)
             .build()
 
-        val disneyWorkerRequest = OneTimeWorkRequest.Builder(DisneyWorker::class.java)
-            .setConstraints(constraints)
-            .build()
 
-        //WorkManager.getInstance(applicationContext).enqueue(primeWorkerRequest)
-        //WorkManager.getInstance(applicationContext).enqueue(disneyWorkerRequest)
+        WorkManager.getInstance(applicationContext).enqueue(WorkerRequest)
+
     }
 
     private fun handleRegistration() {

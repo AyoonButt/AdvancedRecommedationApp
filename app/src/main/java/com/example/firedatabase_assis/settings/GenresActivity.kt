@@ -9,7 +9,6 @@ import android.widget.Button
 import android.widget.CheckBox
 import androidx.appcompat.app.AppCompatActivity
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.login_setup.DB_class
 
 class GenresActivity : AppCompatActivity() {
 
@@ -51,7 +50,6 @@ class GenresActivity : AppCompatActivity() {
         val saveSettings = findViewById<Button>(R.id.saveSettings)
         saveSettings.setOnClickListener {
             saveStates()
-            updateDatabase()
         }
 
         val back_to_main = findViewById<Button>(R.id.backSettings)
@@ -73,27 +71,6 @@ class GenresActivity : AppCompatActivity() {
         editor.apply()
     }
 
-    private fun updateDatabase() {
-        val username = getLoggedInUser()
-        if (username.isNullOrEmpty()) {
-            // No logged-in user, cannot update database
-            return
-        }
-
-        val dbhelper = DB_class(applicationContext)
-        val selectedGenres = mutableListOf<String>()
-        if (btAction.isChecked) selectedGenres.add("Action")
-        if (btComedy.isChecked) selectedGenres.add("Comedy")
-        if (btDrama.isChecked) selectedGenres.add("Drama")
-        if (btFantasy.isChecked) selectedGenres.add("Fantasy")
-        if (btHorror.isChecked) selectedGenres.add("Horror")
-        if (btMystery.isChecked) selectedGenres.add("Mystery")
-        if (btThriller.isChecked) selectedGenres.add("Thriller")
-        if (btRomance.isChecked) selectedGenres.add("Romance")
-
-        //dbhelper.updateGenresList(username, selectedGenres)
-
-    }
 
     private fun getLoggedInUser(): String? {
         return sharedPreferences.getString("LoggedInUser", null)

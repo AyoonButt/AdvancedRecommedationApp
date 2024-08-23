@@ -13,14 +13,13 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.database.CommentDao
+import com.example.firedatabase_assis.database.Post
 import com.squareup.picasso.Picasso
 
 
 class MyPostAdapter(
     private val context: Context,
     private val movies: List<Post>,
-    private val commentDao: CommentDao
 ) : RecyclerView.Adapter<MyPostAdapter.PostHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PostHolder {
@@ -99,7 +98,7 @@ class MyPostAdapter(
                 fragmentContainer.layoutParams = layoutParams
 
                 val transaction = fragmentManager.beginTransaction()
-                val commentFragment = CommentFragment(movie.id, commentDao)
+                val commentFragment = CommentFragment(movie.tmdbId)
                 transaction.replace(R.id.fragment_container, commentFragment)
                 transaction.addToBackStack(null)
                 transaction.commit()

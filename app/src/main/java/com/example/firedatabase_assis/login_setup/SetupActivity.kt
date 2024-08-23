@@ -3,7 +3,6 @@ package com.example.firedatabase_assis.login_setup
 
 import android.app.DatePickerDialog
 import android.content.ClipData
-import android.content.ContentValues
 import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
@@ -22,10 +21,19 @@ import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.example.firedatabase_assis.R
+import com.example.firedatabase_assis.database.PostGenres.avoidGenres
+import com.example.firedatabase_assis.database.SubscriptionProviders
+import com.example.firedatabase_assis.database.UserGenres
+import com.example.firedatabase_assis.database.UserSubscriptions
+import com.example.firedatabase_assis.database.Users
 import com.example.firedatabase_assis.utils.DataManager
 import com.example.firedatabase_assis.utils.DataManager.getGenreIds
 import com.example.firedatabase_assis.utils.Genre
 import com.example.firedatabase_assis.utils.SpinnerUtils
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.Calendar
 
 
@@ -77,20 +85,11 @@ SetupActivity : AppCompatActivity() {
 
     private var isSaved = false
 
-    private lateinit var dbHelper: InfoDatabase
-    private lateinit var dbHelp: DB_class
-
     private lateinit var providers: List<Provider>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_setup)
-
-        // Initialize database helper
-        dbHelper = InfoDatabase(applicationContext)
-        providers = dbHelper.getAllProviders()
-
-        dbHelp = DB_class(applicationContext)
 
 
         val name = intent.getStringExtra("name")
@@ -268,29 +267,37 @@ SetupActivity : AppCompatActivity() {
     }
 
     private fun filterProviders(query: String) {
-        if (query.isNotEmpty()) {
-            val allProviders = dbHelper.getAllProviders()
-            val filteredProviders = allProviders
-                .map { it to lcs(it.provider_name, query) }
-                .sortedByDescending { it.second }
-                .map { it.first }
-                .take(5)
+        transaction {
+            if (query.isNotEmpty()) {
+                val filteredProviders = SubscriptionProviders
+                    .selectAll()
+                    .map {
+                        it[SubscriptionProviders.providerName] to lcs(
+                            it[SubscriptionProviders.providerName],
+                            query
+                        )
+                    }
+                    .sortedByDescending { it.second }
+                    .map { it.first }
+                    .take(5)
 
-            updateProviders(filteredProviders)
-        } else {
-            updateProviders(emptyList())
+                updateProviders(filteredProviders)
+            } else {
+                updateProviders(emptyList())
+            }
         }
     }
 
-    private fun updateProviders(newProviders: List<Provider>) {
+
+    private fun updateProviders(newProviders: List<String>) {
         linearLayoutProviders.removeAllViews()
-        newProviders.forEach { provider ->
+        newProviders.forEach { providerName ->
             val providerView = LayoutInflater.from(this)
                 .inflate(R.layout.provider_item, linearLayoutProviders, false)
             val textViewProviderName = providerView.findViewById<TextView>(R.id.provider_name)
-            textViewProviderName.text = provider.provider_name
+            textViewProviderName.text = providerName
             providerView.setOnClickListener {
-                editTextAddSubscription.setText(provider.provider_name)
+                editTextAddSubscription.setText(providerName)
                 linearLayoutProviders.removeAllViews()
             }
             linearLayoutProviders.addView(providerView)
@@ -551,16 +558,12 @@ SetupActivity : AppCompatActivity() {
     }
 
     private fun getProviderIds(names: List<String>): List<Int> {
-        val dbHelper = InfoDatabase(applicationContext)
-        val allProviders = dbHelper.getAllProviders()
-
-        // Filter providers based on selected names
-        val selectedProviders = allProviders.filter { names.contains(it.provider_name) }
-
-        // Extract IDs of selected providers
-        val selectedProviderIds = selectedProviders.map { it.provider_id }
-
-        return selectedProviderIds
+        return transaction {
+            // Query the SubscriptionProviders table
+            SubscriptionProviders
+                .select { SubscriptionProviders.providerName inList names }
+                .map { it[SubscriptionProviders.providerId] }
+        }
     }
 
 
@@ -601,10 +604,10 @@ SetupActivity : AppCompatActivity() {
 
     private fun saveSettings() {
         // Retrieve user registration data
-        val name = intent.getStringExtra("name")
-        val username = intent.getStringExtra("username")
-        val email = intent.getStringExtra("email")
-        val password = intent.getStringExtra("password")
+        val name_string = intent.getStringExtra("name") ?: ""
+        val username_string = intent.getStringExtra("username") ?: ""
+        val email_string = intent.getStringExtra("email") ?: ""
+        val password = intent.getStringExtra("password") ?: ""
 
         // Retrieve settings data
         val selectedLanguage = spinnerLanguage.selectedItem.toString()
@@ -612,10 +615,10 @@ SetupActivity : AppCompatActivity() {
         val languageId = getIso6391(selectedLanguage)
         val countryId = getIsoCode(selectedRegion)
 
-        val selectedMin = spinnerMin.selectedItem.toString()
-        val selectedMax = spinnerMax.selectedItem.toString()
-        val selectedMinTV = spinnerMinTV.selectedItem.toString()
-        val selectedMaxTV = spinnerMaxTV.selectedItem.toString()
+        val selectedMin = spinnerMin.selectedItem.toString().toInt()
+        val selectedMax = spinnerMax.selectedItem.toString().toInt()
+        val selectedMinTV = spinnerMinTV.selectedItem.toString().toInt()
+        val selectedMaxTV = spinnerMaxTV.selectedItem.toString().toInt()
 
         val genresToAvoid = selectedGenres.joinToString(", ")
         val subscriptionNames = getOrderOfSubscriptionItemNames(linearLayoutSubscriptions)
@@ -628,47 +631,49 @@ SetupActivity : AppCompatActivity() {
             "GenresToAvoid: $genresToAvoid, Subscriptions: $subscriptionIds, Genres: $genreIds"
         )
 
-
-        // Combine all data into ContentValues
-        val contentValues = ContentValues().apply {
-            put("name", name)
-            put("username", username)
-            put("email", email)
-            put("pswd", password)
-            put(DB_class.KEY_LANGUAGE, languageId)
-            put(DB_class.KEY_REGION, countryId)
-            put(DB_class.KEY_MIN_MOVIE, selectedMin)
-            put(DB_class.KEY_MAX_MOVIE, selectedMax)
-            put(DB_class.KEY_MIN_TV, selectedMinTV)
-            put(DB_class.KEY_MAX_TV, selectedMaxTV)
-            put(DB_class.KEY_OLDEST_DATE, selectedOldestDate)
-            put(DB_class.KEY_RECENT_DATE, selectedMostRecentDate)
-            put(DB_class.KEY_SUBSCRIPTIONS, subscriptionIds.joinToString(", "))
-            put(DB_class.KEY_GENRES, genreIds.joinToString(", "))
-            put(DB_class.KEY_AVOID_GENRES, genresToAvoid)
+        // Insert data into database using Exposed ORM
+        transaction {
+            Users.insert {
+                it[name] = name_string
+                it[username] = username_string
+                it[email] = email_string
+                it[pswd] = password
+                it[language] = languageId
+                it[region] = countryId ?: "Default"
+                it[minMovie] = selectedMin
+                it[maxMovie] = selectedMax
+                it[minTV] = selectedMinTV
+                it[maxTV] = selectedMaxTV
+                it[oldestDate] = selectedOldestDate
+                it[recentDate] = selectedMostRecentDate
+            }
         }
 
-        val db = dbHelp.writableDatabase
-        val result = db.insert("users", null, contentValues)
-        db.close()
+        transaction {
+            subscriptionIds.forEach { providerId ->
+                UserSubscriptions.insert {
+                    it[userId] = userId
+                    it[providerID] = providerId
+                    it[avoidGenres] = genresToAvoid
+                }
+            }
+        }
 
-        if (result == -1L) {
-            // Insert failed
-            Log.e("SetupActivity", "Failed to insert data")
-        } else {
-            Log.i("SetupActivity", "Data inserted successfully")
+        // Insert user genres
+        transaction {
+            genreIds.forEach { genreId ->
+                UserGenres.insert {
+                    it[userId] = userId
+                    it[genreID] = genreId
+                }
+            }
         }
 
 
-        // Navigate to MainActivity
+        // Navigate to LoginForm
         val intent = Intent(this, LoginForm::class.java)
         startActivity(intent)
         finish()
-
-
     }
-
-
 }
-
 

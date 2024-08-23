@@ -9,7 +9,6 @@ import android.widget.Button
 import android.widget.CheckBox
 import androidx.appcompat.app.AppCompatActivity
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.login_setup.DB_class
 
 class SubscriptionsActivity : AppCompatActivity() {
 
@@ -43,10 +42,7 @@ class SubscriptionsActivity : AppCompatActivity() {
         btPeacock.isChecked = sharedPreferences.getBoolean("Peacock", false)
 
         val saveSettings = findViewById<Button>(R.id.saveSettings)
-        saveSettings.setOnClickListener {
-            saveStates()
-            updateDatabase()
-        }
+
 
         val back_to_main = findViewById<Button>(R.id.backSettings)
         back_to_main.setOnClickListener {
@@ -54,39 +50,6 @@ class SubscriptionsActivity : AppCompatActivity() {
         }
     }
 
-    private fun saveStates() {
-        val editor = sharedPreferences.edit()
-        editor.putBoolean("Netflix", btNetflix.isChecked)
-        editor.putBoolean("Prime", btPrime.isChecked)
-        editor.putBoolean("HBOMax", btHBOMax.isChecked)
-        editor.putBoolean("Hulu", btHulu.isChecked)
-        editor.putBoolean("AppleTV", btAppleTV.isChecked)
-        editor.putBoolean("Peacock", btPeacock.isChecked)
-        editor.apply()
-    }
-
-    private fun updateDatabase() {
-        val username = getLoggedInUser()
-        if (username.isNullOrEmpty()) {
-            // No logged-in user, cannot update database
-            return
-        }
-
-        val dbhelper = DB_class(applicationContext)
-        val selectedServices = mutableListOf<String>()
-        if (btNetflix.isChecked) selectedServices.add("Netflix")
-        if (btPrime.isChecked) selectedServices.add("Prime")
-        if (btHBOMax.isChecked) selectedServices.add("HBOMax")
-        if (btHulu.isChecked) selectedServices.add("Hulu")
-        if (btAppleTV.isChecked) selectedServices.add("AppleTV")
-        if (btPeacock.isChecked) selectedServices.add("Peacock")
-
-        dbhelper.updateServicesList(username, selectedServices)
-    }
-
-    private fun getLoggedInUser(): String? {
-        return sharedPreferences.getString("LoggedInUser", null)
-    }
 
     private fun backtomain(view: View) {
         val intent = Intent(this, SettingsActivity::class.java)

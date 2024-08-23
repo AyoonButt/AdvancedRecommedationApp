@@ -12,12 +12,16 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.database.CommentDao
+import com.example.firedatabase_assis.adapters.CommentsAdapter
+import com.example.firedatabase_assis.database.Comment
+import com.example.firedatabase_assis.database.Comments
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.transactions.transaction
 
-class CommentFragment(private val postId: Int, private val commentDao: CommentDao) : Fragment() {
+class CommentFragment(private val postId: Int) : Fragment() {
 
     private lateinit var commentsRecyclerView: RecyclerView
     private lateinit var commentsAdapter: CommentsAdapter
@@ -34,11 +38,10 @@ class CommentFragment(private val postId: Int, private val commentDao: CommentDa
         commentsRecyclerView = view.findViewById(R.id.comment_recycler_view)
         commentsRecyclerView.layoutManager = LinearLayoutManager(requireContext())
 
-        commentsAdapter =
-            CommentsAdapter(requireContext(), viewLifecycleOwner, listOf(), commentDao, postId)
+        commentsAdapter = CommentsAdapter(requireContext(), viewLifecycleOwner, listOf(), 0)
         commentsRecyclerView.adapter = commentsAdapter
 
-        // define the fragment container
+        // Define the fragment container
         fragmentContainerLayout = requireActivity().findViewById(R.id.fragment_container)
 
         // Set up swipe gesture listener for the fragment_container layout
@@ -55,11 +58,9 @@ class CommentFragment(private val postId: Int, private val commentDao: CommentDa
         }
 
         commentsRecyclerView.setOnTouchListener { _, event ->
-
             val result = swipeGestureListener.onTouch(commentsRecyclerView, event)
             Log.d("CommentFragment", "RecyclerView touch event: $event, result: $result")
             result
-
         }
 
         // Listen for changes in layout size and update the swipe gesture listener
@@ -100,9 +101,21 @@ class CommentFragment(private val postId: Int, private val commentDao: CommentDa
     }
 
     private fun loadComments() {
-        lifecycleScope.launch(Dispatchers.Main) {
+        lifecycleScope.launch {
             val comments = withContext(Dispatchers.IO) {
-                commentDao.getCommentsForPost(postId)
+                transaction {
+                    Comments.select { Comments.postId eq postId }
+                        .map {
+                            Comment(
+                                commentId = it[Comments.commentId],
+                                postId = it[Comments.postId],
+                                userId = it[Comments.userId],
+                                username = it[Comments.username],
+                                content = it[Comments.content],
+                                sentiment = it[Comments.sentiment]
+                            )
+                        }
+                }
             }
             if (comments.isNotEmpty()) {
                 commentsAdapter.updateComments(comments)
@@ -112,11 +125,22 @@ class CommentFragment(private val postId: Int, private val commentDao: CommentDa
 
     private fun loadData() {
         isLoading = true
-        lifecycleScope.launch(Dispatchers.Main) {
+        lifecycleScope.launch {
             // Simulate network load with delay
             withContext(Dispatchers.IO) {
-                // Add your data loading logic here
-                val newComments = commentDao.getCommentsForPost(postId) // Example load more data
+                val newComments = transaction {
+                    Comments.select { Comments.postId eq postId }
+                        .map {
+                            Comment(
+                                commentId = it[Comments.commentId],
+                                postId = it[Comments.postId],
+                                userId = it[Comments.userId],
+                                username = it[Comments.username],
+                                content = it[Comments.content],
+                                sentiment = it[Comments.sentiment]
+                            )
+                        }
+                }
                 withContext(Dispatchers.Main) {
                     if (newComments.isNotEmpty()) {
                         commentsAdapter.updateComments(newComments)
@@ -139,4 +163,5 @@ class CommentFragment(private val postId: Int, private val commentDao: CommentDa
     fun dispatchTouchEvent(event: MotionEvent): Boolean {
         return fragmentContainerLayout.dispatchTouchEvent(event)
     }
+
 }

@@ -11,20 +11,17 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.database.MovieDatabase
+import com.example.firedatabase_assis.database.Posts
 import com.example.firedatabase_assis.home_page.CommentFragment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONArray
-import org.json.JSONObject
+import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.transaction
 
 class LoadVideos : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: VideoAdapter
-    private val client = OkHttpClient()
     private var offset = 0
     private val limit = 10
     private var isLoading = false
@@ -41,9 +38,7 @@ class LoadVideos : AppCompatActivity() {
         val snapHelper = FastSnapHelper(this)
         snapHelper.attachToRecyclerView(recyclerView)
 
-        loadMoviesFromBottomUp()
-
-
+        loadMoviesAndSeriesFromBottomUp()
 
         recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -54,7 +49,7 @@ class LoadVideos : AppCompatActivity() {
                 val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
 
                 if (!isLoading && (visibleItemCount + firstVisibleItemPosition) >= totalItemCount && firstVisibleItemPosition >= 0) {
-                    loadMoviesFromBottomUp()
+                    loadMoviesAndSeriesFromBottomUp()
                 }
             }
         })
@@ -73,73 +68,45 @@ class LoadVideos : AppCompatActivity() {
         })
     }
 
-    private fun loadMoviesFromBottomUp() {
+    private fun loadMoviesAndSeriesFromBottomUp() {
         isLoading = true
-        val database = MovieDatabase.getDatabase(applicationContext)
-        val primeDao = database.primeMovieDao()
-
         lifecycleScope.launch {
-            val movies = withContext(Dispatchers.IO) {
-                primeDao.getMoviesWithPagination(limit, offset)
+            val videos = withContext(Dispatchers.IO) {
+                fetchVideosFromDatabase(limit, offset)
             }
-            if (movies.isNotEmpty()) {
+            if (videos.isNotEmpty()) {
                 offset += limit
-                for (movie in movies) {
-                    fetchMovieVideos(movie.id)
+                videos.forEach { videoKey ->
+                    processMovieVideos(videoKey)
                 }
             }
             isLoading = false
         }
     }
 
-    private fun fetchMovieVideos(movieId: Int) {
-        val url = "https://api.themoviedb.org/3/movie/$movieId/videos?language=en-US"
-        val request = Request.Builder()
-            .url(url)
-            .get()
-            .addHeader("accept", "application/json")
-            .addHeader(
-                "Authorization",
-                "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJkOWRkOWQzYWU4MzhkYjE4ZDUxZjg4Y2Q1MGU0NzllNCIsIm5iZiI6MTcyMTA4Mzk5MS42ODc5NTUsInN1YiI6IjY2MjZiM2ZkMjU4ODIzMDE2NDkxODliMSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.dXcgTC2h_FTmM94Xx-pE04jF3F8tPoFYBxcKMmnV338"
-            )
-            .build()
+    private fun fetchVideosFromDatabase(limit: Int, offset: Int): List<String> {
+        val videoKeys = mutableListOf<String>()
 
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val response = client.newCall(request).execute()
-                if (response.isSuccessful) {
-                    val jsonData = response.body?.string()
-                    val jsonObject = JSONObject(jsonData)
-                    val results = jsonObject.getJSONArray("results")
+        transaction {
+            // Assuming you have set up your database connection somewhere
+            val postsQuery = Posts
+                .selectAll()
+                .limit(limit, offset.toLong())
 
-                    withContext(Dispatchers.Main) {
-                        processMovieVideos(results)
-                    }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        showError("Failed to fetch movie videos")
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                withContext(Dispatchers.Main) {
-                    showError("An error occurred")
+            for (post in postsQuery) {
+                val videoKey = post[Posts.videoKey]
+                if (videoKey != null) {
+                    videoKeys.add(videoKey)
                 }
             }
         }
+
+        return videoKeys
     }
 
-    private fun processMovieVideos(results: JSONArray) {
-        val videoKeys = mutableListOf<String>()
-        for (i in 0 until results.length()) {
-            val videoObject = results.getJSONObject(i)
-            if (videoObject.getString("site") == "YouTube") {
-                val videoKey = videoObject.getString("key")
-                videoKeys.add(videoKey)
-                Log.d("VideoKeys", "Keu: $videoKey")
-            }
-        }
-        adapter.addVideos(videoKeys)
+    private fun processMovieVideos(videoKey: String) {
+        adapter.addVideos(listOf(videoKey))
+        Log.d("VideoKeys", "Key: $videoKey")
     }
 
     private fun showError(message: String) {
@@ -162,6 +129,4 @@ class LoadVideos : AppCompatActivity() {
         // Otherwise, handle the event in the HomePage activity
         return super.dispatchTouchEvent(event)
     }
-
-
 }

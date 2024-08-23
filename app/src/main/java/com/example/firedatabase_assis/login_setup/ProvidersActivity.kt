@@ -3,15 +3,18 @@ package com.example.firedatabase_assis.login_setup
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.example.firedatabase_assis.R
+import com.example.firedatabase_assis.database.SubscriptionProviders
 import com.google.gson.JsonParser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.transactions.transaction
 import java.io.IOException
 
-class BozoActivity : AppCompatActivity() {
+class ProvidersActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,11 +44,15 @@ class BozoActivity : AppCompatActivity() {
             val responseBody = response.body?.string()
             if (responseBody != null) {
                 val providers = parseProviders(responseBody)
-                val dbHelper = InfoDatabase(applicationContext)
 
-                // Insert providers into database
-                providers.forEach { provider ->
-                    dbHelper.insertProvider(provider)
+                // Insert providers into the database
+                transaction {
+                    providers.forEach { provider ->
+                        SubscriptionProviders.insert {
+                            it[providerId] = provider.provider_id
+                            it[providerName] = provider.provider_name
+                        }
+                    }
                 }
             }
         } catch (e: IOException) {
@@ -62,7 +69,7 @@ class BozoActivity : AppCompatActivity() {
             val jsonObject = element.asJsonObject
             val providerName = jsonObject.get("provider_name").asString
             val providerId = jsonObject.get("provider_id").asInt
-            providers.add(Provider(provider_name = providerName, provider_id = providerId))
+            providers.add(Provider(provider_id = providerId, provider_name = providerName))
         }
 
         return providers
