@@ -1,8 +1,11 @@
 package com.example.firedatabase_assis.database
 
+import android.util.Log
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.transaction
 
 
@@ -20,6 +23,8 @@ object Users : Table() {
     val maxTV = integer("maxTV")
     val oldestDate = varchar("oldestDate", 50)
     val recentDate = varchar("recentDate", 50)
+    val recentLogin = varchar("recentLogin", 75)
+    val createdAt = varchar("createdAt", 75)
     override val primaryKey = PrimaryKey(userId)
 }
 
@@ -41,6 +46,8 @@ object UserGenres : Table() {
 object Posts : Table() {
     val postId = integer("post_id").autoIncrement()
     val tmdbId = integer("tmdb_id")
+    val postLikeCount = integer("postLikeCount")
+    val trailerLikeCount = integer("trailerLikeCount")
     val type = varchar("type", 50)
     val title = varchar("title", 255)
     val subscription = varchar("provider", 255)
@@ -93,11 +100,12 @@ object UserPostInteractions : Table() {
     val interactionId = integer("interaction_id").autoIncrement()
     val userId = integer("user_id").references(Users.userId)
     val postId = integer("post_id").references(Posts.postId)
-    val timeSpent = long("time_spent")
+    val timeSpentOnPost = long("time_spent")
     val likeState = bool("like_state")
     val saveState = bool("save_state")
     val commentButtonPressed = bool("comment_button_pressed")
     val commentMade = bool("comment_made")
+    val timestamp = varchar("timestamp", 75)
     override val primaryKey = PrimaryKey(interactionId)
 }
 
@@ -106,10 +114,13 @@ object UserTrailerInteractions : Table() {
     val userId = integer("user_id").references(Users.userId)
     val postId = integer("post_id").references(Posts.postId)
     val timeSpent = long("time_spent")
+    val isMuted = bool("isMuted")
     val trailerLikeState = bool("trailer_like_state")
     val trailerSaveState = bool("trailer_save_state")
+    val replayTimes = integer("replay_times")
     val commentButtonPressed = bool("comment_button_pressed")
     val commentMade = bool("comment_made")
+    val timestamp = varchar("timestamp", 75)
     override val primaryKey = PrimaryKey(interactionId)
 }
 
@@ -130,7 +141,7 @@ object SubscriptionProviders : Table() {
 }
 
 object Genres : Table() {
-    val genreId = integer("genre_id").autoIncrement()
+    val genreId = integer("genre_id")
     val genreName = varchar("genre_name", 255)
     override val primaryKey = PrimaryKey(genreId)
 }
@@ -143,18 +154,25 @@ object PostGenres : Table() {
     override val primaryKey = PrimaryKey(postId, genreID)
 }
 
+
 fun connectToDatabase() {
-    Database.connect(
-        url = "jdbc:postgresql://your_database_url:5432/your_database_name",
-        driver = "org.postgresql.Driver",
-        user = "your_username",
-        password = "your_password"
-    )
+    try {
+        Database.connect(
+            url = "jdbc:postgresql://recommendation-app.c76yuoa4ivv0.us-east-2.rds.amazonaws.com:5432/postgres",
+            driver = "org.postgresql.Driver",
+            user = "postgres",  // e.g., "postgres"
+            password = "Watermelon2131"  // your local database password
+        )
+        Log.d("DatabaseConnection", "Connection to local DB successful")
+    } catch (e: Exception) {
+        Log.e("DatabaseConnection", "Connection to local DB failed: ${e.message}", e)
+    }
 }
 
 
 fun createTables() {
     transaction {
+        addLogger(StdOutSqlLogger)
         SchemaUtils.create(
             Users,
             Posts,
@@ -169,29 +187,4 @@ fun createTables() {
     }
 }
 
-data class Post(
-    val postId: Int,
-    val tmdbId: Int,
-    val type: String,
-    val title: String,
-    val subscription: String,
-    val releaseDate: String,
-    val overview: String,
-    val posterPath: String,
-    val voteAverage: Double,
-    val voteCount: Int,
-    val originalLanguage: String,
-    val originalTitle: String,
-    val popularity: Double,
-    val genreIds: String,
-    val videoKey: String,
-)
 
-data class Comment(
-    val commentId: Int,
-    val postId: Int,
-    val userId: Int,
-    val username: String,
-    val content: String,
-    val sentiment: String
-)

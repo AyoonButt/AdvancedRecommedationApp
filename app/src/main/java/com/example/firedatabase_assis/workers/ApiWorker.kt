@@ -5,6 +5,7 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.database.Posts
 import com.google.gson.GsonBuilder
 import com.jakewharton.threetenabp.AndroidThreeTen
@@ -32,11 +33,18 @@ import java.util.concurrent.TimeUnit
 
 class ApiWorker(
     context: Context,
-    params: WorkerParameters,
-    private val apiWorkerParams: ApiWorkerParams,
+    params: WorkerParameters
 ) : CoroutineWorker(context, params) {
 
     private val api: ApiService
+
+
+    private val apiWorkerParams: ApiWorkerParams = ApiWorkerParams(
+        apiKey = BuildConfig.TMDB_API_KEY,
+        includeAdult = false,
+        includeVideo = false,
+        sortBy = "popularity.desc"
+    )
 
     init {
         AndroidThreeTen.init(context)
@@ -86,7 +94,7 @@ class ApiWorker(
         providers: List<Int>
     ): List<Data> {
         val mediaList = mutableListOf<Data>()  // Keep it as List<Data>
-        var page = apiWorkerParams.page
+        var page = 1
         var releaseDateGte = userParams.oldestDate
         val currentYear = LocalDate.now().year
 

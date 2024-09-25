@@ -1,6 +1,7 @@
 package com.example.firedatabase_assis.explore
 
 import FastSnapHelper
+import VideoAdapter
 import android.os.Bundle
 import android.util.Log
 import android.view.MotionEvent
@@ -25,14 +26,24 @@ class LoadVideos : AppCompatActivity() {
     private var offset = 0
     private val limit = 10
     private var isLoading = false
+    private var userId: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_load_videos)
 
+        // Fetch userId from SharedPreferences
+        val sharedPreferences = getSharedPreferences("MyPrefs", MODE_PRIVATE)
+        userId = sharedPreferences.getInt("userId", 0) // Default to 0 if not found
+
+        if (userId == 0) {
+            showError("User ID not found in SharedPreferences")
+            return
+        }
+
         recyclerView = findViewById(R.id.recycler_view)
         recyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
-        adapter = VideoAdapter(mutableListOf(), this)
+        adapter = VideoAdapter(mutableListOf(), this, userId)
         recyclerView.adapter = adapter
 
         val snapHelper = FastSnapHelper(this)
@@ -76,37 +87,37 @@ class LoadVideos : AppCompatActivity() {
             }
             if (videos.isNotEmpty()) {
                 offset += limit
-                videos.forEach { videoKey ->
-                    processMovieVideos(videoKey)
-                }
+                processMovieVideos(videos) // Pass the entire list of pairs
             }
             isLoading = false
         }
     }
 
-    private fun fetchVideosFromDatabase(limit: Int, offset: Int): List<String> {
-        val videoKeys = mutableListOf<String>()
+    private fun fetchVideosFromDatabase(limit: Int, offset: Int): List<Pair<String, Int>> {
+        val videoData = mutableListOf<Pair<String, Int>>()
 
         transaction {
-            // Assuming you have set up your database connection somewhere
             val postsQuery = Posts
                 .selectAll()
                 .limit(limit, offset.toLong())
 
             for (post in postsQuery) {
+                val postId = post[Posts.postId]
                 val videoKey = post[Posts.videoKey]
                 if (videoKey != null) {
-                    videoKeys.add(videoKey)
+                    videoData.add(Pair(videoKey, postId))
                 }
             }
         }
 
-        return videoKeys
+        return videoData
     }
 
-    private fun processMovieVideos(videoKey: String) {
-        adapter.addVideos(listOf(videoKey))
-        Log.d("VideoKeys", "Key: $videoKey")
+    private fun processMovieVideos(videos: List<Pair<String, Int>>) {
+        adapter.addItems(videos)
+        videos.forEach { (videoKey, postId) ->
+            Log.d("VideoKeys", "Post ID: $postId, Key: $videoKey")
+        }
     }
 
     private fun showError(message: String) {

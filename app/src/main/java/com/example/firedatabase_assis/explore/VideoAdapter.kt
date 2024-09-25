@@ -1,5 +1,3 @@
-package com.example.firedatabase_assis.explore
-
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -7,15 +5,20 @@ import android.view.ViewGroup
 import androidx.lifecycle.LifecycleOwner
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.R
+import com.example.firedatabase_assis.database.UserTrailerInteractions
+import com.example.firedatabase_assis.explore.CustomPlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.options.IFramePlayerOptions
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.transactions.transaction
 
 class VideoAdapter(
-    private val videoKeys: MutableList<String>,
-    private val lifecycleOwner: LifecycleOwner
+    private val videos: MutableList<Pair<String, Int>>, // List of pairs (videoKey, postId)
+    private val lifecycleOwner: LifecycleOwner,
+    private val UserId: Int // Pass userId to the adapter
 ) : RecyclerView.Adapter<VideoAdapter.ViewHolder>() {
 
     private var currentlyPlayingPlayer: YouTubePlayer? = null
@@ -24,7 +27,7 @@ class VideoAdapter(
         private val youtubePlayerView: YouTubePlayerView =
             itemView.findViewById(R.id.youtube_player_view)
         var youTubePlayer: YouTubePlayer? = null
-        private lateinit var customPlayer: CustomPlayer
+        lateinit var customPlayer: CustomPlayer
 
         init {
             lifecycleOwner.lifecycle.addObserver(youtubePlayerView)
@@ -36,7 +39,8 @@ class VideoAdapter(
                     )
                     this@ViewHolder.youTubePlayer = youTubePlayer
                     if (bindingAdapterPosition != RecyclerView.NO_POSITION) {
-                        youTubePlayer.cueVideo(videoKeys[bindingAdapterPosition], 0f)
+                        val (videoKey, _) = videos[bindingAdapterPosition]
+                        youTubePlayer.cueVideo(videoKey, 0f)
                     }
                     setupCustomPlayer(youTubePlayer)
                     setupAutoplayAndLoop(youTubePlayer)
@@ -52,8 +56,13 @@ class VideoAdapter(
         }
 
         private fun setupCustomPlayer(youTubePlayer: YouTubePlayer) {
-            customPlayer =
-                CustomPlayer(itemView.context, itemView, youTubePlayer, youtubePlayerView)
+            customPlayer = CustomPlayer(
+                itemView.context,
+                itemView,
+                youTubePlayer,
+                youtubePlayerView,
+                videos[bindingAdapterPosition].second // Pass postId to CustomPlayer
+            )
         }
 
         private fun setupAutoplayAndLoop(youTubePlayer: YouTubePlayer) {
@@ -63,41 +72,77 @@ class VideoAdapter(
                     youTubePlayer: YouTubePlayer,
                     state: PlayerConstants.PlayerState
                 ) {
-                    if (state == PlayerConstants.PlayerState.ENDED) {
-                        youTubePlayer.seekTo(0f)
-                        youTubePlayer.play()
+                    when (state) {
+                        PlayerConstants.PlayerState.ENDED -> {
+                            youTubePlayer.seekTo(0f)
+                            youTubePlayer.play()
+                            customPlayer.incrementReplayCount()
+                            customPlayer.startTrackingTime()
+                        }
+
+                        PlayerConstants.PlayerState.PLAYING -> {
+                            currentlyPlayingPlayer?.pause()
+                            currentlyPlayingPlayer = youTubePlayer
+                            customPlayer.startTrackingTime()
+                        }
+
+                        // Handle other states if needed
+                        else -> Unit
                     }
                 }
             })
         }
 
-        fun bind(videoKey: String) {
-            youTubePlayer?.cueVideo(videoKey, 0f)
-            youTubePlayer?.play()
-            setCurrentlyPlayingPlayer(youTubePlayer)
-        }
+        fun saveInteractionData() {
+            val playTime = customPlayer.getPlayTime()
+            val replayCount = customPlayer.getReplayCount()
+            val IsMuted = customPlayer.getIsMuted()
+            val likeState = customPlayer.getLikeState()
+            val saveState = customPlayer.getSaveState()
+            val commentButtonPressed = customPlayer.wasCommentButtonPressed()
+            val commentMade = customPlayer.wasCommentMade()
+            val (_, postId) = videos[bindingAdapterPosition]
 
-        private fun setCurrentlyPlayingPlayer(youTubePlayer: YouTubePlayer?) {
-            currentlyPlayingPlayer?.pause()
-            currentlyPlayingPlayer = youTubePlayer
+            // Save this data to the database using Exposed ORM
+            transaction {
+                UserTrailerInteractions.insert {
+                    it[userId] = UserId
+                    it[UserTrailerInteractions.postId] = postId
+                    it[timeSpent] = playTime
+                    it[replayTimes] = replayCount
+                    it[isMuted] = IsMuted
+                    it[trailerLikeState] = likeState
+                    it[trailerSaveState] = saveState
+                    it[UserTrailerInteractions.commentButtonPressed] = commentButtonPressed
+                    it[UserTrailerInteractions.commentMade] = commentMade
+                }
+            }
         }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view =
-            LayoutInflater.from(parent.context).inflate(R.layout.custom_player, parent, false)
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.custom_player, parent, false)
         return ViewHolder(view)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(videoKeys[position])
+        val (videoKey, _) = videos[position]
+        holder.youTubePlayer?.cueVideo(videoKey, 0f)
     }
 
-    override fun getItemCount(): Int = videoKeys.size
+    override fun getItemCount(): Int {
+        return videos.size
+    }
 
-    fun addVideos(newVideoKeys: List<String>) {
-        val start = videoKeys.size
-        videoKeys.addAll(newVideoKeys)
-        notifyItemRangeInserted(start, newVideoKeys.size)
+    override fun onViewDetachedFromWindow(holder: ViewHolder) {
+        holder.saveInteractionData()
+        super.onViewDetachedFromWindow(holder)
+    }
+
+    fun addItems(newVideos: List<Pair<String, Int>>) {
+        val initialSize = videos.size
+        videos.addAll(newVideos)
+        notifyItemRangeInserted(initialSize, newVideos.size)
     }
 }

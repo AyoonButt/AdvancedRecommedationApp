@@ -9,12 +9,12 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.database.Post
 import com.example.firedatabase_assis.database.Posts
 import com.example.firedatabase_assis.databinding.ActivityHomePageBinding
 import com.example.firedatabase_assis.explore.LoadVideos
 import com.example.firedatabase_assis.search.SearchActivity
 import com.example.firedatabase_assis.settings.SettingsActivity
+import com.example.firedatabase_assis.workers.Post
 import kotlinx.coroutines.launch
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction

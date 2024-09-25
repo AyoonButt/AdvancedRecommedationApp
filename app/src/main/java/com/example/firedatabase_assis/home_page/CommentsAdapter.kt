@@ -12,8 +12,8 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.database.Comment
 import com.example.firedatabase_assis.database.Comments
+import com.example.firedatabase_assis.workers.Comment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -26,6 +26,11 @@ class CommentsAdapter(
     private var comments: List<Comment>,
     private val postId: Int
 ) : RecyclerView.Adapter<CommentsAdapter.CommentViewHolder>() {
+
+    private fun getUserIdFromPreferences(): Int {
+        val sharedPreferences = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
+        return sharedPreferences.getInt("userId", 0) // Default to 0 if userId is not found
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CommentViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.comment_item, parent, false)
@@ -40,10 +45,11 @@ class CommentsAdapter(
         holder.addCommentButton.setOnClickListener {
             val commentText = holder.commentInput.text.toString().trim()
             if (commentText.isNotEmpty()) {
+                val userId = getUserIdFromPreferences()
                 val newComment = Comment(
                     commentId = 0, // ID will be auto-generated
                     postId = postId,
-                    userId = 0, // Default value; should be updated based on the actual user
+                    userId = userId, // Use the retrieved userId
                     username = "User", // Replace "User" with actual username
                     content = commentText,
                     sentiment = "Neutral" // Default value; update if needed
@@ -55,9 +61,10 @@ class CommentsAdapter(
                             transaction {
                                 Comments.insert {
                                     it[postId] = newComment.postId
+                                    it[Comments.userId] = newComment.userId
                                     it[username] = newComment.username
                                     it[content] = newComment.content
-                                    // Handle additional fields if necessary
+                                    it[sentiment] = newComment.sentiment
                                 }
                             }
                         }

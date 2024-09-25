@@ -16,6 +16,9 @@ import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.update
+import org.threeten.bp.LocalDateTime
+import org.threeten.bp.format.DateTimeFormatter
 
 
 class LoginForm : AppCompatActivity() {
@@ -27,8 +30,11 @@ class LoginForm : AppCompatActivity() {
         setContentView(bind.root)
 
         // Initialize the database connection
-        connectToDatabase()
-        createTables()
+        CoroutineScope(Dispatchers.IO).launch {
+            connectToDatabase()
+            createTables()
+        }
+
 
         bind.btnlogin.setOnClickListener {
             val username = bind.logtxt.text.toString()
@@ -39,6 +45,7 @@ class LoginForm : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     if (userExists) {
                         // Pass the username to the HomePage activity
+                        updateRecentLogin(username)
                         val intent = Intent(this@LoginForm, HomePage::class.java).apply {
                             putExtra("username", username)
                         }
@@ -66,6 +73,21 @@ class LoginForm : AppCompatActivity() {
                 (Users.username eq username) and (Users.pswd eq password)
             }.singleOrNull() != null
         }
+    }
+
+    private suspend fun updateRecentLogin(username: String) {
+        transaction {
+            Users.update({ Users.username eq username }) {
+                it[recentLogin] = getCurrentTimestamp() // Update the recentDate column
+            }
+        }
+    }
+
+
+    private fun getCurrentTimestamp(): String {
+        val current = LocalDateTime.now()
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+        return current.format(formatter)
     }
 }
 

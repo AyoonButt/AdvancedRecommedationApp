@@ -13,8 +13,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.adapters.CommentsAdapter
-import com.example.firedatabase_assis.database.Comment
 import com.example.firedatabase_assis.database.Comments
+import com.example.firedatabase_assis.workers.Comment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -38,7 +38,8 @@ class CommentFragment(private val postId: Int) : Fragment() {
         commentsRecyclerView = view.findViewById(R.id.comment_recycler_view)
         commentsRecyclerView.layoutManager = LinearLayoutManager(requireContext())
 
-        commentsAdapter = CommentsAdapter(requireContext(), viewLifecycleOwner, listOf(), 0)
+        // Initialize the CommentsAdapter with the postId
+        commentsAdapter = CommentsAdapter(requireContext(), viewLifecycleOwner, listOf(), postId)
         commentsRecyclerView.adapter = commentsAdapter
 
         // Define the fragment container
@@ -91,9 +92,17 @@ class CommentFragment(private val postId: Int) : Fragment() {
             }
         })
 
-        loadComments()
+        // Ensure postId is valid before loading comments
+        if (postId > 0) {
+            loadComments()
+        } else {
+            Log.e("CommentFragment", "Invalid postId: $postId")
+            // Handle invalid postId case (e.g., show error message or handle gracefully)
+        }
+
         return view
     }
+
 
     override fun onAttach(context: Context) {
         super.onAttach(context)

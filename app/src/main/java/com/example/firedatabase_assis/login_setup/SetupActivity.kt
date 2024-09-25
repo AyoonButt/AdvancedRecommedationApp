@@ -34,6 +34,8 @@ import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.threeten.bp.LocalDateTime
+import org.threeten.bp.format.DateTimeFormatter
 import java.util.Calendar
 
 
@@ -601,6 +603,11 @@ SetupActivity : AppCompatActivity() {
         return sequence
     }
 
+    private fun getCurrentTimestamp(): String {
+        val current = LocalDateTime.now()
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+        return current.format(formatter)
+    }
 
     private fun saveSettings() {
         // Retrieve user registration data
@@ -631,8 +638,9 @@ SetupActivity : AppCompatActivity() {
             "GenresToAvoid: $genresToAvoid, Subscriptions: $subscriptionIds, Genres: $genreIds"
         )
 
-        // Insert data into database using Exposed ORM
-        transaction {
+        // Insert data into the database
+        val userId = transaction {
+            // Insert the user
             Users.insert {
                 it[name] = name_string
                 it[username] = username_string
@@ -646,13 +654,27 @@ SetupActivity : AppCompatActivity() {
                 it[maxTV] = selectedMaxTV
                 it[oldestDate] = selectedOldestDate
                 it[recentDate] = selectedMostRecentDate
+                it[createdAt] = getCurrentTimestamp()
             }
+
+            // Retrieve the userId of the inserted user
+            Users
+                .select { Users.email eq email_string } // Assuming email is unique
+                .single()[Users.userId]
         }
 
+        val sharedPreferences = getSharedPreferences("user_prefs", MODE_PRIVATE)
+        with(sharedPreferences.edit()) {
+            putInt("userId", userId)
+            apply()
+        }
+
+
+        // Insert user subscriptions
         transaction {
             subscriptionIds.forEach { providerId ->
                 UserSubscriptions.insert {
-                    it[userId] = userId
+                    it[this.userId] = userId // Use the retrieved userId
                     it[providerID] = providerId
                     it[avoidGenres] = genresToAvoid
                 }
@@ -663,17 +685,16 @@ SetupActivity : AppCompatActivity() {
         transaction {
             genreIds.forEach { genreId ->
                 UserGenres.insert {
-                    it[userId] = userId
+                    it[this.userId] = userId // Use the retrieved userId
                     it[genreID] = genreId
                 }
             }
         }
-
 
         // Navigate to LoginForm
         val intent = Intent(this, LoginForm::class.java)
         startActivity(intent)
         finish()
     }
-}
 
+}
