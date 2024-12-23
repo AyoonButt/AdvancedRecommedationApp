@@ -12,26 +12,36 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.recyclerview.widget.RecyclerView
+import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.database.Posts
-import com.example.firedatabase_assis.database.UserPostInteractions
-import com.example.firedatabase_assis.workers.Post
+import com.example.firedatabase_assis.login_setup.UserViewModel
+import com.example.firedatabase_assis.postgres.PostEntity
+import com.example.firedatabase_assis.postgres.PostInteractions
+import com.example.firedatabase_assis.postgres.Posts
+import com.example.firedatabase_assis.postgres.UserPostInteraction
 import com.squareup.picasso.Picasso
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.select
-import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.update
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.threeten.bp.LocalDateTime
 import org.threeten.bp.format.DateTimeFormatter
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class MyPostAdapter(
     private val context: Context,
-    private val movies: List<Post>,
+    private val movies: List<PostEntity>,
+    private val userViewModel: UserViewModel
 ) : RecyclerView.Adapter<MyPostAdapter.PostHolder>() {
 
-    private val sharedPreferences = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
-    private val UserID =
-        sharedPreferences.getInt("userId", -1) // Retrieve userId from SharedPreferences
+    private val retrofit = Retrofit.Builder()
+        .baseUrl(BuildConfig.POSTRGRES_API_URL)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    private val postsService = retrofit.create(Posts::class.java)
+    private val postInteractionsService = retrofit.create(PostInteractions::class.java)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PostHolder {
         val view: View =
@@ -43,7 +53,7 @@ class MyPostAdapter(
         val movie = movies[position]
         holder.title.text = movie.title
         holder.overview.text = movie.overview
-        holder.postId = movie.postId // Set postId for the holder
+        holder.postId = movie.postId!! // Set postId for the holder
 
         // Load image using Picasso
         val baseURL = "https://image.tmdb.org/t/p/original${movie.posterPath}"
@@ -180,33 +190,63 @@ class MyPostAdapter(
     }
 
 
-    private fun updateData(holder: PostHolder, mypostId: Int, timeSpent: Long? = null) {
-        transaction {
-            UserPostInteractions.insert {
-                it[userId] = UserID
-                it[postId] = mypostId
-                it[likeState] = holder.likeState
-                it[saveState] = holder.saveState
-                it[commentButtonPressed] = holder.commentButtonPressed
-                it[commentMade] = holder.commentMade
-                it[timestamp] = getCurrentTimestamp()
+    private fun updateData(
+        holder: PostHolder, mypostId: Int, timeSpent: Long? = null
+    ) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val postResponse = postsService.fetchPostEntityById(mypostId)
 
-                // Only log timeSpent if it's provided
-                timeSpent?.let { spent ->
-                    it[timeSpentOnPost] = spent
+            if (postResponse.isSuccessful) {
+                val postEntity = postResponse.body()
+                val userEntity = userViewModel.currentUser.value
+
+                if (userEntity != null && postEntity != null) {
+                    val interactionData = timeSpent?.let {
+                        UserPostInteraction(
+                            interactionId = 0,
+                            user = userEntity,
+                            post = postEntity,
+                            likeState = holder.likeState,
+                            saveState = holder.saveState,
+                            commentButtonPressed = holder.commentButtonPressed,
+                            commentMade = holder.commentMade,
+                            timestamp = getCurrentTimestamp(),
+                            timeSpentOnPost = it
+                        )
+                    }
+
+                    // Call the API to save interaction data
+                    val response =
+                        interactionData?.let { postInteractionsService.saveInteractionData(it) }
+                    withContext(Dispatchers.Main) {
+                        if (response != null) {
+                            if (response.isSuccessful) {
+                                println("Interaction data saved successfully.")
+                            } else {
+                                println(
+                                    "Failed to save interaction data: ${
+                                        response.errorBody()?.string()
+                                    }"
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    println("User or post data not available.")
                 }
+            } else {
+                println("Failed to fetch post entity: ${postResponse.errorBody()?.string()}")
             }
         }
     }
 
 
     private fun updateLikeCount(postId: Int) {
-        transaction {
-            Posts.update({ Posts.postId eq postId }) {
-                // Use a subquery to safely increment the count
-                it[postLikeCount] =
-                    (Posts.slice(postLikeCount).select { Posts.postId eq postId }
-                        .singleOrNull()?.get(postLikeCount) ?: 0) + 1
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                postsService.updateLikeCount(postId)
+            } catch (e: Exception) {
+                // Handle error
             }
         }
     }

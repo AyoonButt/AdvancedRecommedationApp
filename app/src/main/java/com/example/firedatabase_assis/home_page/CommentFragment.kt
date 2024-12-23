@@ -1,6 +1,5 @@
 package com.example.firedatabase_assis.home_page
 
-import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -11,15 +10,16 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.adapters.CommentsAdapter
-import com.example.firedatabase_assis.database.Comments
-import com.example.firedatabase_assis.workers.Comment
+import com.example.firedatabase_assis.login_setup.UserViewModel
+import com.example.firedatabase_assis.postgres.CommentEntity
+import com.example.firedatabase_assis.postgres.Comments
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.jetbrains.exposed.sql.select
-import org.jetbrains.exposed.sql.transactions.transaction
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class CommentFragment(private val postId: Int) : Fragment() {
 
@@ -28,6 +28,13 @@ class CommentFragment(private val postId: Int) : Fragment() {
     private lateinit var swipeGestureListener: SwipeGestureListener
     private lateinit var fragmentContainerLayout: View
     private var isLoading = false
+
+    private val retrofit = Retrofit.Builder()
+        .baseUrl(BuildConfig.POSTRGRES_API_URL)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    private val commentsApi = retrofit.create(Comments::class.java)
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -39,7 +46,8 @@ class CommentFragment(private val postId: Int) : Fragment() {
         commentsRecyclerView.layoutManager = LinearLayoutManager(requireContext())
 
         // Initialize the CommentsAdapter with the postId
-        commentsAdapter = CommentsAdapter(requireContext(), viewLifecycleOwner, listOf(), postId)
+        commentsAdapter =
+            CommentsAdapter(requireContext(), viewLifecycleOwner, listOf(), postId, UserViewModel())
         commentsRecyclerView.adapter = commentsAdapter
 
         // Define the fragment container
@@ -64,101 +72,11 @@ class CommentFragment(private val postId: Int) : Fragment() {
             result
         }
 
-        // Listen for changes in layout size and update the swipe gesture listener
-        fragmentContainerLayout.viewTreeObserver.addOnGlobalLayoutListener {
-            swipeGestureListener.updateViewBounds(fragmentContainerLayout)
-        }
-
-        // Bring the fragment_container layout to the front
-        fragmentContainerLayout.bringToFront()
-        fragmentContainerLayout.requestFocus()
-
-        // Log when the listener is attached
-        Log.d("CommentFragment", "SwipeGestureListener attached to fragment_container layout")
-
-        commentsRecyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                super.onScrolled(recyclerView, dx, dy)
-                val layoutManager = recyclerView.layoutManager as LinearLayoutManager
-                val visibleItemCount = layoutManager.childCount
-                val totalItemCount = layoutManager.itemCount
-                val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
-
-                if (!isLoading && (visibleItemCount + firstVisibleItemPosition) >= totalItemCount
-                    && firstVisibleItemPosition >= 0
-                ) {
-                    loadData()
-                }
-            }
-        })
-
-        // Ensure postId is valid before loading comments
-        if (postId > 0) {
-            loadComments()
-        } else {
-            Log.e("CommentFragment", "Invalid postId: $postId")
-            // Handle invalid postId case (e.g., show error message or handle gracefully)
-        }
+        fetchComments()
 
         return view
     }
 
-
-    override fun onAttach(context: Context) {
-        super.onAttach(context)
-        Log.d("CommentFragment", "Fragment started")
-    }
-
-    private fun loadComments() {
-        lifecycleScope.launch {
-            val comments = withContext(Dispatchers.IO) {
-                transaction {
-                    Comments.select { Comments.postId eq postId }
-                        .map {
-                            Comment(
-                                commentId = it[Comments.commentId],
-                                postId = it[Comments.postId],
-                                userId = it[Comments.userId],
-                                username = it[Comments.username],
-                                content = it[Comments.content],
-                                sentiment = it[Comments.sentiment]
-                            )
-                        }
-                }
-            }
-            if (comments.isNotEmpty()) {
-                commentsAdapter.updateComments(comments)
-            }
-        }
-    }
-
-    private fun loadData() {
-        isLoading = true
-        lifecycleScope.launch {
-            // Simulate network load with delay
-            withContext(Dispatchers.IO) {
-                val newComments = transaction {
-                    Comments.select { Comments.postId eq postId }
-                        .map {
-                            Comment(
-                                commentId = it[Comments.commentId],
-                                postId = it[Comments.postId],
-                                userId = it[Comments.userId],
-                                username = it[Comments.username],
-                                content = it[Comments.content],
-                                sentiment = it[Comments.sentiment]
-                            )
-                        }
-                }
-                withContext(Dispatchers.Main) {
-                    if (newComments.isNotEmpty()) {
-                        commentsAdapter.updateComments(newComments)
-                    }
-                    isLoading = false
-                }
-            }
-        }
-    }
 
     override fun onDestroyView() {
         super.onDestroyView()
@@ -173,4 +91,24 @@ class CommentFragment(private val postId: Int) : Fragment() {
         return fragmentContainerLayout.dispatchTouchEvent(event)
     }
 
+    private fun fetchComments() {
+        lifecycleScope.launch {
+            // Fetch comments for the postId and update the adapter
+            val commentsList = getCommentsForPost(postId)
+            commentsAdapter.updateComments(commentsList)
+        }
+    }
+
+    private suspend fun getCommentsForPost(postId: Int): List<CommentEntity> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Fetch comments for the given postId
+                val response = commentsApi.getCommentsByPost(postId)
+                response.body() ?: emptyList() // Return empty list if no comments found
+            } catch (e: Exception) {
+                e.printStackTrace()
+                emptyList<CommentEntity>() // Return empty list if there's an error
+            }
+        }
+    }
 }

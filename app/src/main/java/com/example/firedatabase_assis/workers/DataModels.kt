@@ -31,43 +31,32 @@ data class Data(
 
 
 data class VideoResponse(val results: List<Video>)
+
 data class Video(
     val key: String,
     val type: String,
-    val publishedAt: String,
-    val isOfficial: Boolean
-)
-
-data class Post(
-    val postId: Int,
-    val tmdbId: Int,
-    val type: String,
-    val title: String,
-    val subscription: String,
-    val releaseDate: String,
-    val overview: String,
-    val posterPath: String,
-    val voteAverage: Double,
-    val voteCount: Int,
-    val originalLanguage: String,
-    val originalTitle: String,
-    val popularity: Double,
-    val genreIds: String,
-    val videoKey: String,
-)
-
-data class Comment(
-    val commentId: Int,
-    val postId: Int,
-    val userId: Int,
-    val username: String,
-    val content: String,
-    val sentiment: String
+    val publishedAt: String?, // Make it nullable
+    val isOfficial: Boolean?
 )
 
 
 data class CreditsResponse(val cast: List<Cast>, val crew: List<Crew>)
-data class Cast(val name: String)
-data class Crew(val name: String)
+data class Cast(
+    val id: Int,
+    val name: String,
+    val character: String,
+    val gender: Int?,
+    val profilePath: String?,
+    val order: Int
+)
+
+data class Crew(
+    val id: Int,
+    val name: String,
+    val job: String,
+    val department: String,
+    val gender: Int?,
+    val profilePath: String?
+)
 
 

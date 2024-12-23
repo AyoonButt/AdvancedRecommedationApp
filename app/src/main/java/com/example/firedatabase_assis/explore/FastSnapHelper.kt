@@ -1,3 +1,5 @@
+package com.example.firedatabase_assis.explore
+
 import android.content.Context
 import android.util.DisplayMetrics
 import androidx.recyclerview.widget.LinearSmoothScroller

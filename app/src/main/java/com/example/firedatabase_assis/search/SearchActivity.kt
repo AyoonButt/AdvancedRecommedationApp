@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
 import com.google.gson.Gson
 import com.google.gson.JsonObject
@@ -57,7 +58,7 @@ class SearchActivity : AppCompatActivity() {
                 .addHeader("accept", "application/json")
                 .addHeader(
                     "Authorization",
-                    "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJkOWRkOWQzYWU4MzhkYjE4ZDUxZjg4Y2Q1MGU0NzllNCIsIm5iZiI6MTcyMjM3ODMyOC43NDMwNTQsInN1YiI6IjY2MjZiM2ZkMjU4ODIzMDE2NDkxODliMSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.jl_QgyyFRF3mLHXNLvzoV0JeRAZaYv3jilaaNqxS6U0"
+                    "Bearer ${BuildConfig.TMDB_API_KEY_BEARER}"
                 )
                 .build()
 

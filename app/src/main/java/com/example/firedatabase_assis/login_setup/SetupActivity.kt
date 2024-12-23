@@ -1,6 +1,7 @@
 package com.example.firedatabase_assis.login_setup
 
 
+import SpinnerUtils
 import android.app.DatePickerDialog
 import android.content.ClipData
 import android.content.Intent
@@ -20,22 +21,23 @@ import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.database.PostGenres.avoidGenres
-import com.example.firedatabase_assis.database.SubscriptionProviders
-import com.example.firedatabase_assis.database.UserGenres
-import com.example.firedatabase_assis.database.UserSubscriptions
-import com.example.firedatabase_assis.database.Users
-import com.example.firedatabase_assis.utils.DataManager
-import com.example.firedatabase_assis.utils.DataManager.getGenreIds
-import com.example.firedatabase_assis.utils.Genre
-import com.example.firedatabase_assis.utils.SpinnerUtils
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.select
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.transactions.transaction
+import com.example.firedatabase_assis.postgres.GenreEntity
+import com.example.firedatabase_assis.postgres.Genres
+import com.example.firedatabase_assis.postgres.Providers
+import com.example.firedatabase_assis.postgres.SubscriptionProvider
+import com.example.firedatabase_assis.postgres.UserEntity
+import com.example.firedatabase_assis.postgres.UserRequest
+import com.example.firedatabase_assis.postgres.Users
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.threeten.bp.LocalDateTime
 import org.threeten.bp.format.DateTimeFormatter
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import java.util.Calendar
 
 
@@ -66,23 +68,34 @@ SetupActivity : AppCompatActivity() {
     private var selectedOldestDate: String = ""
     private var selectedMostRecentDate: String = ""
 
+    private val retrofit = Retrofit.Builder()
+        .baseUrl(BuildConfig.POSTRGRES_API_URL)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    private val providersApi: Providers = retrofit.create(Providers::class.java)
+    private val genresApi: Genres = retrofit.create(Genres::class.java)
+    private val usersApi: Users = retrofit.create(Users::class.java)
+
 
     private val selectedGenres = mutableListOf<String>()
 
 
     private val genres = mutableListOf(
-        Genre(28, "Action"),
-        Genre(35, "Comedy"),
-        Genre(18, "Drama"),
-        Genre(14, "Fantasy"),
-        Genre(27, "Horror"),
-        Genre(9648, "Mystery"),
-        Genre(53, "Thriller"),
-        Genre(10749, "Romance")
+        GenreEntity(28, "Action"),
+        GenreEntity(35, "Comedy"),
+        GenreEntity(18, "Drama"),
+        GenreEntity(14, "Fantasy"),
+        GenreEntity(27, "Horror"),
+        GenreEntity(9648, "Mystery"),
+        GenreEntity(53, "Thriller"),
+        GenreEntity(10749, "Romance")
     )
 
-    private var minValues: List<String> = mutableListOf("0", "1", "2", "3", "4", "5")
-    private var maxValues: List<String> = mutableListOf("10", "15", "20", "25", "30")
+    private var minValues: List<String> =
+        mutableListOf("10", "20", "30", "40", "60", "75", "90", "100", "120")
+    private var maxValues: List<String> =
+        mutableListOf("60", "75", "90", "100", "120", "150", "180", "210", "240")
 
 
     private var isSaved = false
@@ -132,7 +145,7 @@ SetupActivity : AppCompatActivity() {
 
         // Add initial custom View elements to LinearLayout
         genres.forEach { genre ->
-            val genreView = createGenreView(genre.name)
+            val genreView = createGenreView(genre.genreName)
             linearLayoutGenres.addView(genreView)
         }
 
@@ -263,43 +276,56 @@ SetupActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.saveSettings).setOnClickListener {
-            saveSettings()
+            CoroutineScope(Dispatchers.IO).launch {
+                val newUser = prepareUserData()
+                saveUser(newUser)
+            }
         }
 
     }
 
     private fun filterProviders(query: String) {
-        transaction {
-            if (query.isNotEmpty()) {
-                val filteredProviders = SubscriptionProviders
-                    .selectAll()
-                    .map {
-                        it[SubscriptionProviders.providerName] to lcs(
-                            it[SubscriptionProviders.providerName],
-                            query
+        if (query.isNotEmpty()) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    // Asynchronously call the API to filter genres
+                    val response = providersApi.filterProviders(query)
+                    if (response.isSuccessful) {
+                        val filteredProviders = response.body() ?: emptyList()
+                        withContext(Dispatchers.Main) {
+                            updateProviders(filteredProviders)
+                        }
+                    } else {
+                        Log.e(
+                            "ProvidersManager",
+                            "Failed to fetch filtered Providers: ${response.message()}"
                         )
+                        withContext(Dispatchers.Main) {
+                            updateProviders(emptyList())
+                        }
                     }
-                    .sortedByDescending { it.second }
-                    .map { it.first }
-                    .take(5)
-
-                updateProviders(filteredProviders)
-            } else {
-                updateProviders(emptyList())
+                } catch (e: Exception) {
+                    Log.e("ProvidersManager", "Error fetching filtered providers", e)
+                    withContext(Dispatchers.Main) {
+                        updateProviders(emptyList())
+                    }
+                }
             }
+        } else {
+            updateProviders(emptyList())
         }
     }
 
 
-    private fun updateProviders(newProviders: List<String>) {
+    private fun updateProviders(newProviders: List<SubscriptionProvider>) {
         linearLayoutProviders.removeAllViews()
         newProviders.forEach { providerName ->
             val providerView = LayoutInflater.from(this)
                 .inflate(R.layout.provider_item, linearLayoutProviders, false)
             val textViewProviderName = providerView.findViewById<TextView>(R.id.provider_name)
-            textViewProviderName.text = providerName
+            textViewProviderName.text = providerName.toString()
             providerView.setOnClickListener {
-                editTextAddSubscription.setText(providerName)
+                editTextAddSubscription.setText(providerName.toString())
                 linearLayoutProviders.removeAllViews()
             }
             linearLayoutProviders.addView(providerView)
@@ -307,33 +333,33 @@ SetupActivity : AppCompatActivity() {
     }
 
 
-    private fun lcs(str1: String, str2: String): Int {
-        val m = str1.length
-        val n = str2.length
-        val dp = Array(m + 1) { IntArray(n + 1) }
-        for (i in 1..m) {
-            for (j in 1..n) {
-                dp[i][j] = if (str1[i - 1] == str2[j - 1]) {
-                    dp[i - 1][j - 1] + 1
-                } else {
-                    maxOf(dp[i - 1][j], dp[i][j - 1])
-                }
-            }
-        }
-        return dp[m][n]
-    }
-
     private fun filterGenres(query: String) {
         if (query.isNotEmpty()) {
-            val allGenres = DataManager.getGenres()
-            val filteredGenres = allGenres
-                .map { it to lcs(it.name, query) }
-                .sortedByDescending { it.second }
-                .map { it.first }
-                .take(5)
-
-            updateGenres(filteredGenres)
-
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    // Asynchronously call the API to filter genres
+                    val response = genresApi.filterGenres(query)
+                    if (response.isSuccessful) {
+                        val filteredGenres = response.body() ?: emptyList()
+                        withContext(Dispatchers.Main) {
+                            updateGenres(filteredGenres)
+                        }
+                    } else {
+                        Log.e(
+                            "GenresManager",
+                            "Failed to fetch filtered genres: ${response.message()}"
+                        )
+                        withContext(Dispatchers.Main) {
+                            updateGenres(emptyList())
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("GenresManager", "Error fetching filtered genres", e)
+                    withContext(Dispatchers.Main) {
+                        updateGenres(emptyList())
+                    }
+                }
+            }
         } else {
             updateGenres(emptyList())
         }
@@ -341,45 +367,61 @@ SetupActivity : AppCompatActivity() {
 
     private fun filterAvoidGenres(query: String) {
         if (query.isNotEmpty()) {
-            val allGenres = DataManager.getGenres()
-            val filteredGenres = allGenres
-                .map { it to lcs(it.name, query) }
-                .sortedByDescending { it.second }
-                .map { it.first }
-                .take(5)
-
-            updateAvoidGenres(filteredGenres)
-
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    // Asynchronously call the API to filter avoid genres
+                    val response = genresApi.filterAvoidGenres(query)
+                    if (response.isSuccessful) {
+                        val filteredAvoidGenres = response.body() ?: emptyList()
+                        withContext(Dispatchers.Main) {
+                            updateAvoidGenres(filteredAvoidGenres)
+                        }
+                    } else {
+                        Log.e(
+                            "DataManager",
+                            "Failed to fetch filtered avoid genres: ${response.message()}"
+                        )
+                        withContext(Dispatchers.Main) {
+                            updateAvoidGenres(emptyList())
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("DataManager", "Error fetching filtered avoid genres", e)
+                    withContext(Dispatchers.Main) {
+                        updateAvoidGenres(emptyList())
+                    }
+                }
+            }
         } else {
-            updateGenres(emptyList())
+            updateAvoidGenres(emptyList())
         }
     }
 
 
-    private fun updateGenres(newGenres: List<Genre>) {
+    private fun updateGenres(newGenres: List<GenreEntity>) {
         linearLayoutGenresSearch.removeAllViews()
         newGenres.forEach { genre ->
             val genreView = LayoutInflater.from(this)
                 .inflate(R.layout.genre_search_item, linearLayoutGenresSearch, false)
             val textViewGenreName = genreView.findViewById<TextView>(R.id.genres_name)
-            textViewGenreName.text = genre.name
+            textViewGenreName.text = genre.genreName
             genreView.setOnClickListener {
-                editTextAddGenre.setText(genre.name)
+                editTextAddGenre.setText(genre.genreName)
                 linearLayoutGenresSearch.removeAllViews()
             }
             linearLayoutGenresSearch.addView(genreView)
         }
     }
 
-    private fun updateAvoidGenres(newGenres: List<Genre>) {
+    private fun updateAvoidGenres(newGenres: List<GenreEntity>) {
         linearLayoutAvoidGenres.removeAllViews()
         newGenres.forEach { genre ->
             val genreView = LayoutInflater.from(this)
                 .inflate(R.layout.genre_search_item, linearLayoutAvoidGenres, false)
             val textViewGenreName = genreView.findViewById<TextView>(R.id.genres_name)
-            textViewGenreName.text = genre.name
+            textViewGenreName.text = genre.genreName
             genreView.setOnClickListener {
-                editTextAvoidGenres.setText(genre.name)
+                editTextAvoidGenres.setText(genre.genreName)
                 linearLayoutAvoidGenres.removeAllViews()
             }
             linearLayoutAvoidGenres.addView(genreView)
@@ -559,12 +601,31 @@ SetupActivity : AppCompatActivity() {
         datePickerDialog.show()
     }
 
-    private fun getProviderIds(names: List<String>): List<Int> {
-        return transaction {
-            // Query the SubscriptionProviders table
-            SubscriptionProviders
-                .select { SubscriptionProviders.providerName inList names }
-                .map { it[SubscriptionProviders.providerId] }
+    private suspend fun getProviderIds(names: List<String>): List<Int> {
+        // Call the API to fetch provider IDs based on provider names
+        val response = providersApi.getProviderIdsByNames(names)
+
+        // Check if the response is successful
+        return if (response.isSuccessful) {
+            // Return the list of provider IDs, or an empty list if the body is null
+            response.body() ?: emptyList()
+        } else {
+            // Handle the error case (e.g., log it or throw an exception)
+            emptyList()  // Return an empty list or throw an exception based on your needs
+        }
+    }
+
+    private suspend fun getGenreIds(names: List<String>): List<Int> {
+        // Call the API to fetch provider IDs based on provider names
+        val response = genresApi.getGenreIdsByNames(names)
+
+        // Check if the response is successful
+        return if (response.isSuccessful) {
+            // Return the list of provider IDs, or an empty list if the body is null
+            response.body() ?: emptyList()
+        } else {
+            // Handle the error case (e.g., log it or throw an exception)
+            emptyList()  // Return an empty list or throw an exception based on your needs
         }
     }
 
@@ -609,7 +670,7 @@ SetupActivity : AppCompatActivity() {
         return current.format(formatter)
     }
 
-    private fun saveSettings() {
+    private suspend fun prepareUserData(): UserRequest {
         // Retrieve user registration data
         val name_string = intent.getStringExtra("name") ?: ""
         val username_string = intent.getStringExtra("username") ?: ""
@@ -633,68 +694,57 @@ SetupActivity : AppCompatActivity() {
         val subscriptionIds = getProviderIds(subscriptionNames)
         val genreIds = getGenreIds(genreNames)
 
-        Log.d(
-            "SettingsInfo",
-            "GenresToAvoid: $genresToAvoid, Subscriptions: $subscriptionIds, Genres: $genreIds"
+        // Prepare the user data
+        val user = UserEntity(
+            name = name_string,
+            username = username_string,
+            email = email_string,
+            password = password,
+            language = languageId,
+            region = countryId ?: "Default",
+            minMovie = selectedMin,
+            maxMovie = selectedMax,
+            minTV = selectedMinTV,
+            maxTV = selectedMaxTV,
+            oldestDate = selectedOldestDate,
+            recentDate = selectedMostRecentDate,
+            recentLogin = "NULL",
+            createdAt = getCurrentTimestamp(),
         )
 
-        // Insert data into the database
-        val userId = transaction {
-            // Insert the user
-            Users.insert {
-                it[name] = name_string
-                it[username] = username_string
-                it[email] = email_string
-                it[pswd] = password
-                it[language] = languageId
-                it[region] = countryId ?: "Default"
-                it[minMovie] = selectedMin
-                it[maxMovie] = selectedMax
-                it[minTV] = selectedMinTV
-                it[maxTV] = selectedMaxTV
-                it[oldestDate] = selectedOldestDate
-                it[recentDate] = selectedMostRecentDate
-                it[createdAt] = getCurrentTimestamp()
-            }
-
-            // Retrieve the userId of the inserted user
-            Users
-                .select { Users.email eq email_string } // Assuming email is unique
-                .single()[Users.userId]
-        }
-
-        val sharedPreferences = getSharedPreferences("user_prefs", MODE_PRIVATE)
-        with(sharedPreferences.edit()) {
-            putInt("userId", userId)
-            apply()
-        }
-
-
-        // Insert user subscriptions
-        transaction {
-            subscriptionIds.forEach { providerId ->
-                UserSubscriptions.insert {
-                    it[this.userId] = userId // Use the retrieved userId
-                    it[providerID] = providerId
-                    it[avoidGenres] = genresToAvoid
-                }
-            }
-        }
-
-        // Insert user genres
-        transaction {
-            genreIds.forEach { genreId ->
-                UserGenres.insert {
-                    it[this.userId] = userId // Use the retrieved userId
-                    it[genreID] = genreId
-                }
-            }
-        }
-
-        // Navigate to LoginForm
-        val intent = Intent(this, LoginForm::class.java)
-        startActivity(intent)
-        finish()
+        // Return the UserRequest
+        return UserRequest(
+            user = user,
+            subscriptions = subscriptionIds,
+            genres = genreIds,
+            avoidGenres = genresToAvoid.split(", ")
+                .mapNotNull { it.toIntOrNull() } // Convert to list of integers and filter out invalid values
+                .filter { it != 0 }
+        )
     }
+
+
+    private suspend fun saveUser(userRequest: UserRequest) {
+        // Directly call the API to save the user
+        val response = usersApi.addUser(userRequest)
+
+        // Check if the response is successful
+        if (response.isSuccessful) {
+            // Handle successful user creation (e.g., navigate to login)
+            // Navigate to LoginForm
+            val intent = Intent(this, LoginForm::class.java)
+            startActivity(intent)
+            finish()
+        } else {
+            Log.e(
+                "UserCreation",
+                "API call failed: Code ${response.code()}, Message: ${response.message()}, Body: ${
+                    response.errorBody()?.string()
+                }"
+            )
+
+        }
+    }
+
 
 }

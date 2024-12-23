@@ -1,27 +1,49 @@
+package com.example.firedatabase_assis.explore
+
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.lifecycle.LifecycleOwner
 import androidx.recyclerview.widget.RecyclerView
+import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.database.UserTrailerInteractions
-import com.example.firedatabase_assis.explore.CustomPlayer
+import com.example.firedatabase_assis.login_setup.UserViewModel
+import com.example.firedatabase_assis.postgres.Posts
+import com.example.firedatabase_assis.postgres.TrailerInteractions
+import com.example.firedatabase_assis.postgres.UserEntity
+import com.example.firedatabase_assis.postgres.UserTrailerInteraction
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.options.IFramePlayerOptions
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.transactions.transaction
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.threeten.bp.LocalDateTime
+import org.threeten.bp.format.DateTimeFormatter
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class VideoAdapter(
     private val videos: MutableList<Pair<String, Int>>, // List of pairs (videoKey, postId)
     private val lifecycleOwner: LifecycleOwner,
-    private val UserId: Int // Pass userId to the adapter
+    private val userViewModel: UserViewModel // Pass UserViewModel for accessing user data
 ) : RecyclerView.Adapter<VideoAdapter.ViewHolder>() {
 
     private var currentlyPlayingPlayer: YouTubePlayer? = null
+
+    // Create the Retrofit instance
+    private val retrofit = Retrofit.Builder()
+        .baseUrl(BuildConfig.POSTRGRES_API_URL)  // Replace with your API base URL
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    // Instantiate your Posts API
+    private val postsApi = retrofit.create(Posts::class.java)
+    private val interactionsApi = retrofit.create(TrailerInteractions::class.java)
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val youtubePlayerView: YouTubePlayerView =
@@ -86,38 +108,68 @@ class VideoAdapter(
                             customPlayer.startTrackingTime()
                         }
 
-                        // Handle other states if needed
                         else -> Unit
                     }
                 }
             })
         }
 
-        fun saveInteractionData() {
-            val playTime = customPlayer.getPlayTime()
-            val replayCount = customPlayer.getReplayCount()
-            val IsMuted = customPlayer.getIsMuted()
-            val likeState = customPlayer.getLikeState()
-            val saveState = customPlayer.getSaveState()
-            val commentButtonPressed = customPlayer.wasCommentButtonPressed()
-            val commentMade = customPlayer.wasCommentMade()
-            val (_, postId) = videos[bindingAdapterPosition]
-
-            // Save this data to the database using Exposed ORM
-            transaction {
-                UserTrailerInteractions.insert {
-                    it[userId] = UserId
-                    it[UserTrailerInteractions.postId] = postId
-                    it[timeSpent] = playTime
-                    it[replayTimes] = replayCount
-                    it[isMuted] = IsMuted
-                    it[trailerLikeState] = likeState
-                    it[trailerSaveState] = saveState
-                    it[UserTrailerInteractions.commentButtonPressed] = commentButtonPressed
-                    it[UserTrailerInteractions.commentMade] = commentMade
-                }
+        suspend fun saveInteractionData(bindingAdapterPosition: Int) {
+            userViewModel.currentUser.observe(lifecycleOwner) { user ->
+                user?.let { currentUser ->
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val interactionData =
+                            createUserTrailerInteractionData(bindingAdapterPosition, currentUser)
+                        interactionData.let {
+                            try {
+                                val response = interactionsApi.saveInteractionData(it)
+                                if (response.isSuccessful) {
+                                    Log.d(
+                                        "SaveInteraction",
+                                        "Data saved successfully: ${response.body()}"
+                                    )
+                                } else {
+                                    Log.e(
+                                        "SaveInteraction",
+                                        "Failed to save data: ${response.errorBody()?.string()}"
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                Log.e("SaveInteraction", "Error saving data", e)
+                            }
+                        }
+                    }
+                } ?: Log.e("SaveInteraction", "User not found. Cannot save interaction.")
             }
         }
+
+
+        private suspend fun createUserTrailerInteractionData(
+            position: Int,
+            user: UserEntity
+        ): UserTrailerInteraction {
+            val (_, postId) = videos[position]
+            val post = withContext(Dispatchers.IO) { postsApi.fetchPostEntityById(postId) }
+
+            return UserTrailerInteraction(
+                user = user,
+                post = post,
+                timeSpent = customPlayer.getPlayTime(),
+                replayCount = customPlayer.getReplayCount(),
+                isMuted = customPlayer.getIsMuted(),
+                likeState = customPlayer.getLikeState(),
+                saveState = customPlayer.getSaveState(),
+                commentButtonPressed = customPlayer.wasCommentButtonPressed(),
+                commentMade = customPlayer.wasCommentMade(),
+                timestamp = getCurrentTimestamp()
+            )
+        }
+    }
+
+    private fun getCurrentTimestamp(): String {
+        val current = LocalDateTime.now()
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+        return current.format(formatter)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -136,7 +188,9 @@ class VideoAdapter(
     }
 
     override fun onViewDetachedFromWindow(holder: ViewHolder) {
-        holder.saveInteractionData()
+        CoroutineScope(Dispatchers.IO).launch {
+            holder.saveInteractionData(holder.bindingAdapterPosition)
+        }
         super.onViewDetachedFromWindow(holder)
     }
 

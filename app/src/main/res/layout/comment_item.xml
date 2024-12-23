@@ -2,18 +2,47 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
+    android:orientation="vertical"
     android:padding="8dp">
 
-    <TextView
-        android:id="@+id/comment_author"
-        android:layout_width="wrap_content"
+    <!-- Comment Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textStyle="bold"/>
+        android:orientation="horizontal"
+        android:padding="8dp">
 
+        <TextView
+            android:id="@+id/comment_author"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/comment_content"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp" />
+
+    </LinearLayout>
+
+    <!-- Centered "View Replies" Button -->
     <TextView
-        android:id="@+id/comment_content"
+        android:id="@+id/view_replies_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:paddingLeft="8dp" />
+        android:layout_gravity="center"
+        android:text="View Replies"
+        android:layout_marginTop="10dp"
+        android:textColor="?android:attr/colorPrimary" />
+
+    <!-- RecyclerView for replies, initially hidden -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/replies_recycler_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:visibility="gone"
+        android:layout_marginStart="50dp"
+        android:layout_marginEnd="8dp" />
 </LinearLayout>

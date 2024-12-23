@@ -12,27 +12,30 @@ import android.view.animation.AnimationUtils
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.database.Posts
-import com.example.firedatabase_assis.database.UserTrailerInteractions
 import com.example.firedatabase_assis.home_page.CommentFragment
+import com.example.firedatabase_assis.postgres.Posts
+import com.example.firedatabase_assis.postgres.TrailerInteractions
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants.PlayerState
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.utils.YouTubePlayerTracker
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
-import org.jetbrains.exposed.sql.select
-import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.update
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.threeten.bp.LocalDateTime
 import org.threeten.bp.format.DateTimeFormatter
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class CustomPlayer(
     private val context: Context,
     customPlayerUi: View,
     private val youTubePlayer: YouTubePlayer,
     youTubePlayerView: YouTubePlayerView,
-    private val PostID: Int // Add postId as a parameter
+    private val postID: Int // Add postId as a parameter
 ) : AbstractYouTubePlayerListener() {
 
     private val playerTracker: YouTubePlayerTracker = YouTubePlayerTracker()
@@ -59,6 +62,16 @@ class CustomPlayer(
     private var commentButtonPressed: Boolean = false
     private var commentMade: Boolean = false
     private var replayCount = 0
+
+    // Create the Retrofit instance
+    val retrofit = Retrofit.Builder()
+        .baseUrl(BuildConfig.POSTRGRES_API_URL)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    // Instantiate your Posts API
+    val postsApi = retrofit.create(Posts::class.java)
+    val interactionsApi = retrofit.create(TrailerInteractions::class.java)
 
     init {
         youTubePlayer.removeListener(playerTracker)
@@ -94,18 +107,14 @@ class CustomPlayer(
                 fragmentContainer.layoutParams = layoutParams
 
                 activity.supportFragmentManager.beginTransaction()
-                    .replace(
-                        R.id.fragment_container,
-                        CommentFragment(PostID)
-                    )
+                    .replace(R.id.fragment_container, CommentFragment(postID))
                     .addToBackStack(null)
                     .commit()
 
-                // Update timestamp
-                updateInteractionTimestamp(PostID)
+                // Update timestamp for comment interaction
+                updateInteractionTimestamp(postID)
             }
         }
-
 
         saved.setOnClickListener {
             saveState = saved.tag != "saved"
@@ -114,10 +123,9 @@ class CustomPlayer(
             )
             saved.tag = if (saveState) "saved" else "unsaved"
 
-            // Update timestamp
-            updateInteractionTimestamp(PostID)
+            // Update timestamp for save interaction
+            updateInteractionTimestamp(postID)
         }
-
 
         muteIcon.setOnClickListener {
             toggleMute()
@@ -163,10 +171,9 @@ class CustomPlayer(
         insideHeart.startAnimation(animationSet)
 
         // Update like count and timestamp
-        updateLikeCount(PostID)
-        updateInteractionTimestamp(PostID)
+        updateLikeCount(postID)
+        updateInteractionTimestamp(postID)
     }
-
 
     private fun toggleMute() {
         isMuted = !isMuted
@@ -187,16 +194,15 @@ class CustomPlayer(
     }
 
     private fun updateLikeCount(postId: Int) {
-        transaction {
-            val currentLikeCount = Posts.slice(Posts.trailerLikeCount)
-                .select { Posts.postId eq postId }
-                .singleOrNull()?.get(Posts.trailerLikeCount) ?: 0
-
-            Posts.update({ Posts.postId eq postId }) {
-                it[trailerLikeCount] = currentLikeCount + 1
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                postsApi.updateTrailerLikeCount(postId)
+            } catch (e: Exception) {
+                // Handle error
             }
         }
     }
+
 
     // Start tracking play time
     fun startTrackingTime() {
@@ -210,8 +216,7 @@ class CustomPlayer(
     fun stopTrackingTime() {
         isTrackingTime = false
         handler.removeCallbacks(trackingRunnable)
-        // Now you can use the playTime value for further processing
-        // For example, saving it to the database
+        // Save playTime to the database if necessary
     }
 
     // Reset the play time
@@ -256,11 +261,12 @@ class CustomPlayer(
     }
 
     private fun updateInteractionTimestamp(postId: Int) {
-        transaction {
-            UserTrailerInteractions.update({ UserTrailerInteractions.postId eq postId }) {
-                it[timestamp] = getCurrentTimestamp()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                interactionsApi.updateInteractionTimestamp(postId, getCurrentTimestamp())
+            } catch (e: Exception) {
+                // Handle error
             }
         }
     }
-
 }

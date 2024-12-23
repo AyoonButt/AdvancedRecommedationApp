@@ -12,6 +12,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import com.bumptech.glide.Glide
+import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
@@ -95,7 +96,7 @@ class PosterFragment : Fragment() {
             .addHeader("accept", "application/json")
             .addHeader(
                 "Authorization",
-                "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJkOWRkOWQzYWU4MzhkYjE4ZDUxZjg4Y2Q1MGU0NzllNCIsIm5iZiI6MTcyMTA4Mzk5MS42ODc5NTUsInN1YiI6IjY2MjZiM2ZkMjU4ODIzMDE2NDkxODliMSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.dXcgTC2h_FTmM94Xx-pE04jF3F8tPoFYBxcKMmnV338"
+                "Bearer ${BuildConfig.TMDB_API_KEY_BEARER}"
             )
             .build()
 

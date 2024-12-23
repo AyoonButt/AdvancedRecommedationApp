@@ -1,12 +1,13 @@
-package com.example.firedatabase_assis.utils
-
+import android.R
 import android.content.Context
+import android.util.Log
 import android.widget.ArrayAdapter
 import android.widget.Spinner
-import com.example.firedatabase_assis.database.Genres
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.transactions.transaction
+import com.example.firedatabase_assis.BuildConfig
+import com.example.firedatabase_assis.postgres.GenreEntity
+import com.example.firedatabase_assis.postgres.Genres
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 
 object SpinnerUtils {
@@ -44,8 +45,8 @@ object SpinnerUtils {
             )
         )
 
-        val languageAdapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, languages)
-        languageAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        val languageAdapter = ArrayAdapter(context, R.layout.simple_spinner_item, languages)
+        languageAdapter.setDropDownViewResource(R.layout.simple_spinner_dropdown_item)
         spinner.adapter = languageAdapter
     }
 
@@ -80,94 +81,60 @@ object SpinnerUtils {
             )
         )
 
-        val regionAdapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, regions)
-        regionAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        val regionAdapter = ArrayAdapter(context, R.layout.simple_spinner_item, regions)
+        regionAdapter.setDropDownViewResource(R.layout.simple_spinner_dropdown_item)
         spinner.adapter = regionAdapter
     }
 }
 
-data class Genre(val id: Int, var name: String)
+object GenresManager {
+    private val genres = mutableSetOf<GenreEntity>()
 
-object DataManager {
-    val genres = mutableSetOf<Genre>()
+    private val retrofit = Retrofit.Builder()
+        .baseUrl(BuildConfig.POSTRGRES_API_URL)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    private val genresApi: Genres = retrofit.create(Genres::class.java)
 
     // Initialize with default genres
-    init {
-        transaction {
-            // Check if the database has any genres
-            if (Genres.selectAll().empty()) {
-                // If no genres in the database, add the default genres
-                val defaultGenres = listOf(
-                    Genre(28, "Action"),
-                    Genre(12, "Adventure"),
-                    Genre(16, "Animation"),
-                    Genre(35, "Comedy"),
-                    Genre(80, "Crime"),
-                    Genre(99, "Documentary"),
-                    Genre(18, "Drama"),
-                    Genre(10751, "Family"),
-                    Genre(14, "Fantasy"),
-                    Genre(36, "History"),
-                    Genre(27, "Horror"),
-                    Genre(10402, "Music"),
-                    Genre(9648, "Mystery"),
-                    Genre(10749, "Romance"),
-                    Genre(878, "Science Fiction"),
-                    Genre(10770, "TV Movie"),
-                    Genre(53, "Thriller"),
-                    Genre(10752, "War"),
-                    Genre(37, "Western"),
-                    Genre(10759, "Action & Adventure"),
-                    Genre(10762, "Kids"),
-                    Genre(10763, "News"),
-                    Genre(10764, "Reality"),
-                    Genre(10765, "Sci-Fi & Fantasy"),
-                    Genre(10766, "Soap"),
-                    Genre(10767, "Talk"),
-                    Genre(10768, "War & Politics")
-                )
-
-                // Insert default genres into the database
-                defaultGenres.forEach { genre ->
-                    Genres.insert {
-                        it[genreId] = genre.id
-                        it[genreName] = genre.name
-                    }
-                }
-
-                // Add to the in-memory set
-                genres.addAll(defaultGenres)
-            } else {
-                // Load genres from the database
-                Genres.selectAll().forEach {
-                    val genre = Genre(
-                        id = it[Genres.genreId],
-                        name = it[Genres.genreName]
-                    )
-                    genres.add(genre)
-                }
-            }
+    suspend fun init() {
+        try {
+            insertDefaultGenres()
+        } catch (e: Exception) {
+            Log.e("DataManager", "Error loading genres", e)
         }
     }
 
-    fun getGenres(): List<Genre> {
-        return genres.toList()
-    }
 
-    fun getGenreIds(names: List<String>): List<Int> {
-        return genres.filter { it.name in names }.map { it.id }
-    }
-
-    // Optionally: Method to add new genres to the database and the in-memory set
-    fun addGenre(genre: Genre) {
-        transaction {
-            Genres.insert {
-                it[genreId] = genre.id
-                it[genreName] = genre.name
+    // Method to add a new genre
+    suspend fun addGenre(genre: GenreEntity) {
+        try {
+            val response = genresApi.addGenre(genre)
+            if (response.isSuccessful) {
+                genres.add(genre)
+            } else {
+                Log.e("DataManager", "Failed to add genre: ${response.errorBody()?.string()}")
             }
-            genres.add(genre)
+        } catch (e: Exception) {
+            Log.e("DataManager", "Error adding genre", e)
+        }
+    }
+
+    // Method to insert default genres using API
+    private suspend fun insertDefaultGenres() {
+        try {
+            val response = genresApi.insertDefaultGenres()
+            if (response.isSuccessful) {
+                init()
+            } else {
+                Log.e(
+                    "DataManager",
+                    "Failed to insert default genres: ${response.errorBody()?.string()}"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("DataManager", "Error inserting default genres", e)
         }
     }
 }
-
-

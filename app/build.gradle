@@ -15,7 +15,7 @@ android {
         versionName "1.0"
         buildConfigField "String", "TMDB_API_KEY", "\"d9dd9d3ae838db18d51f88cd50e479e4\""
         buildConfigField "String", "TMDB_API_KEY_BEARER", "\"eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJkOWRkOWQzYWU4MzhkYjE4ZDUxZjg4Y2Q1MGU0NzllNCIsIm5iZiI6MTcyMTA4Mzk5MS42ODc5NTUsInN1YiI6IjY2MjZiM2ZkMjU4ODIzMDE2NDkxODliMSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.dXcgTC2h_FTmM94Xx-pE04jF3F8tPoFYBxcKMmnV338\""
-
+        buildConfigField "String", "POSTRGRES_API_URL", "\"http://192.168.1.115:8080/\""
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -60,8 +60,8 @@ dependencies {
     implementation 'com.github.bumptech.glide:glide:4.14.2'
     implementation 'com.github.bumptech.glide:volley-integration:4.14.2'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.4"
-    implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.8.4"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7"
+    implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.8.7"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3"
     implementation "androidx.room:room-runtime:2.6.1"
     implementation "androidx.room:room-ktx:2.6.1"

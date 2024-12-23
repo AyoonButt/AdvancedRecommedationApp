@@ -2,30 +2,32 @@ package com.example.firedatabase_assis.login_setup
 
 
 //import HomePage
-
+import GenresManager
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.work.Constraints
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequest
-import androidx.work.WorkManager
 import com.example.firedatabase_assis.databinding.ActivityMainBinding
-import com.example.firedatabase_assis.workers.ApiWorker
+import com.example.firedatabase_assis.postgres.ProvidersManager
 import com.jakewharton.threetenabp.AndroidThreeTen
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class RegisterActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+
+    // Initialize GenresManager and ProviderManager
+    private val genresManager = GenresManager
+    private val providerManager = ProvidersManager()  // Initialize ProvidersApi
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AndroidThreeTen.init(this)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        setupWorkManager()
 
         binding.btnrgs.setOnClickListener {
             handleRegistration()
@@ -35,20 +37,6 @@ class RegisterActivity : AppCompatActivity() {
             val intent = Intent(this, LoginForm::class.java)
             startActivity(intent)
         }
-    }
-
-    private fun setupWorkManager() {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        val WorkerRequest = OneTimeWorkRequest.Builder(ApiWorker::class.java)
-            .setConstraints(constraints)
-            .build()
-
-
-        WorkManager.getInstance(applicationContext).enqueue(WorkerRequest)
-
     }
 
     private fun handleRegistration() {
@@ -62,13 +50,33 @@ class RegisterActivity : AppCompatActivity() {
 
         if (name.isNotEmpty() && username.isNotEmpty() && password.isNotEmpty()) {
             if (passwordPattern.matches(password)) {
-                val intent = Intent(this, SetupActivity::class.java).apply {
-                    putExtra("name", name)
-                    putExtra("username", username)
-                    putExtra("email", email)
-                    putExtra("password", password)
+                // Start the async initialization of genres and providers
+                CoroutineScope(Dispatchers.Main).launch {
+                    try {
+                        // Initialize genres and providers concurrently
+                        withContext(Dispatchers.IO) {
+                            genresManager.init()
+                            providerManager.fetchAndSendProviders()
+                        }
+
+                        // Once initialized, proceed to SetupActivity
+                        val intent =
+                            Intent(this@RegisterActivity, SetupActivity::class.java).apply {
+                                putExtra("name", name)
+                                putExtra("username", username)
+                                putExtra("email", email)
+                                putExtra("password", password)
+                            }
+                        startActivity(intent)
+
+                    } catch (e: Exception) {
+                        Toast.makeText(
+                            this@RegisterActivity,
+                            "Error initializing data. Please try again.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
-                startActivity(intent)
             } else {
                 Toast.makeText(
                     this,

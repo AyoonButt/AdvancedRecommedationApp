@@ -29,8 +29,8 @@ interface ApiService {
         @Query("include_video") includeVideo: Boolean,
         @Query("language") language: String,
         @Query("page") page: Int,
-        @Query("primary_release_date.gte") releaseDateGte: String,
-        @Query("primary_release_date.lte") releaseDateLte: String,
+        @Query("first_air_date.gte") releaseDateGte: String,
+        @Query("first_air_date.lte") releaseDateLte: String,
         @Query("sort_by") sortBy: String,
         @Query("watch_region") region: String,
         @Query("with_runtime.gte") runtimeGte: Int,
@@ -41,24 +41,29 @@ interface ApiService {
     @GET("movie/{movie_id}/videos")
     suspend fun getMovieVideos(
         @Path("movie_id") movieId: Int,
-        @Query("language") language: String
+        @Query("language") language: String,
+        @Query("api_key") apiKey: String
     ): Response<VideoResponse>
 
     @GET("tv/{series_id}/videos")
     suspend fun getTvVideos(
         @Path("series_id") seriesId: Int,
-        @Query("language") language: String
+        @Query("language") language: String,
+        @Query("api_key") apiKey: String
     ): Response<VideoResponse>
 
     @GET("movie/{movie_id}/credits")
     suspend fun getMovieCredits(
         @Path("movie_id") movieId: Int,
-        @Query("language") language: String
+        @Query("language") language: String,
+        @Query("api_key") apiKey: String
     ): Response<CreditsResponse>
 
     @GET("tv/{series_id}/aggregate_credits")
     suspend fun getTvCredits(
         @Path("series_id") seriesId: Int,
-        @Query("language") language: String
+        @Query("language") language: String,
+        @Query("api_key") apiKey: String
     ): Response<CreditsResponse>
+
 }

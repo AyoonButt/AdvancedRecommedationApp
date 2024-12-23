@@ -1,24 +1,24 @@
 package com.example.firedatabase_assis.explore
 
-import FastSnapHelper
-import VideoAdapter
 import android.os.Bundle
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
-import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.database.Posts
 import com.example.firedatabase_assis.home_page.CommentFragment
+import com.example.firedatabase_assis.login_setup.UserViewModel
+import com.example.firedatabase_assis.postgres.Posts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.transactions.transaction
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class LoadVideos : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
@@ -26,30 +26,24 @@ class LoadVideos : AppCompatActivity() {
     private var offset = 0
     private val limit = 10
     private var isLoading = false
-    private var userId: Int = 0
+
+    private val userViewModel: UserViewModel by viewModels() // Initialize UserViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_load_videos)
 
-        // Fetch userId from SharedPreferences
-        val sharedPreferences = getSharedPreferences("MyPrefs", MODE_PRIVATE)
-        userId = sharedPreferences.getInt("userId", 0) // Default to 0 if not found
-
-        if (userId == 0) {
-            showError("User ID not found in SharedPreferences")
-            return
-        }
-
         recyclerView = findViewById(R.id.recycler_view)
         recyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
-        adapter = VideoAdapter(mutableListOf(), this, userId)
+        adapter = VideoAdapter(mutableListOf(), this, userViewModel)
         recyclerView.adapter = adapter
 
         val snapHelper = FastSnapHelper(this)
         snapHelper.attachToRecyclerView(recyclerView)
 
+
         loadMoviesAndSeriesFromBottomUp()
+
 
         recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -60,7 +54,9 @@ class LoadVideos : AppCompatActivity() {
                 val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
 
                 if (!isLoading && (visibleItemCount + firstVisibleItemPosition) >= totalItemCount && firstVisibleItemPosition >= 0) {
-                    loadMoviesAndSeriesFromBottomUp()
+                    userViewModel.currentUser.value?.userId?.let {
+                        loadMoviesAndSeriesFromBottomUp()
+                    }
                 }
             }
         })
@@ -83,7 +79,7 @@ class LoadVideos : AppCompatActivity() {
         isLoading = true
         lifecycleScope.launch {
             val videos = withContext(Dispatchers.IO) {
-                fetchVideosFromDatabase(limit, offset)
+                fetchVideosFromApi(limit, offset)
             }
             if (videos.isNotEmpty()) {
                 offset += limit
@@ -93,24 +89,33 @@ class LoadVideos : AppCompatActivity() {
         }
     }
 
-    private fun fetchVideosFromDatabase(limit: Int, offset: Int): List<Pair<String, Int>> {
-        val videoData = mutableListOf<Pair<String, Int>>()
+    // Create the Retrofit instance
+    private val retrofit = Retrofit.Builder()
+        .baseUrl(BuildConfig.POSTRGRES_API_URL) // Replace with your API base URL
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
 
-        transaction {
-            val postsQuery = Posts
-                .selectAll()
-                .limit(limit, offset.toLong())
+    // Instantiate your Posts API
+    private val postsApi = retrofit.create(Posts::class.java)
 
-            for (post in postsQuery) {
-                val postId = post[Posts.postId]
-                val videoKey = post[Posts.videoKey]
-                if (videoKey != null) {
-                    videoData.add(Pair(videoKey, postId))
-                }
+    private suspend fun fetchVideosFromApi(limit: Int, offset: Int): List<Pair<String, Int>> {
+        return try {
+            // Make the API call
+            val response = postsApi.getVideos(limit, offset)
+
+            // Check if the response is successful
+            if (response.isSuccessful) {
+                response.body() ?: emptyList() // Return the list or an empty list if null
+            } else {
+                // Handle the error
+                println("Error: ${response.errorBody()?.string()}")
+                emptyList()
             }
+        } catch (e: Exception) {
+            // Handle exceptions (e.g., network issues)
+            println("Exception: ${e.message}")
+            emptyList()
         }
-
-        return videoData
     }
 
     private fun processMovieVideos(videos: List<Pair<String, Int>>) {
@@ -120,9 +125,6 @@ class LoadVideos : AppCompatActivity() {
         }
     }
 
-    private fun showError(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-    }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         // Check if CommentFragment is visible

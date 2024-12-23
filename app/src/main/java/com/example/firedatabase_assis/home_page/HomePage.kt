@@ -8,29 +8,27 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.database.Posts
 import com.example.firedatabase_assis.databinding.ActivityHomePageBinding
 import com.example.firedatabase_assis.explore.LoadVideos
+import com.example.firedatabase_assis.login_setup.UserViewModel
+import com.example.firedatabase_assis.postgres.PostEntity
+import com.example.firedatabase_assis.postgres.Posts
 import com.example.firedatabase_assis.search.SearchActivity
 import com.example.firedatabase_assis.settings.SettingsActivity
-import com.example.firedatabase_assis.workers.Post
 import kotlinx.coroutines.launch
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.transactions.transaction
-
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class HomePage : AppCompatActivity() {
     private lateinit var binding: ActivityHomePageBinding
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: MyPostAdapter
+    private lateinit var postsService: Posts
 
-    // Mutable list to hold the posts data
-    private var postData: MutableList<Post> = mutableListOf()
-
-    // Flag to indicate whether data is currently being loaded
+    private var postData: MutableList<PostEntity> = mutableListOf()
     private var isLoading = false
-
     private var offset = 0
     private val limit = 10
 
@@ -41,8 +39,17 @@ class HomePage : AppCompatActivity() {
 
         recyclerView = findViewById(R.id.recycler_view)
         recyclerView.layoutManager = LinearLayoutManager(this)
-        adapter = MyPostAdapter(this, movies = postData)
+        adapter = MyPostAdapter(this, movies = postData, UserViewModel())
         recyclerView.adapter = adapter
+
+        // Initialize Retrofit
+        val retrofit = Retrofit.Builder()
+            .baseUrl(BuildConfig.POSTRGRES_API_URL)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+
+        postsService = retrofit.create(Posts::class.java)
+
 
         loadData()
 
@@ -97,41 +104,32 @@ class HomePage : AppCompatActivity() {
         isLoading = true
 
         lifecycleScope.launch {
-            val newMovies = fetchPostsFromDatabase(limit, offset)
-            if (newMovies.isNotEmpty()) {
-                postData.addAll(newMovies)
-                adapter.notifyDataSetChanged()
-                offset += limit
+            try {
+                // Make the API call
+                val response = postsService.getPaginatedPosts(limit, offset)
+
+                // Check if the response is successful
+                if (response.isSuccessful) {
+                    val newMovies = response.body() ?: emptyList()
+
+                    if (newMovies.isNotEmpty()) {
+                        // Add the new data to the list and update the adapter
+                        postData.addAll(newMovies)
+                        adapter.notifyDataSetChanged()
+                        offset += limit
+                    }
+                } else {
+                    // Log or handle the error response
+                    println("Error: ${response.code()} - ${response.message()}")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                isLoading = false
             }
-            isLoading = false
         }
     }
 
-    private suspend fun fetchPostsFromDatabase(limit: Int, offset: Int): List<Post> {
-        return transaction {
-            Posts.selectAll()
-                .limit(limit, offset.toLong())
-                .map { row ->
-                    Post(
-                        postId = row[Posts.postId],
-                        tmdbId = row[Posts.tmdbId],
-                        type = row[Posts.type],
-                        title = row[Posts.title],
-                        subscription = row[Posts.subscription],
-                        releaseDate = row[Posts.releaseDate],
-                        overview = row[Posts.overview],
-                        posterPath = row[Posts.posterPath],
-                        voteAverage = row[Posts.voteAverage],
-                        voteCount = row[Posts.voteCount],
-                        originalLanguage = row[Posts.originalLanguage],
-                        originalTitle = row[Posts.originalTitle],
-                        popularity = row[Posts.popularity],
-                        genreIds = row[Posts.genreIds],
-                        videoKey = row[Posts.videoKey]
-                    )
-                }
-        }
-    }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         val fragmentContainer = findViewById<View>(R.id.fragment_container)
@@ -146,4 +144,8 @@ class HomePage : AppCompatActivity() {
         }
         return super.dispatchTouchEvent(event)
     }
+}
+
+private fun <E> MutableList<E>.addAll(elements: List<PostEntity>) {
+
 }
