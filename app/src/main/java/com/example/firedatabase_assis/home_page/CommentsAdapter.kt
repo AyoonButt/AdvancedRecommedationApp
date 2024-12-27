@@ -1,6 +1,7 @@
 package com.example.firedatabase_assis.home_page
 
 import android.content.Context
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -8,19 +9,17 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.login_setup.UserViewModel
 import com.example.firedatabase_assis.postgres.CommentEntity
 import com.example.firedatabase_assis.postgres.Comments
 import com.example.firedatabase_assis.postgres.PostEntity
 import com.example.firedatabase_assis.postgres.Posts
 import com.example.firedatabase_assis.postgres.ReplyRequest
 import com.example.firedatabase_assis.postgres.UserEntity
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -30,14 +29,19 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 class CommentsAdapter(
     private val context: Context,
-    private val lifecycleOwner: LifecycleOwner,
-    private var comments: List<CommentEntity>,
-    private val postId: Int, // Only postId is passed now, not PostEntity
-    private val userViewModel: UserViewModel
+    comments: List<CommentEntity>,
+    private val postId: Int,
+    private val currentUser: UserEntity?,
+    private val onCommentAdded: (() -> Unit)? = null  // Add this callback
 ) : RecyclerView.Adapter<CommentsAdapter.CommentViewHolder>() {
 
-    private fun getUserFromViewModel(): UserEntity? {
-        return userViewModel.currentUser.value // Return UserEntity object
+    private var comments: MutableList<CommentEntity> = comments.toMutableList()
+
+
+    init {
+        Log.d("CommentsAdapter", "Initializing with ${comments.size} comments")
+        Log.d("CommentsAdapter", "Current user: $currentUser")
+        Log.d("CommentsAdapter", "Post ID: $postId")
     }
 
     private fun getRetrofitInstance(): Retrofit {
@@ -75,17 +79,26 @@ class CommentsAdapter(
         val api = retrofit.create(Comments::class.java)
 
         try {
+            Log.d("addCommentToApi", "Sending comment to API: $comment")
             val response = api.addComment(comment)
+            Log.d("addCommentToApi", "Response received: $response")
+
             if (response.isSuccessful) {
+                Log.d("addCommentToApi", "Comment added successfully")
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Comment added", Toast.LENGTH_SHORT).show()
                 }
             } else {
+                Log.e(
+                    "addCommentToApi",
+                    "Failed to add comment. Response: ${response.errorBody()?.string()}"
+                )
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Failed to add comment", Toast.LENGTH_SHORT).show()
                 }
             }
         } catch (e: Exception) {
+            Log.e("addCommentToApi", "Network error occurred: ${e.message}", e)
             withContext(Dispatchers.Main) {
                 Toast.makeText(context, "Network error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
@@ -99,23 +112,33 @@ class CommentsAdapter(
         val replyRequest = ReplyRequest(userId, replyText, sentiment = null)
 
         try {
+            Log.d("addReplyToApi", "Sending reply to API: $replyRequest for commentId: $commentId")
             val response = api.addReply(userId, commentId, replyRequest)
+            Log.d("addReplyToApi", "Response received: $response")
+
             if (response.isSuccessful) {
+                Log.d("addReplyToApi", "Reply added successfully")
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Reply added", Toast.LENGTH_SHORT).show()
                 }
                 // Fetch the updated list of replies for the comment
                 val updatedReplies = fetchRepliesForComment(commentId)
+                Log.d("addReplyToApi", "Updated replies fetched: $updatedReplies")
                 // Update the comment with the new list of replies
                 withContext(Dispatchers.Main) {
                     updateRepliesForComment(commentId, updatedReplies)
                 }
             } else {
+                Log.e(
+                    "addReplyToApi",
+                    "Failed to add reply. Response: ${response.errorBody()?.string()}"
+                )
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Failed to add reply", Toast.LENGTH_SHORT).show()
                 }
             }
         } catch (e: Exception) {
+            Log.e("addReplyToApi", "Network error occurred: ${e.message}", e)
             withContext(Dispatchers.Main) {
                 Toast.makeText(context, "Network error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
@@ -123,99 +146,176 @@ class CommentsAdapter(
         }
     }
 
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CommentViewHolder {
+        Log.d("CommentsAdapter", "Creating new ViewHolder")
+        val view = LayoutInflater.from(parent.context).inflate(R.layout.comment_item, parent, false)
+        return CommentViewHolder(view).also {
+            Log.d("CommentsAdapter", "ViewHolder created successfully")
+        }
+    }
+
 
     override fun onBindViewHolder(holder: CommentViewHolder, position: Int) {
         val comment = comments[position]
-        holder.username.text = comment.user.name
-        holder.content.text = comment.content
 
+
+        // Bind basic comment data
+        holder.apply {
+            username.text = comment.user.name
+            content.text = comment.content
+
+            // Reset view state
+            commentInput.text.clear()
+            repliesRecyclerView.visibility = View.GONE
+            viewRepliesButton.visibility =
+                if (comment.replies.isEmpty()) View.GONE else View.VISIBLE
+        }
+
+        // Handle comment/reply submission
         holder.addCommentButton.setOnClickListener {
+            Log.d("CommentsAdapter", "Add Button Clicked")
             val replyText = holder.commentInput.text.toString().trim()
-            val user = getUserFromViewModel()
 
-            if (replyText.isNotEmpty() && user != null) {
-                lifecycleOwner.lifecycleScope.launch {
+
+            if (replyText.isEmpty()) {
+                Toast.makeText(context, "Reply cannot be empty", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            if (currentUser == null) {
+                Toast.makeText(context, "Please log in to comment", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // Launch coroutine for background task
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
                     if (comment.parentComment == null) {
-                        // This is a root comment, so call addCommentToApi
-                        val postEntity = fetchPostEntityById(postId)
-                        if (postEntity != null) {
-                            val newComment = CommentEntity(
-                                commentId = 0, // ID will be auto-generated
-                                user = user,
-                                post = postEntity,
-                                content = replyText,
-                                sentiment = "Neutral", // Default value
-                                timestamp = System.currentTimeMillis().toString(),
-                                parentComment = null,
-                                replies = listOf() // No replies initially
-                            )
-                            addCommentToApi(newComment)
-                            holder.commentInput.text.clear()
-                        } else {
+                        handleNewComment(holder, currentUser, replyText)
+                    } else {
+                        handleReply(holder, currentUser, comment, replyText)
+                    }
+                } catch (e: Exception) {
+                    // Handle error on the main thread
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                    Log.e("CommentsAdapter", "Error handling comment/reply", e)
+                }
+            }
+        }
+
+        // Handle replies visibility toggle
+        holder.viewRepliesButton.setOnClickListener {
+            val isRepliesVisible = holder.repliesRecyclerView.visibility == View.VISIBLE
+
+            if (isRepliesVisible) {
+                holder.repliesRecyclerView.visibility = View.GONE
+            } else {
+                // Launch coroutine for fetching replies
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        comment.commentId?.let { commentId ->
+                            val replies = fetchRepliesForComment(commentId)
+
+                            // Run UI update on the main thread
+                            withContext(Dispatchers.Main) {
+                                if (replies.isEmpty()) {
+                                    Toast.makeText(
+                                        context,
+                                        "No replies to display",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    return@withContext
+                                }
+
+                                comment.replies = replies
+                                // Set the adapter for repliesRecyclerView
+                                holder.repliesRecyclerView.apply {
+                                    // Set layout manager
+                                    layoutManager = LinearLayoutManager(context)
+                                    // Set adapter with replies
+                                    adapter = CommentsAdapter(
+                                        context,
+                                        replies.toMutableList(),
+                                        postId,
+                                        currentUser
+                                    )
+                                    visibility = View.VISIBLE
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // Handle error on the main thread
+                        withContext(Dispatchers.Main) {
                             Toast.makeText(
                                 context,
-                                "Failed to fetch post details",
+                                "Error loading replies: ${e.message}",
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
-                    } else {
-                        // This is a reply to an existing comment
-                        user.userId?.let { userId ->
-                            comment.commentId?.let { commentId ->
-                                addReplyToApi(userId, commentId, replyText)
-                                holder.commentInput.text.clear()
-                            }
-                        }
+                        Log.e("CommentsAdapter", "Error loading replies", e)
                     }
-                }
-            } else {
-                Toast.makeText(context, "Reply cannot be empty", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        if (comment.replies.isEmpty()) {
-            holder.viewRepliesButton.visibility = View.GONE
-        } else {
-            holder.viewRepliesButton.visibility = View.VISIBLE
-        }
-
-        // Initially hide the repliesRecyclerView
-        holder.repliesRecyclerView.visibility = View.GONE
-
-        // Handle viewing replies
-        holder.viewRepliesButton.setOnClickListener {
-            lifecycleOwner.lifecycleScope.launch {
-                // Toggle visibility on button click
-                if (holder.repliesRecyclerView.visibility == View.GONE) {
-                    comment.commentId?.let { commentId ->
-                        // Fetch replies from the API if needed
-                        val fetchedReplies = fetchRepliesForComment(commentId)
-                        comment.replies = fetchedReplies // Update the replies in the comment object
-
-                        // Display replies if any exist
-                        if (comment.replies.isNotEmpty()) {
-                            val replyAdapter = CommentsAdapter(
-                                context,
-                                lifecycleOwner,
-                                comment.replies,
-                                postId,
-                                userViewModel
-                            )
-                            holder.repliesRecyclerView.adapter = replyAdapter
-                            holder.repliesRecyclerView.visibility = View.VISIBLE
-                        } else {
-                            Toast.makeText(context, "No replies to display", Toast.LENGTH_SHORT)
-                                .show()
-                        }
-                    }
-                } else {
-                    // Hide replies if they are currently visible
-                    holder.repliesRecyclerView.visibility = View.GONE
                 }
             }
         }
-
     }
+
+
+    private suspend fun handleNewComment(
+        holder: CommentViewHolder,
+        currentUser: UserEntity,
+        replyText: String
+    ) {
+        val postEntity = fetchPostEntityById(postId) ?: run {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Failed to fetch post details", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+
+        val newComment = CommentEntity(
+            commentId = 0,
+            user = currentUser,
+            post = postEntity,
+            content = replyText,
+            sentiment = "Neutral",
+            timestamp = System.currentTimeMillis().toString(),
+            parentComment = null,
+            replies = listOf()
+        )
+
+        addCommentToApi(newComment)
+        withContext(Dispatchers.Main) {
+            holder.commentInput.text.clear()
+            onCommentAdded?.invoke()  // Notify fragment to refresh
+        }
+    }
+
+    private suspend fun handleReply(
+        holder: CommentViewHolder,
+        currentUser: UserEntity,
+        parentComment: CommentEntity,
+        replyText: String
+    ) {
+        currentUser.userId?.let { userId ->
+            parentComment.commentId?.let { commentId ->
+                addReplyToApi(userId, commentId, replyText)
+                withContext(Dispatchers.Main) {
+                    holder.commentInput.text.clear()
+                    onCommentAdded?.invoke()  // Notify fragment to refresh
+                }
+            }
+        }
+    }
+
+
+    fun updateComments(newComments: List<CommentEntity>) {
+        comments.clear()
+        comments.addAll(newComments)
+        notifyDataSetChanged()
+    }
+
 
     private suspend fun fetchRepliesForComment(commentId: Int): List<CommentEntity> {
         val response = getRepliesForComment(commentId)
@@ -239,19 +339,11 @@ class CommentsAdapter(
         notifyDataSetChanged()
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CommentViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.comment_item, parent, false)
-        return CommentViewHolder(view)
-    }
 
     override fun getItemCount(): Int {
         return comments.size
     }
 
-    fun updateComments(newComments: List<CommentEntity>) {
-        comments = newComments
-        notifyDataSetChanged()
-    }
 
     inner class CommentViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val username: TextView = itemView.findViewById(R.id.comment_author)
@@ -261,8 +353,15 @@ class CommentsAdapter(
         val repliesRecyclerView: RecyclerView = itemView.findViewById(R.id.replies_recycler_view)
         val viewRepliesButton: Button = itemView.findViewById(R.id.view_replies_button)
 
+        // Initialize the RecyclerView for replies
         init {
-            repliesRecyclerView.layoutManager = LinearLayoutManager(context)
+            repliesRecyclerView.layoutManager =
+                LinearLayoutManager(context)
         }
+
     }
 }
+
+
+
+

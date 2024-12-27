@@ -54,6 +54,18 @@ data class UserPostInteraction(
     var timestamp: String
 )
 
+data class UserPostInteractionDTO(
+    val interactionId: Int = 0,
+    val userId: Int,  // Instead of full user object
+    val postId: Int,  // Instead of full post object
+    val likeState: Boolean,
+    val saveState: Boolean,
+    val commentButtonPressed: Boolean,
+    val commentMade: Boolean,
+    val timestamp: String,
+    val timeSpentOnPost: Long
+)
+
 data class UserTrailerInteraction(
     val interactionId: Int? = null,
     val user: UserEntity,

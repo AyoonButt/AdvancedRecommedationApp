@@ -3,7 +3,6 @@ package com.example.firedatabase_assis.login_setup
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
-import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.work.Constraints
@@ -28,7 +27,7 @@ class LoginForm : AppCompatActivity() {
     private lateinit var bind: ActivityLoginFormBinding
 
     // Instantiate the UserViewModel
-    private val userViewModel: UserViewModel by viewModels()
+    private lateinit var userViewModel: UserViewModel
 
     // Retrofit instance for the Users interface
     private val retrofit = Retrofit.Builder()
@@ -45,6 +44,8 @@ class LoginForm : AppCompatActivity() {
         setContentView(bind.root)
         WorkManager.getInstance(this).cancelAllWork()
 
+        userViewModel = UserViewModel.getInstance(application)
+
         bind.btnlogin.setOnClickListener {
             val username = bind.logtxt.text.toString()
             val password = bind.ed3.text.toString()
@@ -60,6 +61,7 @@ class LoginForm : AppCompatActivity() {
                                 // Update UserViewModel with the user entity
                                 userViewModel.setUser(userEntity)
 
+                                Log.d("LogIn", "User Entity $userEntity")
                                 // Pass the username to the HomePage activity
                                 updateRecentLogin(username)
                                 setupWorkManager()
@@ -81,6 +83,12 @@ class LoginForm : AppCompatActivity() {
         bind.regisLink.setOnClickListener {
             val intent = Intent(this, RegisterActivity::class.java)
             startActivity(intent)
+        }
+
+        // Observe LiveData on the Main thread
+        userViewModel.currentUser.observe(this) { user ->
+            // Log the updated user value
+            Log.d("LogIn", "LiveData User after setUser: $user")
         }
     }
 

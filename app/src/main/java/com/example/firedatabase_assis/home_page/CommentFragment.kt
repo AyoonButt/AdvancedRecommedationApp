@@ -26,8 +26,10 @@ class CommentFragment(private val postId: Int) : Fragment() {
     private lateinit var commentsRecyclerView: RecyclerView
     private lateinit var commentsAdapter: CommentsAdapter
     private lateinit var swipeGestureListener: SwipeGestureListener
+    private lateinit var userViewModel: UserViewModel
     private lateinit var fragmentContainerLayout: View
     private var isLoading = false
+
 
     private val retrofit = Retrofit.Builder()
         .baseUrl(BuildConfig.POSTRGRES_API_URL)
@@ -40,15 +42,9 @@ class CommentFragment(private val postId: Int) : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        Log.d("CommentFragment", "onCreateView called")
         val view = inflater.inflate(R.layout.fragment_comment, container, false)
         commentsRecyclerView = view.findViewById(R.id.comment_recycler_view)
         commentsRecyclerView.layoutManager = LinearLayoutManager(requireContext())
-
-        // Initialize the CommentsAdapter with the postId
-        commentsAdapter =
-            CommentsAdapter(requireContext(), viewLifecycleOwner, listOf(), postId, UserViewModel())
-        commentsRecyclerView.adapter = commentsAdapter
 
         // Define the fragment container
         fragmentContainerLayout = requireActivity().findViewById(R.id.fragment_container)
@@ -72,6 +68,27 @@ class CommentFragment(private val postId: Int) : Fragment() {
             result
         }
 
+        userViewModel = UserViewModel.getInstance(requireActivity().application)
+
+        // Initialize the CommentsAdapter with the callback
+        commentsAdapter = CommentsAdapter(
+            requireContext(),
+            listOf(),
+            postId,
+            userViewModel.getUser()
+        ) {
+            // This will be called when a comment is added
+            refreshComments()
+        }
+
+
+        commentsRecyclerView.adapter = commentsAdapter
+
+
+        Log.d("CommentFragment", "Adapter set to RecyclerView")
+
+        Log.d("CommentFragment", "User passed to CommentsAdapter: ${userViewModel.getUser()}")
+
         fetchComments()
 
         return view
@@ -92,8 +109,34 @@ class CommentFragment(private val postId: Int) : Fragment() {
     }
 
     private fun fetchComments() {
+        Log.d("CommentFragment", "Fetching comments for postId: $postId")
+
         lifecycleScope.launch {
-            // Fetch comments for the postId and update the adapter
+            try {
+                // Fetch comments for the postId
+                val commentsList = getCommentsForPost(postId)
+
+                // Log the fetched comments
+                if (commentsList.isNotEmpty()) {
+                    Log.d("CommentFragment", "Successfully fetched ${commentsList.size} comments")
+                } else {
+                    Log.d("CommentFragment", "No comments found for postId: $postId")
+                }
+
+                // Update the adapter with the fetched comments
+                commentsAdapter.updateComments(commentsList)
+                Log.d("CommentFragment", "Adapter updated with new comments")
+            } catch (e: Exception) {
+                // Log any errors that occur
+                Log.e("CommentFragment", "Error fetching comments: ${e.message}")
+            }
+        }
+    }
+
+
+    // In CommentFragment
+    private fun refreshComments() {
+        lifecycleScope.launch {
             val commentsList = getCommentsForPost(postId)
             commentsAdapter.updateComments(commentsList)
         }
@@ -104,10 +147,23 @@ class CommentFragment(private val postId: Int) : Fragment() {
             try {
                 // Fetch comments for the given postId
                 val response = commentsApi.getCommentsByPost(postId)
-                response.body() ?: emptyList() // Return empty list if no comments found
+
+                // Check if response is successful
+                if (response.isSuccessful) {
+                    return@withContext response.body()
+                        ?: emptyList() // Return empty list if no comments found
+                } else {
+                    // Log unsuccessful response status code
+                    Log.e(
+                        "API_ERROR",
+                        "Failed to fetch comments for postId: $postId, Response code: ${response.code()}"
+                    )
+                    return@withContext emptyList<CommentEntity>()
+                }
             } catch (e: Exception) {
-                e.printStackTrace()
-                emptyList<CommentEntity>() // Return empty list if there's an error
+                // Log error with exception details
+                Log.e("API_ERROR", "Error fetching comments for postId: $postId", e)
+                return@withContext emptyList<CommentEntity>() // Return empty list if there's an error
             }
         }
     }

@@ -26,9 +26,12 @@ class HomePage : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: MyPostAdapter
     private lateinit var postsService: Posts
+    private lateinit var userViewModel: UserViewModel
 
     private var postData: MutableList<PostEntity> = mutableListOf()
     private var isLoading = false
+
+
     private var offset = 0
     private val limit = 10
 
@@ -37,9 +40,11 @@ class HomePage : AppCompatActivity() {
         binding = ActivityHomePageBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        userViewModel = UserViewModel.getInstance(application)
+
         recyclerView = findViewById(R.id.recycler_view)
         recyclerView.layoutManager = LinearLayoutManager(this)
-        adapter = MyPostAdapter(this, movies = postData, UserViewModel())
+        adapter = MyPostAdapter(this, movies = postData, userViewModel)
         recyclerView.adapter = adapter
 
         // Initialize Retrofit

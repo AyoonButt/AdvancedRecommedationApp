@@ -19,6 +19,7 @@ import com.example.firedatabase_assis.postgres.PostEntity
 import com.example.firedatabase_assis.postgres.PostInteractions
 import com.example.firedatabase_assis.postgres.Posts
 import com.example.firedatabase_assis.postgres.UserPostInteraction
+import com.google.gson.GsonBuilder
 import com.squareup.picasso.Picasso
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,9 +36,13 @@ class MyPostAdapter(
     private val userViewModel: UserViewModel
 ) : RecyclerView.Adapter<MyPostAdapter.PostHolder>() {
 
+    val gson = GsonBuilder()
+        .setLenient()
+        .create()
+
     private val retrofit = Retrofit.Builder()
         .baseUrl(BuildConfig.POSTRGRES_API_URL)
-        .addConverterFactory(GsonConverterFactory.create())
+        .addConverterFactory(GsonConverterFactory.create(gson))
         .build()
 
     private val postsService = retrofit.create(Posts::class.java)
@@ -190,6 +195,7 @@ class MyPostAdapter(
     }
 
 
+    // 2. Modify the updateData function
     private fun updateData(
         holder: PostHolder, mypostId: Int, timeSpent: Long? = null
     ) {
