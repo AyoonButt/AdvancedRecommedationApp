@@ -27,7 +27,7 @@ import com.example.firedatabase_assis.postgres.GenreEntity
 import com.example.firedatabase_assis.postgres.Genres
 import com.example.firedatabase_assis.postgres.Providers
 import com.example.firedatabase_assis.postgres.SubscriptionProvider
-import com.example.firedatabase_assis.postgres.UserEntity
+import com.example.firedatabase_assis.postgres.UserDto
 import com.example.firedatabase_assis.postgres.UserRequest
 import com.example.firedatabase_assis.postgres.Users
 import kotlinx.coroutines.CoroutineScope
@@ -695,7 +695,8 @@ SetupActivity : AppCompatActivity() {
         val genreIds = getGenreIds(genreNames)
 
         // Prepare the user data
-        val user = UserEntity(
+        val user = UserDto(
+            userId = null,
             name = name_string,
             username = username_string,
             email = email_string,
@@ -714,7 +715,7 @@ SetupActivity : AppCompatActivity() {
 
         // Return the UserRequest
         return UserRequest(
-            user = user,
+            userDto = user,
             subscriptions = subscriptionIds,
             genres = genreIds,
             avoidGenres = genresToAvoid.split(", ")

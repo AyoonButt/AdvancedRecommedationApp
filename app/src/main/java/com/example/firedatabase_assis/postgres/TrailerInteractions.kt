@@ -19,32 +19,34 @@ interface TrailerInteractions {
 
     @POST("/api/trailer-interactions/save")
     suspend fun saveInteractionData(
-        @Body interactionData: UserTrailerInteraction
+        @Body interactionData: TrailerInteractionDto
     ): Response<String>
 
     @GET("/api/trailer-interactions/user/{userId}")
     suspend fun getTrailerInteractionsByUser(
         @Path("userId") userId: Int
-    ): Response<List<UserTrailerInteraction>>
+    ): Response<List<TrailerInteractionDto>>
 
     @GET("/api/trailer-interactions/user/{userId}/post/{postId}")
     suspend fun getTrailerInteraction(
         @Path("userId") userId: Int,
         @Path("postId") postId: Int
-    ): Response<UserTrailerInteraction?>
+    ): Response<TrailerInteractionDto>
 
     @GET("/api/trailer-interactions/user/{userId}/liked")
     suspend fun getLikedTrailers(
         @Path("userId") userId: Int
-    ): Response<List<PostEntity>>
+    ): Response<List<Int>>
 
     @GET("/api/trailer-interactions/user/{userId}/saved")
     suspend fun getSavedTrailers(
         @Path("userId") userId: Int
-    ): Response<List<PostEntity>>
+    ): Response<List<Int>>
+
 
     @GET("/api/trailer-interactions/user/{userId}/commented")
     suspend fun getCommentMadeTrailers(
         @Path("userId") userId: Int
-    ): Response<List<PostEntity>>
+    ): Response<List<Int>>
+
 }

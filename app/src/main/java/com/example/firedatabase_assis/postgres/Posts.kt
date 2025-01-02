@@ -11,23 +11,18 @@ import retrofit2.http.Query
 
 interface Posts {
 
-    @GET("/api/posts/{postId}")
-    suspend fun fetchPostEntityById(
-        @Path("postId") postId: Int
-    ): Response<PostEntity?>
-
     @POST("/api/posts/add")
     suspend fun addPosts(
         @Query("mediaType") mediaType: String,
         @Query("providerId") providerId: Int,
-        @Body dataList: List<PostEntity>
+        @Body dataList: List<PostDto>
     ): Response<String>
 
     @GET("/api/posts/list")
-    suspend fun getPaginatedPosts(
+    suspend fun getPosts(
         @Query("limit") limit: Int,
         @Query("offset") offset: Int
-    ): Response<List<PostEntity>>
+    ): Response<List<PostDto>>
 
     @PUT("/api/posts/like/{postId}")
     suspend fun updateLikeCount(@Path("postId") postId: Int): Response<String>

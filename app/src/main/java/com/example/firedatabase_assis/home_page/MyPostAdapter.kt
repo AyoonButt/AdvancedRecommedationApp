@@ -15,10 +15,10 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.login_setup.UserViewModel
-import com.example.firedatabase_assis.postgres.PostEntity
+import com.example.firedatabase_assis.postgres.PostDto
 import com.example.firedatabase_assis.postgres.PostInteractions
 import com.example.firedatabase_assis.postgres.Posts
-import com.example.firedatabase_assis.postgres.UserPostInteraction
+import com.example.firedatabase_assis.postgres.UserPostInteractionDto
 import com.google.gson.GsonBuilder
 import com.squareup.picasso.Picasso
 import kotlinx.coroutines.CoroutineScope
@@ -32,7 +32,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 class MyPostAdapter(
     private val context: Context,
-    private val movies: List<PostEntity>,
+    private val movies: List<PostDto>,
     private val userViewModel: UserViewModel
 ) : RecyclerView.Adapter<MyPostAdapter.PostHolder>() {
 
@@ -200,18 +200,17 @@ class MyPostAdapter(
         holder: PostHolder, mypostId: Int, timeSpent: Long? = null
     ) {
         CoroutineScope(Dispatchers.IO).launch {
-            val postResponse = postsService.fetchPostEntityById(mypostId)
 
-            if (postResponse.isSuccessful) {
-                val postEntity = postResponse.body()
-                val userEntity = userViewModel.currentUser.value
 
-                if (userEntity != null && postEntity != null) {
-                    val interactionData = timeSpent?.let {
-                        UserPostInteraction(
+            val userEntity = userViewModel.currentUser.value
+
+            if (userEntity != null) {
+                val interactionData = timeSpent?.let {
+                    userEntity.userId?.let { it1 ->
+                        UserPostInteractionDto(
                             interactionId = 0,
-                            user = userEntity,
-                            post = postEntity,
+                            userId = it1,
+                            postId = mypostId,
                             likeState = holder.likeState,
                             saveState = holder.saveState,
                             commentButtonPressed = holder.commentButtonPressed,
@@ -220,28 +219,26 @@ class MyPostAdapter(
                             timeSpentOnPost = it
                         )
                     }
+                }
 
-                    // Call the API to save interaction data
-                    val response =
-                        interactionData?.let { postInteractionsService.saveInteractionData(it) }
-                    withContext(Dispatchers.Main) {
-                        if (response != null) {
-                            if (response.isSuccessful) {
-                                println("Interaction data saved successfully.")
-                            } else {
-                                println(
-                                    "Failed to save interaction data: ${
-                                        response.errorBody()?.string()
-                                    }"
-                                )
-                            }
+                // Call the API to save interaction data
+                val response =
+                    interactionData?.let { postInteractionsService.saveInteractionData(it) }
+                withContext(Dispatchers.Main) {
+                    if (response != null) {
+                        if (response.isSuccessful) {
+                            println("Interaction data saved successfully.")
+                        } else {
+                            println(
+                                "Failed to save interaction data: ${
+                                    response.errorBody()?.string()
+                                }"
+                            )
                         }
                     }
-                } else {
-                    println("User or post data not available.")
                 }
             } else {
-                println("Failed to fetch post entity: ${postResponse.errorBody()?.string()}")
+                println("User or post data not available.")
             }
         }
     }

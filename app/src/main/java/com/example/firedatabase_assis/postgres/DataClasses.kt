@@ -1,7 +1,5 @@
 package com.example.firedatabase_assis.postgres
 
-import retrofit2.Response
-
 data class UserEntity(
     val userId: Int? = null,
     var name: String,
@@ -20,79 +18,6 @@ data class UserEntity(
     val createdAt: String
 )
 
-
-data class PostEntity(
-    val postId: Int? = null,
-    val tmdbId: Int = 0,
-    var postLikeCount: Int = 0,
-    val trailerLikeCount: Int = 0,
-    val type: String = "",
-    val title: String = "",
-    val subscription: String = "",
-    val releaseDate: String = "",
-    val overview: String = "",
-    val posterPath: String = "",
-    val voteAverage: Double = 0.0,
-    val voteCount: Int = 0,
-    val originalLanguage: String = "",
-    val originalTitle: String = "",
-    val popularity: Double = 0.0,
-    val genreIds: String = "",
-    val videoKey: String = ""
-)
-
-
-data class UserPostInteraction(
-    val interactionId: Int? = null,
-    val user: UserEntity,
-    val post: PostEntity,
-    val timeSpentOnPost: Long,
-    val likeState: Boolean = false,
-    val saveState: Boolean = false,
-    val commentButtonPressed: Boolean = false,
-    val commentMade: Boolean = false,
-    var timestamp: String
-)
-
-data class UserPostInteractionDTO(
-    val interactionId: Int = 0,
-    val userId: Int,  // Instead of full user object
-    val postId: Int,  // Instead of full post object
-    val likeState: Boolean,
-    val saveState: Boolean,
-    val commentButtonPressed: Boolean,
-    val commentMade: Boolean,
-    val timestamp: String,
-    val timeSpentOnPost: Long
-)
-
-data class UserTrailerInteraction(
-    val interactionId: Int? = null,
-    val user: UserEntity,
-    val post: Response<PostEntity?>,
-    val timeSpent: Long,
-    val replayCount: Int? = null,
-    val likeState: Boolean,
-    val saveState: Boolean,
-    val isMuted: Boolean,
-    val commentButtonPressed: Boolean,
-    val commentMade: Boolean,
-    var timestamp: String
-)
-
-
-data class CommentEntity(
-    val commentId: Int? = null,
-    val user: UserEntity,
-    val post: PostEntity,
-    val content: String,
-    val sentiment: String? = null,
-    val timestamp: String? = null,
-    val parentComment: CommentEntity? = null,
-    var replies: List<CommentEntity> = listOf()
-)
-
-
 data class GenreEntity(
     val genreId: Int? = null,
     val genreName: String = ""
@@ -103,30 +28,6 @@ data class SubscriptionProvider(
     val providerName: String
 )
 
-data class UserInfo(
-    val userId: Int,
-    val name: String,
-    val username: String,
-    val email: String,
-    val language: String,
-    val region: String,
-    val minMovie: Int,
-    val maxMovie: Int,
-    val minTV: Int,
-    val maxTV: Int,
-    val oldestDate: String?,
-    val recentDate: String?,
-    val createdAt: String?,
-    var subscriptions: List<Int> = listOf(),
-    var genres: List<Int> = listOf(),
-    var avoidGenres: List<Int> = listOf()
-)
-
-data class ReplyRequest(
-    val postId: Int,
-    val content: String,
-    val sentiment: String? = null
-)
 
 data class UserParams(
     val language: String,
@@ -139,18 +40,124 @@ data class UserParams(
     val recentDate: String
 )
 
+
 data class UserRequest(
-    val user: UserEntity,
+    val userDto: UserDto,
     val subscriptions: List<Int>,
     val genres: List<Int>,
-    var avoidGenres: List<Int>
+    val avoidGenres: List<Int>
 )
 
 
 data class UserUpdateRequest(
-    val userData: UserEntity,  // The user entity with updated information
-    val subscriptions: List<Int>,  // List of subscription provider IDs
-    val genres: List<Int>,  // List of genre IDs
-    val avoidGenres: List<Int>  // List of avoided genre IDs
+    val userDto: UserDto,
+    val subscriptions: List<Int>,
+    val genres: List<Int>,
+    val avoidGenres: List<Int>
 )
+
+
+data class CommentDto(
+    val commentId: Int?,
+    val userId: Int,
+    val username: String,
+    val postId: Int,
+    val content: String,
+    val sentiment: String?,
+    val timestamp: String?,
+    val parentCommentId: Int? = null
+)
+
+
+data class ReplyDto(
+    val postId: Int,
+    val content: String,
+    val sentiment: String? = null,
+    val timestamp: String? = null
+)
+
+
+data class UserPostInteractionDto(
+    val interactionId: Int?,
+    val userId: Int,
+    val postId: Int,
+    val timeSpentOnPost: Long,
+    val likeState: Boolean = false,
+    val saveState: Boolean = false,
+    val commentButtonPressed: Boolean = false,
+    val commentMade: Boolean = false,
+    val timestamp: String
+)
+
+
+data class PostDto(
+    val postId: Int?,
+    val tmdbId: Int,
+    val type: String,
+    val title: String,
+    val subscription: String,
+    val releaseDate: String?,
+    val overview: String?,
+    val posterPath: String?,
+    val voteAverage: Double,
+    val voteCount: Int,
+    val originalLanguage: String?,
+    val originalTitle: String?,
+    val popularity: Double,
+    val genreIds: String,
+    val postLikeCount: Int = 0,
+    val trailerLikeCount: Int = 0,
+    val videoKey: String
+)
+
+
+data class TrailerInteractionDto(
+    val interactionId: Int?,
+    val userId: Int,
+    val postId: Int,
+    val timeSpent: Long,
+    val replayCount: Int,
+    val isMuted: Boolean,
+    val likeState: Boolean,
+    val saveState: Boolean,
+    val commentButtonPressed: Boolean,
+    val commentMade: Boolean,
+    val timestamp: String
+)
+
+
+data class UserDto(
+    val userId: Int?,
+    val name: String,
+    val username: String,
+    val password: String,
+    val email: String,
+    val language: String,
+    val region: String,
+    val minMovie: Int?,
+    val maxMovie: Int?,
+    val minTV: Int?,
+    val maxTV: Int?,
+    val oldestDate: String,
+    val recentDate: String,
+    val createdAt: String,
+    val recentLogin: String?
+)
+
+
+data class UserPreferencesDto(
+    val userId: Int?,
+    val language: String,
+    val region: String,
+    val minMovie: Int?,
+    val maxMovie: Int?,
+    val minTV: Int?,
+    val maxTV: Int?,
+    val oldestDate: String,
+    val recentDate: String,
+    val subscriptions: List<Int>,
+    val genreIds: List<Int>,
+    val avoidGenreIds: List<Int>
+)
+
 

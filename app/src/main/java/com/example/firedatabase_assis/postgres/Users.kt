@@ -40,7 +40,7 @@ interface Users {
     @GET("/api/users/info/{userId}")
     suspend fun getUserInfo(
         @Path("userId") userId: Int
-    ): Response<UserInfo?>
+    ): Response<UserPreferencesDto>
 
     @PUT("/api/users/{userId}")
     suspend fun updateUser(

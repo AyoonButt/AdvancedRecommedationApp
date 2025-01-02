@@ -10,9 +10,9 @@ import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.login_setup.UserViewModel
 import com.example.firedatabase_assis.postgres.Posts
+import com.example.firedatabase_assis.postgres.TrailerInteractionDto
 import com.example.firedatabase_assis.postgres.TrailerInteractions
 import com.example.firedatabase_assis.postgres.UserEntity
-import com.example.firedatabase_assis.postgres.UserTrailerInteraction
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
@@ -21,7 +21,6 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.threeten.bp.LocalDateTime
 import org.threeten.bp.format.DateTimeFormatter
 import retrofit2.Retrofit
@@ -122,17 +121,23 @@ class VideoAdapter(
                             createUserTrailerInteractionData(bindingAdapterPosition, currentUser)
                         interactionData.let {
                             try {
-                                val response = interactionsApi.saveInteractionData(it)
-                                if (response.isSuccessful) {
-                                    Log.d(
-                                        "SaveInteraction",
-                                        "Data saved successfully: ${response.body()}"
+                                val response = it?.let { it1 ->
+                                    interactionsApi.saveInteractionData(
+                                        it1
                                     )
-                                } else {
-                                    Log.e(
-                                        "SaveInteraction",
-                                        "Failed to save data: ${response.errorBody()?.string()}"
-                                    )
+                                }
+                                if (response != null) {
+                                    if (response.isSuccessful) {
+                                        Log.d(
+                                            "SaveInteraction",
+                                            "Data saved successfully: ${response.body()}"
+                                        )
+                                    } else {
+                                        Log.e(
+                                            "SaveInteraction",
+                                            "Failed to save data: ${response.errorBody()?.string()}"
+                                        )
+                                    }
                                 }
                             } catch (e: Exception) {
                                 Log.e("SaveInteraction", "Error saving data", e)
@@ -147,22 +152,24 @@ class VideoAdapter(
         private suspend fun createUserTrailerInteractionData(
             position: Int,
             user: UserEntity
-        ): UserTrailerInteraction {
+        ): TrailerInteractionDto? {
             val (_, postId) = videos[position]
-            val post = withContext(Dispatchers.IO) { postsApi.fetchPostEntityById(postId) }
 
-            return UserTrailerInteraction(
-                user = user,
-                post = post,
-                timeSpent = customPlayer.getPlayTime(),
-                replayCount = customPlayer.getReplayCount(),
-                isMuted = customPlayer.getIsMuted(),
-                likeState = customPlayer.getLikeState(),
-                saveState = customPlayer.getSaveState(),
-                commentButtonPressed = customPlayer.wasCommentButtonPressed(),
-                commentMade = customPlayer.wasCommentMade(),
-                timestamp = getCurrentTimestamp()
-            )
+            return user.userId?.let {
+                TrailerInteractionDto(
+                    interactionId = null,
+                    userId = it,
+                    postId = postId,
+                    timeSpent = customPlayer.getPlayTime(),
+                    replayCount = customPlayer.getReplayCount(),
+                    isMuted = customPlayer.getIsMuted(),
+                    likeState = customPlayer.getLikeState(),
+                    saveState = customPlayer.getSaveState(),
+                    commentButtonPressed = customPlayer.wasCommentButtonPressed(),
+                    commentMade = customPlayer.wasCommentMade(),
+                    timestamp = getCurrentTimestamp()
+                )
+            }
         }
     }
 

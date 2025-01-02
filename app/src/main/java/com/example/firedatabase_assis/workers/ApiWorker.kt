@@ -7,7 +7,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.postgres.Credits
-import com.example.firedatabase_assis.postgres.PostEntity
+import com.example.firedatabase_assis.postgres.PostDto
 import com.example.firedatabase_assis.postgres.Posts
 import com.example.firedatabase_assis.postgres.UserParams
 import com.google.gson.Gson
@@ -399,7 +399,8 @@ class ApiWorker(
                     try {
                         val title = data.title
                         if (title.isNotEmpty() && videoKey != null) {
-                            val postEntity = PostEntity(
+                            val postEntity = PostDto(
+                                postId = null,
                                 tmdbId = data.id,
                                 title = title,
                                 releaseDate = data.release_date,

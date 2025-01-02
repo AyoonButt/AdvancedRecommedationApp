@@ -6,6 +6,9 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.EditText
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -13,11 +16,15 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.login_setup.UserViewModel
-import com.example.firedatabase_assis.postgres.CommentEntity
+import com.example.firedatabase_assis.postgres.CommentDto
 import com.example.firedatabase_assis.postgres.Comments
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -28,7 +35,9 @@ class CommentFragment(private val postId: Int) : Fragment() {
     private lateinit var swipeGestureListener: SwipeGestureListener
     private lateinit var userViewModel: UserViewModel
     private lateinit var fragmentContainerLayout: View
-    private var isLoading = false
+    private lateinit var addCommentButton: Button
+    private lateinit var commentInput: EditText
+    private var parentCommentId: Int? = null  // Track the parent comment for replies
 
 
     private val retrofit = Retrofit.Builder()
@@ -37,65 +46,72 @@ class CommentFragment(private val postId: Int) : Fragment() {
         .build()
 
     private val commentsApi = retrofit.create(Comments::class.java)
+    private val fragmentScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Main.immediate
+    )
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         val view = inflater.inflate(R.layout.fragment_comment, container, false)
         commentsRecyclerView = view.findViewById(R.id.comment_recycler_view)
+        addCommentButton = view.findViewById(R.id.add_comment_button)
+        commentInput = view.findViewById(R.id.comment_input)
         commentsRecyclerView.layoutManager = LinearLayoutManager(requireContext())
 
-        // Define the fragment container
-        fragmentContainerLayout = requireActivity().findViewById(R.id.fragment_container)
 
-        // Set up swipe gesture listener for the fragment_container layout
+        // Initialize UserViewModel
+        userViewModel = UserViewModel.getInstance(requireActivity().application)
+
         swipeGestureListener = SwipeGestureListener(requireContext(), fragmentContainerLayout) {
-            Log.d("SwipeGestureListener", "Swipe down action triggered")
             fragmentContainerLayout.visibility = View.GONE
             requireActivity().supportFragmentManager.popBackStack()
         }
 
         fragmentContainerLayout.setOnTouchListener { _, event ->
-            val result = swipeGestureListener.onTouch(fragmentContainerLayout, event)
-            Log.d("CommentFragment", "Touch event: $event, result: $result")
-            result
+            swipeGestureListener.onTouch(fragmentContainerLayout, event)
         }
 
         commentsRecyclerView.setOnTouchListener { _, event ->
-            val result = swipeGestureListener.onTouch(commentsRecyclerView, event)
-            Log.d("CommentFragment", "RecyclerView touch event: $event, result: $result")
-            result
+            swipeGestureListener.onTouch(commentsRecyclerView, event)
         }
 
-        userViewModel = UserViewModel.getInstance(requireActivity().application)
 
-        // Initialize the CommentsAdapter with the callback
+        // Set up the adapter with an empty list initially
         commentsAdapter = CommentsAdapter(
+            fragmentScope,
             requireContext(),
             listOf(),
             postId,
             userViewModel.getUser()
-        ) {
-            // This will be called when a comment is added
-            refreshComments()
+        ) { parentId ->
+            // Set the parentCommentId when a reply button is clicked
+            parentCommentId = parentId
+            commentInput.requestFocus()  // Focus the input to type the reply
         }
-
 
         commentsRecyclerView.adapter = commentsAdapter
 
-
-        Log.d("CommentFragment", "Adapter set to RecyclerView")
-
-        Log.d("CommentFragment", "User passed to CommentsAdapter: ${userViewModel.getUser()}")
+        // Handle add comment button click
+        addCommentButton.setOnClickListener {
+            val commentText = commentInput.text.toString().trim()
+            if (commentText.isNotEmpty()) {
+                addComment(commentText)
+            } else {
+                Toast.makeText(requireContext(), "Comment cannot be empty", Toast.LENGTH_SHORT)
+                    .show()
+            }
+        }
 
         fetchComments()
 
         return view
+
     }
 
-
     override fun onDestroyView() {
+        fragmentScope.cancel()
         super.onDestroyView()
         // Remove the swipe listener when the view is destroyed
         fragmentContainerLayout.setOnTouchListener(null)
@@ -103,6 +119,47 @@ class CommentFragment(private val postId: Int) : Fragment() {
         fragmentContainerLayout.viewTreeObserver.removeOnGlobalLayoutListener { }
         Log.d("CommentFragment", "Swipe listener removed")
     }
+
+    private fun getRetrofitInstance(): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl(BuildConfig.POSTRGRES_API_URL)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+    }
+
+    private fun addComment(commentText: String) {
+        lifecycleScope.launch {
+            val currentUser = userViewModel.getUser()
+
+
+            if (currentUser != null) {
+                val newComment = currentUser.userId?.let {
+                    CommentDto(
+                        commentId = null,
+                        userId = it,
+                        username = currentUser.username,
+                        postId = postId,
+                        content = commentText,
+                        sentiment = "Neutral",
+                        timestamp = System.currentTimeMillis().toString(),
+                        parentCommentId = parentCommentId,  // Attach parentCommentId if replying
+                    )
+                }
+
+                if (newComment != null) {
+                    insertComment(newComment)
+                }
+
+                // Call the adapter to add the comment
+                commentsAdapter.updateComments(listOf(newComment))
+                commentInput.text.clear()  // Clear the input field after adding comment
+                parentCommentId = null  // Reset parentCommentId after the reply is sent
+            } else {
+                Toast.makeText(requireContext(), "Failed to add comment", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
 
     fun dispatchTouchEvent(event: MotionEvent): Boolean {
         return fragmentContainerLayout.dispatchTouchEvent(event)
@@ -133,8 +190,6 @@ class CommentFragment(private val postId: Int) : Fragment() {
         }
     }
 
-
-    // In CommentFragment
     private fun refreshComments() {
         lifecycleScope.launch {
             val commentsList = getCommentsForPost(postId)
@@ -142,7 +197,7 @@ class CommentFragment(private val postId: Int) : Fragment() {
         }
     }
 
-    private suspend fun getCommentsForPost(postId: Int): List<CommentEntity> {
+    private suspend fun getCommentsForPost(postId: Int): List<CommentDto> {
         return withContext(Dispatchers.IO) {
             try {
                 // Fetch comments for the given postId
@@ -158,13 +213,21 @@ class CommentFragment(private val postId: Int) : Fragment() {
                         "API_ERROR",
                         "Failed to fetch comments for postId: $postId, Response code: ${response.code()}"
                     )
-                    return@withContext emptyList<CommentEntity>()
+                    return@withContext emptyList<CommentDto>()
                 }
             } catch (e: Exception) {
                 // Log error with exception details
                 Log.e("API_ERROR", "Error fetching comments for postId: $postId", e)
-                return@withContext emptyList<CommentEntity>() // Return empty list if there's an error
+                return@withContext emptyList<CommentDto>() // Return empty list if there's an error
             }
         }
     }
+
+    private suspend fun insertComment(newComment: CommentDto): Response<String> {
+        val retrofit = getRetrofitInstance()
+        val api = retrofit.create(Comments::class.java)
+        return api.addComment(newComment)
+    }
+
+
 }

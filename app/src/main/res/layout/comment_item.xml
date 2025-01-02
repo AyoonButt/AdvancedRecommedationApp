@@ -5,6 +5,16 @@
     android:orientation="vertical"
     android:padding="8dp">
 
+    <!-- Replied-To User Indicator -->
+    <TextView
+        android:id="@+id/replied_to_user"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="4dp"
+        android:textStyle="italic"
+        android:textColor="@android:color/darker_gray"
+        android:visibility="visible" />
+
     <!-- Comment Section -->
     <LinearLayout
         android:layout_width="match_parent"
@@ -23,8 +33,15 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp" />
-
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/reply_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Reply"
+        android:layout_marginTop="10dp"
+        android:textColor="?android:attr/colorPrimary" />
 
     <!-- Centered "View Replies" Button -->
     <TextView
@@ -34,7 +51,8 @@
         android:layout_gravity="center"
         android:text="View Replies"
         android:layout_marginTop="10dp"
-        android:textColor="?android:attr/colorPrimary" />
+        android:textColor="?android:attr/colorPrimary"
+        android:visibility="gone" />
 
     <!-- RecyclerView for replies, initially hidden -->
     <androidx.recyclerview.widget.RecyclerView

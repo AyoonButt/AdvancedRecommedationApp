@@ -13,7 +13,7 @@ import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.databinding.ActivityHomePageBinding
 import com.example.firedatabase_assis.explore.LoadVideos
 import com.example.firedatabase_assis.login_setup.UserViewModel
-import com.example.firedatabase_assis.postgres.PostEntity
+import com.example.firedatabase_assis.postgres.PostDto
 import com.example.firedatabase_assis.postgres.Posts
 import com.example.firedatabase_assis.search.SearchActivity
 import com.example.firedatabase_assis.settings.SettingsActivity
@@ -28,7 +28,7 @@ class HomePage : AppCompatActivity() {
     private lateinit var postsService: Posts
     private lateinit var userViewModel: UserViewModel
 
-    private var postData: MutableList<PostEntity> = mutableListOf()
+    private var postData: MutableList<PostDto> = mutableListOf()
     private var isLoading = false
 
 
@@ -111,7 +111,7 @@ class HomePage : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 // Make the API call
-                val response = postsService.getPaginatedPosts(limit, offset)
+                val response = postsService.getPosts(limit, offset)
 
                 // Check if the response is successful
                 if (response.isSuccessful) {
@@ -151,6 +151,6 @@ class HomePage : AppCompatActivity() {
     }
 }
 
-private fun <E> MutableList<E>.addAll(elements: List<PostEntity>) {
+private fun <E> MutableList<E>.addAll(elements: List<PostDto>) {
 
 }

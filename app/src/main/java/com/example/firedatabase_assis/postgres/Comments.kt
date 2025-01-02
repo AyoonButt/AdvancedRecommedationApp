@@ -10,17 +10,10 @@ import retrofit2.http.Query
 
 interface Comments {
     @GET("/api/comments/post/{postId}")
-    suspend fun getCommentsByPost(@Path("postId") postId: Int): Response<List<CommentEntity>>
+    suspend fun getCommentsByPost(@Path("postId") postId: Int): Response<List<CommentDto>>
 
-    @POST("/api/comments")
-    suspend fun addComment(@Body newComment: CommentEntity): Response<String>
-
-    @POST("/api/comments/{userId}/comments/{commentId}/replies")
-    suspend fun addReply(
-        @Path("userId") userId: Int,
-        @Path("commentId") commentId: Int,
-        @Body replyRequest: ReplyRequest
-    ): Response<String>
+    @POST("/api/comments/insert")
+    suspend fun addComment(@Body newComment: CommentDto): Response<String>
 
 
     @GET("/api/comments/{commentId}/all-replies")
@@ -28,5 +21,9 @@ interface Comments {
         @Path("commentId") commentId: Int,
         @Query("limit") limit: Int = 10,
         @Query("offset") offset: Int = 0
-    ): Response<List<CommentEntity>>
+    ): Response<List<CommentDto>>
+
+
+    @GET("/api/comments/{commentId}/parent-username")
+    suspend fun getParentCommentUsername(@Path("commentId") commentId: Int): Response<String>
 }
