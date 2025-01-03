@@ -4,9 +4,9 @@ import android.content.ContentValues.TAG
 import android.content.Context
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -30,14 +30,25 @@ class CommentsAdapter(
     comments: List<CommentDto>,
     private val postId: Int,
     private val currentUser: UserEntity?,
-    private val onReplyClicked: ((parentCommentId: Int) -> Unit)  // Callback to handle replies
+    private val onReplyClicked: ((parentCommentId: Int) -> Unit)
 ) : RecyclerView.Adapter<CommentsAdapter.CommentViewHolder>() {
 
     private var commentsList: MutableList<CommentDto> = comments.toMutableList()
 
+
+    init {
+        Log.d("CommentsAdapter", "Adapter initialized with ${commentsList.size} items")
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CommentViewHolder {
+        Log.d("CommentsAdapter", "onCreateViewHolder called")
         val view = LayoutInflater.from(context).inflate(R.layout.comment_item, parent, false)
-        return CommentViewHolder(view)
+        Log.d("CommentsAdapter", "View inflated: ${view != null}")
+
+
+        return CommentViewHolder(view).also {
+            Log.d("CommentsAdapter", "ViewHolder created successfully")
+        }
     }
 
     override fun onBindViewHolder(holder: CommentViewHolder, position: Int) {
@@ -82,6 +93,19 @@ class CommentsAdapter(
             comment.commentId?.let { parentId ->
                 onReplyClicked(parentId)
             }
+        }
+
+        holder.replyButton.setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    Log.d("ClickDebug", "Touch DOWN at: ${event.x}, ${event.y}")
+                }
+
+                MotionEvent.ACTION_UP -> {
+                    Log.d("ClickDebug", "Touch UP at: ${event.x}, ${event.y}")
+                }
+            }
+            false // Don't consume the event
         }
 
         // Handle replies visibility toggle
@@ -137,17 +161,31 @@ class CommentsAdapter(
         }
     }
 
-    fun updateComments(newComments: List<CommentDto?>) {
+    fun updateComments(newComments: List<CommentDto>) {
+        Log.d("CommentsAdapter", "Updating comments. Old list size: ${commentsList.size}")
+        Log.d("CommentsAdapter", "New comments list size: ${newComments.size}")
+
         commentsList.clear()
+        Log.d("CommentsAdapter", "Cleared old list")
+
         commentsList.addAll(newComments)
+        Log.d("CommentsAdapter", "Added new comments. Current list size: ${commentsList.size}")
+
+        // Log each comment to verify content
+        newComments.forEachIndexed { index, comment ->
+            Log.d("CommentsAdapter", "Comment $index: $comment")
+        }
+
+        notifyDataSetChanged()
+        Log.d("CommentsAdapter", "NotifyDataSetChanged called")
     }
 
     private suspend fun fetchRepliesForComment(commentId: Int): List<CommentDto> {
         val response = getRepliesForComment(commentId)
         return if (response.isSuccessful) {
-            response.body() ?: emptyList()
+            response.body() ?: mutableListOf()
         } else {
-            emptyList()
+            mutableListOf()
         }
     }
 
@@ -171,10 +209,10 @@ class CommentsAdapter(
     inner class CommentViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val username: TextView = itemView.findViewById(R.id.comment_author)
         val content: TextView = itemView.findViewById(R.id.comment_content)
-        val repliedToUser: TextView =
-            itemView.findViewById(R.id.replied_to_user)  // "Replying to" text
+        val repliedToUser: TextView = itemView.findViewById(R.id.replied_to_user)
         val repliesRecyclerView: RecyclerView = itemView.findViewById(R.id.replies_recycler_view)
-        val viewRepliesButton: Button = itemView.findViewById(R.id.view_replies_button)
+        val viewRepliesButton: TextView =
+            itemView.findViewById(R.id.view_replies_button) // Changed to TextView
         val replyButton: TextView = itemView.findViewById(R.id.reply_button)
 
         init {
@@ -183,6 +221,6 @@ class CommentsAdapter(
     }
 }
 
-private fun <E> MutableList<E>.addAll(elements: List<E?>) {
 
-}
+
+

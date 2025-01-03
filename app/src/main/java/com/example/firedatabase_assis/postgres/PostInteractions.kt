@@ -11,7 +11,7 @@ import retrofit2.http.Query
 
 interface PostInteractions {
     @POST("/api/interactions/save")
-    suspend fun saveInteractionData(@Body interactionData: UserPostInteractionDto): Response<String>
+    suspend fun saveInteractionData(@Body interactionData: UserPostInteractionDto): Response<ApiResponse>
 
     @PUT("/api/interactions/updateTimestamp")
     suspend fun updateInteractionTimestamp(

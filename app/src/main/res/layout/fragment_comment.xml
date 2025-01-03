@@ -4,13 +4,9 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:elevation="8dp"
-    android:background="@drawable/border_drawable"
+    android:background="@android:color/white"
     android:fitsSystemWindows="true">
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#FFFFFF" />
 
     <LinearLayout
         android:layout_width="match_parent"

@@ -13,7 +13,7 @@ interface Comments {
     suspend fun getCommentsByPost(@Path("postId") postId: Int): Response<List<CommentDto>>
 
     @POST("/api/comments/insert")
-    suspend fun addComment(@Body newComment: CommentDto): Response<String>
+    suspend fun addComment(@Body newComment: CommentDto): Response<ApiResponse>
 
 
     @GET("/api/comments/{commentId}/all-replies")

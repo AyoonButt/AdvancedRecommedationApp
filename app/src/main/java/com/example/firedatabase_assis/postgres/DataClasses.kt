@@ -1,5 +1,7 @@
 package com.example.firedatabase_assis.postgres
 
+import com.google.gson.annotations.SerializedName
+
 data class UserEntity(
     val userId: Int? = null,
     var name: String,
@@ -158,6 +160,11 @@ data class UserPreferencesDto(
     val subscriptions: List<Int>,
     val genreIds: List<Int>,
     val avoidGenreIds: List<Int>
+)
+
+data class ApiResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("message") val message: String
 )
 
 
