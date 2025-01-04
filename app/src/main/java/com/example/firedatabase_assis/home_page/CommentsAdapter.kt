@@ -1,14 +1,13 @@
 package com.example.firedatabase_assis.home_page
 
-import android.content.ContentValues.TAG
 import android.content.Context
 import android.util.Log
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
+import androidx.fragment.app.FragmentActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.BuildConfig
@@ -30,15 +29,22 @@ class CommentsAdapter(
     comments: List<CommentDto>,
     private val postId: Int,
     private val currentUser: UserEntity?,
-    private val onReplyClicked: ((parentCommentId: Int) -> Unit)
+    private val onReplyClicked: ((parentCommentId: Int) -> Unit),
+    private val isNestedAdapter: Boolean = false
 ) : RecyclerView.Adapter<CommentsAdapter.CommentViewHolder>() {
 
-    private var commentsList: MutableList<CommentDto> = comments.toMutableList()
-
+    private var commentsList: MutableList<CommentDto> = mutableListOf()
 
     init {
-        Log.d("CommentsAdapter", "Adapter initialized with ${commentsList.size} items")
+        // Only show comments appropriate for this adapter level
+        commentsList = if (isNestedAdapter) {
+            comments.toMutableList()
+        } else {
+            // For root level, only show comments without parents
+            comments.filter { it.parentCommentId == null }.toMutableList()
+        }
     }
+
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CommentViewHolder {
         Log.d("CommentsAdapter", "onCreateViewHolder called")
@@ -56,63 +62,38 @@ class CommentsAdapter(
         holder.username.text = comment.username
         holder.content.text = comment.content
 
-        // Set the "replied to" user, if available
-        // Fix the coroutine scope usage
-        if (comment.parentCommentId != null) {
-            coroutineScope.launch {  // Use the provided coroutineScope
-                withContext(Dispatchers.IO) {  // Move network call to IO dispatcher
-                    try {
-                        val response = getRepliedTo(comment.parentCommentId)
-                        withContext(Dispatchers.Main) {  // Switch to Main for UI updates
-                            if (response.isSuccessful) {
-                                val repliedToUsername = response.body()
-                                if (repliedToUsername != null) {
-                                    holder.repliedToUser.apply {
-                                        visibility = View.VISIBLE
-                                        text = "Replying to: $repliedToUsername"
-                                    }
-                                } else {
-                                    holder.repliedToUser.visibility = View.GONE
-                                }
-                            } else {
-                                holder.repliedToUser.visibility = View.GONE
-                                Log.e(TAG, "Error: ${response.code()} - ${response.message()}")
-                            }
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            holder.repliedToUser.visibility = View.GONE
-                            Log.e(TAG, "Failed to get replied to username: ${e.message}")
-                        }
+        // Set up reply button
+        holder.replyButton.setOnClickListener {
+            comment.commentId?.let { parentId ->
+                onReplyClicked(parentId)
+                (holder.itemView.context as? FragmentActivity)?.supportFragmentManager?.findFragmentById(
+                    R.id.fragment_container
+                )?.let { fragment ->
+                    if (fragment is CommentFragment) {
+                        fragment.showKeyboardForReply(parentId)
                     }
                 }
             }
         }
-        // Reply button click listener
-        holder.replyButton.setOnClickListener {
-            comment.commentId?.let { parentId ->
-                onReplyClicked(parentId)
-            }
-        }
 
-        holder.replyButton.setOnTouchListener { v, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    Log.d("ClickDebug", "Touch DOWN at: ${event.x}, ${event.y}")
+        // Only show view replies for root comments
+        if (!isNestedAdapter) {
+            // Set up view replies button
+            if (comment.parentCommentId == null) {  // This is a root comment
+                holder.viewRepliesButton.setOnClickListener {
+                    toggleRepliesVisibility(holder, comment)
                 }
-
-                MotionEvent.ACTION_UP -> {
-                    Log.d("ClickDebug", "Touch UP at: ${event.x}, ${event.y}")
-                }
+                holder.viewRepliesButton.visibility = View.VISIBLE
+            } else {
+                holder.viewRepliesButton.visibility = View.GONE
             }
-            false // Don't consume the event
-        }
-
-        // Handle replies visibility toggle
-        holder.viewRepliesButton.setOnClickListener {
-            toggleRepliesVisibility(holder, comment)
+        } else {
+            // Hide view replies button for nested comments
+            holder.viewRepliesButton.visibility = View.GONE
+            holder.repliesRecyclerView.visibility = View.GONE
         }
     }
+
 
     private fun getRetrofitInstance(): Retrofit {
         return Retrofit.Builder()
@@ -125,28 +106,30 @@ class CommentsAdapter(
         val isRepliesVisible = holder.repliesRecyclerView.visibility == View.VISIBLE
         if (isRepliesVisible) {
             holder.repliesRecyclerView.visibility = View.GONE
+            holder.viewRepliesButton.text = "View Replies"
         } else {
-            coroutineScope.launch {  // Use the provided coroutineScope instead of creating new one
+            coroutineScope.launch {
                 withContext(Dispatchers.IO) {
                     try {
                         val replies = fetchRepliesForComment(comment.commentId!!)
                         withContext(Dispatchers.Main) {
                             if (replies.isEmpty()) {
-                                Toast.makeText(context, "No replies found", Toast.LENGTH_SHORT)
-                                    .show()
+                                holder.viewRepliesButton.visibility = View.GONE
                             } else {
                                 holder.repliesRecyclerView.apply {
                                     layoutManager = LinearLayoutManager(context)
                                     adapter = CommentsAdapter(
-                                        coroutineScope,  // Pass the same coroutineScope
+                                        coroutineScope,
                                         context,
                                         replies,
                                         postId,
                                         currentUser,
-                                        onReplyClicked
+                                        onReplyClicked,
+                                        isNestedAdapter = true
                                     )
                                     visibility = View.VISIBLE
                                 }
+                                holder.viewRepliesButton.text = "Hide Replies"
                             }
                         }
                     } catch (e: Exception) {
@@ -161,23 +144,15 @@ class CommentsAdapter(
         }
     }
 
+
     fun updateComments(newComments: List<CommentDto>) {
-        Log.d("CommentsAdapter", "Updating comments. Old list size: ${commentsList.size}")
-        Log.d("CommentsAdapter", "New comments list size: ${newComments.size}")
-
         commentsList.clear()
-        Log.d("CommentsAdapter", "Cleared old list")
-
-        commentsList.addAll(newComments)
-        Log.d("CommentsAdapter", "Added new comments. Current list size: ${commentsList.size}")
-
-        // Log each comment to verify content
-        newComments.forEachIndexed { index, comment ->
-            Log.d("CommentsAdapter", "Comment $index: $comment")
+        if (isNestedAdapter) {
+            commentsList.addAll(newComments)
+        } else {
+            commentsList.addAll(newComments.filter { it.parentCommentId == null })
         }
-
         notifyDataSetChanged()
-        Log.d("CommentsAdapter", "NotifyDataSetChanged called")
     }
 
     private suspend fun fetchRepliesForComment(commentId: Int): List<CommentDto> {
@@ -202,9 +177,7 @@ class CommentsAdapter(
     }
 
 
-    override fun getItemCount(): Int {
-        return commentsList.size
-    }
+    override fun getItemCount(): Int = commentsList.size
 
     inner class CommentViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val username: TextView = itemView.findViewById(R.id.comment_author)

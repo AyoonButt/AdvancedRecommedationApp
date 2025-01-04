@@ -1,11 +1,13 @@
 package com.example.firedatabase_assis.home_page
 
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
@@ -40,7 +42,7 @@ class CommentFragment(private val postId: Int) : Fragment() {
     private var parentCommentId: Int? = null
 
     private val fragmentContainerLayout by lazy {
-        requireActivity().findViewById<View>(R.id.fragment_container)  // Use the actual ID from your activity layout
+        requireActivity().findViewById<View>(R.id.fragment_container)
     }
 
     private val retrofit = Retrofit.Builder()
@@ -68,31 +70,71 @@ class CommentFragment(private val postId: Int) : Fragment() {
         userViewModel = UserViewModel.getInstance(requireActivity().application)
 
         // Initialize swipe gesture after fragmentContainerLayout is initialized
-        swipeGestureListener = SwipeGestureListener(requireContext(), fragmentContainerLayout) {
-            fragmentContainerLayout.visibility = View.GONE
-            requireActivity().supportFragmentManager.popBackStack()
-        }
+        view.post {
+            // Initialize swipe gesture listener with the current fragment container
+            swipeGestureListener = SwipeGestureListener(
+                requireContext(),
+                fragmentContainerLayout
+            ) {
+                fragmentContainerLayout.visibility = View.GONE
+                requireActivity().supportFragmentManager.popBackStack()
+            }
 
-        // Set up touch listeners
-        fragmentContainerLayout.setOnTouchListener { _, event ->
-            swipeGestureListener.onTouch(fragmentContainerLayout, event)
-        }
+            // Create a custom touch interceptor for the RecyclerView that checks scroll position
+            val recyclerViewTouchInterceptor = object : RecyclerView.OnItemTouchListener {
+                override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                    // Only allow swipe gesture if we're at the top
+                    val isAtTop = !rv.canScrollVertically(-1)
+                    return if (isAtTop) {
+                        swipeGestureListener.onTouch(rv, e)
+                    } else {
+                        false // Let the RecyclerView handle the touch event for scrolling
+                    }
+                }
 
-        commentsRecyclerView.setOnTouchListener { _, event ->
-            swipeGestureListener.onTouch(commentsRecyclerView, event)
-        }
+                override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {
+                    // No additional handling needed
+                }
 
+                override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {
+                    // No additional handling needed
+                }
+            }
+
+            // Add the touch interceptor to the RecyclerView
+            commentsRecyclerView.addOnItemTouchListener(recyclerViewTouchInterceptor)
+
+            // Handle fragment container touch events
+            fragmentContainerLayout.setOnTouchListener { v, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        // Let the gesture listener know about the initial touch
+                        swipeGestureListener.onTouch(v, event)
+                    }
+
+                    MotionEvent.ACTION_UP -> {
+                        v.performClick()
+                    }
+                }
+                // Always allow swipe gesture on the fragment container
+                swipeGestureListener.onTouch(v, event)
+            }
+            fragmentContainerLayout.isClickable = true
+            fragmentContainerLayout.isFocusable = true
+        }
         // Set up the adapter
         commentsAdapter = CommentsAdapter(
             fragmentScope,
             requireContext(),
             mutableListOf(),
             postId,
-            userViewModel.getUser()
-        ) { parentId ->
-            parentCommentId = parentId
-            commentInput.requestFocus()
-        }
+            userViewModel.getUser(),
+            { parentId ->
+                parentCommentId = parentId
+                commentInput.requestFocus()
+            },
+            isNestedAdapter = false  // First level comments
+        )
 
         commentsRecyclerView.adapter = commentsAdapter
 
@@ -228,6 +270,19 @@ class CommentFragment(private val postId: Int) : Fragment() {
         val retrofit = getRetrofitInstance()
         val api = retrofit.create(Comments::class.java)
         return api.addComment(newComment)
+    }
+
+    fun showKeyboardForReply(parentCommentId: Int) {
+        commentInput.requestFocus()
+        val imm =
+            requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.showSoftInput(commentInput, InputMethodManager.SHOW_IMPLICIT)
+        // Optionally scroll to the input
+        commentsRecyclerView.postDelayed({
+            (commentsRecyclerView.layoutManager as LinearLayoutManager).scrollToPosition(
+                commentsRecyclerView.adapter?.itemCount ?: 0
+            )
+        }, 100)
     }
 
 
