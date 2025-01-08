@@ -62,6 +62,36 @@ class CommentsAdapter(
         holder.username.text = comment.username
         holder.content.text = comment.content
 
+        if (comment.parentCommentId != null) {
+            coroutineScope.launch {
+                withContext(Dispatchers.IO) {
+                    try {
+                        val response = getRepliedTo(comment.parentCommentId)
+                        if (response.isSuccessful) {
+                            val parentUsername = response.body()
+                            withContext(Dispatchers.Main) {
+                                holder.repliedToUser.apply {
+                                    visibility = View.VISIBLE
+                                    text = "Replying to @$parentUsername"
+                                }
+                            }
+                        } else {
+                            withContext(Dispatchers.Main) {
+                                holder.repliedToUser.visibility = View.GONE
+                            }
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            holder.repliedToUser.visibility = View.GONE
+                            Log.e("CommentsAdapter", "Error fetching replied to username", e)
+                        }
+                    }
+                }
+            }
+        } else {
+            holder.repliedToUser.visibility = View.GONE
+        }
+
         // Set up reply button
         holder.replyButton.setOnClickListener {
             comment.commentId?.let { parentId ->
@@ -76,16 +106,35 @@ class CommentsAdapter(
             }
         }
 
-        // Only show view replies for root comments
-        if (!isNestedAdapter) {
-            // Set up view replies button
-            if (comment.parentCommentId == null) {  // This is a root comment
-                holder.viewRepliesButton.setOnClickListener {
-                    toggleRepliesVisibility(holder, comment)
+        // Only check for replies on root comments
+        if (!isNestedAdapter && comment.parentCommentId == null) {
+            comment.commentId?.let { commentId ->
+                // Check for replies existence
+                coroutineScope.launch {
+                    withContext(Dispatchers.IO) {
+                        try {
+                            val replies = fetchRepliesForComment(commentId)
+                            withContext(Dispatchers.Main) {
+                                if (replies.isNotEmpty()) {
+                                    holder.viewRepliesButton.apply {
+                                        visibility = View.VISIBLE
+                                        text = "View Replies"
+                                        setOnClickListener {
+                                            toggleRepliesVisibility(holder, comment)
+                                        }
+                                    }
+                                } else {
+                                    holder.viewRepliesButton.visibility = View.GONE
+                                }
+                            }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                holder.viewRepliesButton.visibility = View.GONE
+                                Log.e("CommentsAdapter", "Error checking replies", e)
+                            }
+                        }
+                    }
                 }
-                holder.viewRepliesButton.visibility = View.VISIBLE
-            } else {
-                holder.viewRepliesButton.visibility = View.GONE
             }
         } else {
             // Hide view replies button for nested comments
@@ -104,46 +153,55 @@ class CommentsAdapter(
 
     private fun toggleRepliesVisibility(holder: CommentViewHolder, comment: CommentDto) {
         val isRepliesVisible = holder.repliesRecyclerView.visibility == View.VISIBLE
+
         if (isRepliesVisible) {
+            // Hide replies
             holder.repliesRecyclerView.visibility = View.GONE
             holder.viewRepliesButton.text = "View Replies"
         } else {
+            // Load replies
             coroutineScope.launch {
-                withContext(Dispatchers.IO) {
-                    try {
-                        val replies = fetchRepliesForComment(comment.commentId!!)
-                        withContext(Dispatchers.Main) {
-                            if (replies.isEmpty()) {
-                                holder.viewRepliesButton.visibility = View.GONE
-                            } else {
-                                holder.repliesRecyclerView.apply {
-                                    layoutManager = LinearLayoutManager(context)
-                                    adapter = CommentsAdapter(
-                                        coroutineScope,
-                                        context,
-                                        replies,
-                                        postId,
-                                        currentUser,
-                                        onReplyClicked,
-                                        isNestedAdapter = true
-                                    )
-                                    visibility = View.VISIBLE
-                                }
-                                holder.viewRepliesButton.text = "Hide Replies"
-                            }
+                try {
+                    // Fetch replies on IO dispatcher
+                    val replies = withContext(Dispatchers.IO) {
+                        fetchRepliesForComment(comment.commentId!!)
+                    }
+
+                    // Update UI on Main dispatcher
+                    if (replies.isEmpty()) {
+                        holder.viewRepliesButton.visibility = View.GONE
+                    } else {
+                        holder.repliesRecyclerView.apply {
+                            layoutManager = LinearLayoutManager(context)
+                            adapter = CommentsAdapter(
+                                coroutineScope,
+                                context,
+                                replies,
+                                postId,
+                                currentUser,
+                                onReplyClicked,
+                                isNestedAdapter = true
+                            )
+                            visibility = View.VISIBLE
                         }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error loading replies", Toast.LENGTH_SHORT)
-                                .show()
-                            Log.e("CommentsAdapter", "Error fetching replies", e)
-                        }
+
+                        // Change text to "Hide Replies" AFTER replies are loaded
+                        holder.viewRepliesButton.text = "Hide Replies"
+                    }
+                } catch (e: Exception) {
+                    // Handle errors on Main dispatcher
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Error loading replies", Toast.LENGTH_SHORT).show()
+                        Log.e("CommentsAdapter", "Error fetching replies", e)
+
+                        // Optionally, reset the button text if loading fails
+                        holder.viewRepliesButton.text = "View Replies"
                     }
                 }
             }
         }
     }
-
+    
 
     fun updateComments(newComments: List<CommentDto>) {
         commentsList.clear()

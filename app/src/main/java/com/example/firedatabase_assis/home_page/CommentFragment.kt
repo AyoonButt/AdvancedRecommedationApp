@@ -1,5 +1,6 @@
 package com.example.firedatabase_assis.home_page
 
+
 import android.content.Context
 import android.os.Bundle
 import android.util.Log
@@ -11,6 +12,8 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -21,6 +24,7 @@ import com.example.firedatabase_assis.login_setup.UserViewModel
 import com.example.firedatabase_assis.postgres.ApiResponse
 import com.example.firedatabase_assis.postgres.CommentDto
 import com.example.firedatabase_assis.postgres.Comments
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,11 +39,27 @@ class CommentFragment(private val postId: Int) : Fragment() {
 
     private lateinit var commentsRecyclerView: RecyclerView
     private lateinit var commentsAdapter: CommentsAdapter
-    private lateinit var swipeGestureListener: SwipeGestureListener
     private lateinit var userViewModel: UserViewModel
     private lateinit var addCommentButton: Button
     private lateinit var commentInput: EditText
     private var parentCommentId: Int? = null
+
+    private var bottomSheetBehavior: BottomSheetBehavior<View>? = null
+    private val bottomSheetCallback = object : BottomSheetBehavior.BottomSheetCallback() {
+        override fun onStateChanged(bottomSheet: View, newState: Int) {
+            if (newState == BottomSheetBehavior.STATE_HIDDEN) {
+                // Check if fragment is still attached
+                activity?.let { activity ->
+                    bottomSheet.visibility = View.GONE
+                    activity.supportFragmentManager.popBackStack()
+                }
+            }
+        }
+
+        override fun onSlide(bottomSheet: View, slideOffset: Float) {
+            // Optional: Add slide animations
+        }
+    }
 
     private val fragmentContainerLayout by lazy {
         requireActivity().findViewById<View>(R.id.fragment_container)
@@ -55,73 +75,41 @@ class CommentFragment(private val postId: Int) : Fragment() {
         SupervisorJob() + Dispatchers.Main.immediate
     )
 
+
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
+        inflater: LayoutInflater,
+        container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
         val view = inflater.inflate(R.layout.fragment_comment, container, false)
 
+        // Initialize views
         commentsRecyclerView = view.findViewById(R.id.comment_recycler_view)
         addCommentButton = view.findViewById(R.id.add_comment_button)
         commentInput = view.findViewById(R.id.comment_input)
+
+        // Set up RecyclerView
         commentsRecyclerView.layoutManager = LinearLayoutManager(requireContext())
 
-        // Initialize UserViewModel
+        // Initialize ViewModel
         userViewModel = UserViewModel.getInstance(requireActivity().application)
 
-        // Initialize swipe gesture after fragmentContainerLayout is initialized
-        view.post {
-            // Initialize swipe gesture listener with the current fragment container
-            swipeGestureListener = SwipeGestureListener(
-                requireContext(),
-                fragmentContainerLayout
-            ) {
-                fragmentContainerLayout.visibility = View.GONE
-                requireActivity().supportFragmentManager.popBackStack()
+        activity?.findViewById<View>(R.id.fragment_container)?.let { container ->
+            bottomSheetBehavior = BottomSheetBehavior.from(container).apply {
+                state = BottomSheetBehavior.STATE_EXPANDED
+                isHideable = true
+                skipCollapsed = true
+                addBottomSheetCallback(bottomSheetCallback)
             }
-
-            // Create a custom touch interceptor for the RecyclerView that checks scroll position
-            val recyclerViewTouchInterceptor = object : RecyclerView.OnItemTouchListener {
-                override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
-                    // Only allow swipe gesture if we're at the top
-                    val isAtTop = !rv.canScrollVertically(-1)
-                    return if (isAtTop) {
-                        swipeGestureListener.onTouch(rv, e)
-                    } else {
-                        false // Let the RecyclerView handle the touch event for scrolling
-                    }
-                }
-
-                override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {
-                    // No additional handling needed
-                }
-
-                override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {
-                    // No additional handling needed
-                }
-            }
-
-            // Add the touch interceptor to the RecyclerView
-            commentsRecyclerView.addOnItemTouchListener(recyclerViewTouchInterceptor)
-
-            // Handle fragment container touch events
-            fragmentContainerLayout.setOnTouchListener { v, event ->
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        // Let the gesture listener know about the initial touch
-                        swipeGestureListener.onTouch(v, event)
-                    }
-
-                    MotionEvent.ACTION_UP -> {
-                        v.performClick()
-                    }
-                }
-                // Always allow swipe gesture on the fragment container
-                swipeGestureListener.onTouch(v, event)
-            }
-            fragmentContainerLayout.isClickable = true
-            fragmentContainerLayout.isFocusable = true
         }
+
+        ViewCompat.setOnApplyWindowInsetsListener(view.findViewById(R.id.comment_input_layout)) { view, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(0, 0, 0, systemBars.bottom)
+            insets
+        }
+
+
         // Set up the adapter
         commentsAdapter = CommentsAdapter(
             fragmentScope,
@@ -133,12 +121,12 @@ class CommentFragment(private val postId: Int) : Fragment() {
                 parentCommentId = parentId
                 commentInput.requestFocus()
             },
-            isNestedAdapter = false  // First level comments
+            isNestedAdapter = false
         )
 
         commentsRecyclerView.adapter = commentsAdapter
 
-        // Handle add comment button click
+        // Set up comment button
         addCommentButton.setOnClickListener {
             val commentText = commentInput.text.toString().trim()
             if (commentText.isNotEmpty()) {
@@ -153,6 +141,7 @@ class CommentFragment(private val postId: Int) : Fragment() {
 
         return view
     }
+
 
     override fun onDestroyView() {
         fragmentScope.cancel()
@@ -283,6 +272,24 @@ class CommentFragment(private val postId: Int) : Fragment() {
                 commentsRecyclerView.adapter?.itemCount ?: 0
             )
         }, 100)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        hideBottomNavBar()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        showBottomNavBar()
+    }
+
+    private fun hideBottomNavBar() {
+        activity?.findViewById<View>(R.id.bottom_nav_bar)?.visibility = View.GONE
+    }
+
+    private fun showBottomNavBar() {
+        activity?.findViewById<View>(R.id.bottom_nav_bar)?.visibility = View.VISIBLE
     }
 
 

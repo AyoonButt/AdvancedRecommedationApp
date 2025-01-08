@@ -45,6 +45,7 @@
 
         <activity
             android:name=".home_page.HomePage"
+            android:windowSoftInputMode="adjustResize|stateAlwaysVisible"
             android:exported="true" />
 
         <activity

@@ -1,53 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".home_page.HomePage">
 
-    <com.google.android.material.appbar.AppBarLayout
-        android:id="@+id/app_bar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar">
-
-        <androidx.appcompat.widget.Toolbar
-            android:id="@+id/toolbar"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@color/light_blue_600"
-            android:logo="@drawable/filmo"
-            app:popupTheme="@style/ThemeOverlay.AppCompat.Light"
-            app:title="FilmO" />
-
-    </com.google.android.material.appbar.AppBarLayout>
-
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler_view"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_below="@id/app_bar"
-        android:layout_above="@id/bottom_nav_bar"
+        android:layout_height="match_parent"
         android:clipToPadding="false"
-        android:scrollbars="vertical" />
+        android:scrollbars="vertical"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
 
     <FrameLayout
         android:id="@+id/fragment_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="100dp"
-        android:elevation="8dp"
-        android:visibility="gone"
-        android:layout_below="@id/app_bar"
-        android:layout_above="@id/bottom_nav_bar" />
+        android:background="@android:color/white"
+        app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior"
+        app:behavior_hideable="true"
+        app:behavior_skipCollapsed="true"
+        app:behavior_peekHeight="0dp"
+        app:behavior_draggable="true" />
 
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottom_nav_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
+        android:layout_gravity="bottom"
+        android:background="@android:color/white"
+        android:elevation="8dp"
         app:menu="@menu/bottom_nav_menu" />
 
-</RelativeLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
