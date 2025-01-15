@@ -25,5 +25,10 @@ interface Comments {
 
 
     @GET("/api/comments/{commentId}/parent-username")
-    suspend fun getParentCommentUsername(@Path("commentId") commentId: Int): Response<String>
+    suspend fun getParentCommentUsername(@Path("commentId") commentId: Int): Response<ApiResponse>
+
+    @GET("/api/comments/reply-counts")
+    suspend fun getReplyCountsForComments(
+        @Query("parentIds") parentIds: List<Int>
+    ): Response<List<ReplyCountDto>>
 }

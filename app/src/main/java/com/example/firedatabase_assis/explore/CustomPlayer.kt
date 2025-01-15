@@ -5,7 +5,6 @@ import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
 import android.view.animation.Animation
 import android.view.animation.AnimationSet
 import android.view.animation.AnimationUtils
@@ -76,6 +75,14 @@ class CustomPlayer(
     init {
         youTubePlayer.removeListener(playerTracker)
         youTubePlayer.addListener(this)
+
+        // Initialize states based on UI
+        val heart = customPlayerUi.findViewById<ImageView>(R.id.heart)
+        val saved = customPlayerUi.findViewById<ImageView>(R.id.saved)
+
+        likeState = heart.tag == "liked"
+        saveState = saved.tag == "saved"
+
         initViews(customPlayerUi)
 
         // Disable built-in touch interactions
@@ -102,9 +109,6 @@ class CustomPlayer(
             val fragmentContainer = activity.findViewById<View>(R.id.fragment_container)
             if (fragmentContainer != null) {
                 fragmentContainer.visibility = View.VISIBLE
-                val layoutParams = fragmentContainer.layoutParams as ViewGroup.MarginLayoutParams
-                layoutParams.topMargin = 0
-                fragmentContainer.layoutParams = layoutParams
 
                 activity.supportFragmentManager.beginTransaction()
                     .replace(R.id.fragment_container, CommentFragment(postID))
@@ -117,7 +121,7 @@ class CustomPlayer(
         }
 
         saved.setOnClickListener {
-            saveState = saved.tag != "saved"
+            saveState = !saveState  // Toggle the state
             saved.setImageResource(
                 if (saveState) R.drawable.icon_bookmark_filled else R.drawable.icon_bookmark_videos
             )
@@ -133,14 +137,16 @@ class CustomPlayer(
     }
 
     private fun toggleLike(heart: ImageView) {
-        likeState = heart.tag == "liked"
+
+        likeState = heart.tag != "liked" // Fix the logic here
+
         heart.setImageResource(
             if (likeState) {
-                heart.tag = "unliked"
-                R.drawable.heart_white_outline
-            } else {
-                heart.tag = "liked"
+                heart.tag = "liked"     // Update tag to match the new state
                 R.drawable.heart_red
+            } else {
+                heart.tag = "unliked"   // Update tag to match the new state
+                R.drawable.heart_white_outline
             }
         )
 
@@ -178,7 +184,7 @@ class CustomPlayer(
     private fun toggleMute() {
         isMuted = !isMuted
         youTubePlayer.setVolume(if (isMuted) 0 else 100)
-        muteIcon.setImageResource(if (isMuted) R.drawable.unmute_white else R.drawable.mute_white)
+        muteIcon.setImageResource(if (isMuted) R.drawable.mute_white else R.drawable.unmute_white)
     }
 
     override fun onReady(youTubePlayer: YouTubePlayer) {

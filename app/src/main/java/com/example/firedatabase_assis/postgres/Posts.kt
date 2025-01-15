@@ -24,18 +24,18 @@ interface Posts {
         @Query("offset") offset: Int
     ): Response<List<PostDto>>
 
-    @PUT("/api/posts/like/{postId}")
+    @PUT("/api/posts//{postId}/like")
     suspend fun updateLikeCount(@Path("postId") postId: Int): Response<String>
 
-    @PUT("/api/posts//like/trailers/{postId}")
+    @PUT("/api/posts/{postId}/trailer-like")
     suspend fun updateTrailerLikeCount(@Path("postId") postId: Int): Response<String>
 
     @GET("/api/posts/videos")
     suspend fun getVideos(
         @Query("limit") limit: Int,
         @Query("offset") offset: Int
-    ): Response<List<Pair<String, Int>>>
+    ): Response<List<VideoPair>>
 
-    @GET("/api/posts/postId")
+    @GET("/api/posts/{postId}")
     suspend fun getPostIdByTmdbId(@Query("tmdbId") tmdbId: Int): Response<Int?>
 }

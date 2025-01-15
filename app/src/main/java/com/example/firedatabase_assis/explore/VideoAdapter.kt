@@ -8,8 +8,6 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.login_setup.UserViewModel
-import com.example.firedatabase_assis.postgres.Posts
 import com.example.firedatabase_assis.postgres.TrailerInteractionDto
 import com.example.firedatabase_assis.postgres.TrailerInteractions
 import com.example.firedatabase_assis.postgres.UserEntity
@@ -21,6 +19,7 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.threeten.bp.LocalDateTime
 import org.threeten.bp.format.DateTimeFormatter
 import retrofit2.Retrofit
@@ -29,7 +28,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 class VideoAdapter(
     private val videos: MutableList<Pair<String, Int>>, // List of pairs (videoKey, postId)
     private val lifecycleOwner: LifecycleOwner,
-    private val userViewModel: UserViewModel // Pass UserViewModel for accessing user data
+    private val currentUser: UserEntity?
 ) : RecyclerView.Adapter<VideoAdapter.ViewHolder>() {
 
     private var currentlyPlayingPlayer: YouTubePlayer? = null
@@ -40,8 +39,7 @@ class VideoAdapter(
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 
-    // Instantiate your Posts API
-    private val postsApi = retrofit.create(Posts::class.java)
+
     private val interactionsApi = retrofit.create(TrailerInteractions::class.java)
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -113,41 +111,37 @@ class VideoAdapter(
             })
         }
 
-        suspend fun saveInteractionData(bindingAdapterPosition: Int) {
-            userViewModel.currentUser.observe(lifecycleOwner) { user ->
-                user?.let { currentUser ->
-                    CoroutineScope(Dispatchers.IO).launch {
-                        val interactionData =
-                            createUserTrailerInteractionData(bindingAdapterPosition, currentUser)
-                        interactionData.let {
-                            try {
-                                val response = it?.let { it1 ->
-                                    interactionsApi.saveInteractionData(
-                                        it1
-                                    )
-                                }
-                                if (response != null) {
-                                    if (response.isSuccessful) {
-                                        Log.d(
-                                            "SaveInteraction",
-                                            "Data saved successfully: ${response.body()}"
-                                        )
-                                    } else {
-                                        Log.e(
-                                            "SaveInteraction",
-                                            "Failed to save data: ${response.errorBody()?.string()}"
-                                        )
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                Log.e("SaveInteraction", "Error saving data", e)
-                            }
-                        }
-                    }
-                } ?: Log.e("SaveInteraction", "User not found. Cannot save interaction.")
-            }
-        }
 
+        suspend fun saveTrailerInteractionData(bindingAdapterPosition: Int) =
+            withContext(Dispatchers.IO) {
+                try {
+
+                    Log.d("SaveInteraction", "User found: $currentUser")
+
+                    val interactionData =
+                        currentUser?.let {
+                            createUserTrailerInteractionData(bindingAdapterPosition, it)
+                        }
+
+                    if (interactionData == null) {
+                        Log.e("SaveInteraction", "Failed to create interaction data")
+                        return@withContext
+                    }
+
+                    val response = interactionsApi.saveInteractionData(interactionData)
+
+                    if (response.isSuccessful) {
+                        Log.d("SaveInteraction", "Data saved successfully: ${response.body()}")
+                    } else {
+                        Log.e(
+                            "SaveInteraction",
+                            "Failed to save data: ${response.errorBody()?.string()}"
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.e("SaveInteraction", "Error saving data", e)
+                }
+            }
 
         private suspend fun createUserTrailerInteractionData(
             position: Int,
@@ -196,7 +190,7 @@ class VideoAdapter(
 
     override fun onViewDetachedFromWindow(holder: ViewHolder) {
         CoroutineScope(Dispatchers.IO).launch {
-            holder.saveInteractionData(holder.bindingAdapterPosition)
+            holder.saveTrailerInteractionData(holder.bindingAdapterPosition)
         }
         super.onViewDetachedFromWindow(holder)
     }

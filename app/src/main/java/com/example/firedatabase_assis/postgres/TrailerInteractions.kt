@@ -20,7 +20,7 @@ interface TrailerInteractions {
     @POST("/api/trailer-interactions/save")
     suspend fun saveInteractionData(
         @Body interactionData: TrailerInteractionDto
-    ): Response<String>
+    ): Response<ApiResponse>
 
     @GET("/api/trailer-interactions/user/{userId}")
     suspend fun getTrailerInteractionsByUser(

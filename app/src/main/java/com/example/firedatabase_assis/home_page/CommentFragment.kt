@@ -12,9 +12,8 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -40,9 +39,11 @@ class CommentFragment(private val postId: Int) : Fragment() {
     private lateinit var commentsRecyclerView: RecyclerView
     private lateinit var commentsAdapter: CommentsAdapter
     private lateinit var userViewModel: UserViewModel
+    private lateinit var commentsViewModel: CommentsViewModel
     private lateinit var addCommentButton: Button
     private lateinit var commentInput: EditText
     private var parentCommentId: Int? = null
+    private var isReplyMode = false
 
     private var bottomSheetBehavior: BottomSheetBehavior<View>? = null
     private val bottomSheetCallback = object : BottomSheetBehavior.BottomSheetCallback() {
@@ -75,6 +76,10 @@ class CommentFragment(private val postId: Int) : Fragment() {
         SupervisorJob() + Dispatchers.Main.immediate
     )
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        commentsViewModel = ViewModelProvider(this)[CommentsViewModel::class.java]
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -94,6 +99,7 @@ class CommentFragment(private val postId: Int) : Fragment() {
         // Initialize ViewModel
         userViewModel = UserViewModel.getInstance(requireActivity().application)
 
+        // Set up bottom sheet behavior
         activity?.findViewById<View>(R.id.fragment_container)?.let { container ->
             bottomSheetBehavior = BottomSheetBehavior.from(container).apply {
                 state = BottomSheetBehavior.STATE_EXPANDED
@@ -103,14 +109,7 @@ class CommentFragment(private val postId: Int) : Fragment() {
             }
         }
 
-        ViewCompat.setOnApplyWindowInsetsListener(view.findViewById(R.id.comment_input_layout)) { view, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(0, 0, 0, systemBars.bottom)
-            insets
-        }
-
-
-        // Set up the adapter
+        // Set up the adapter with reply handler
         commentsAdapter = CommentsAdapter(
             fragmentScope,
             requireContext(),
@@ -118,18 +117,43 @@ class CommentFragment(private val postId: Int) : Fragment() {
             postId,
             userViewModel.getUser(),
             { parentId ->
+                // Enhanced reply click handler
+                Log.d("CommentFragment", "Reply clicked for parent: $parentId")
                 parentCommentId = parentId
+                isReplyMode = true
+                commentInput.hint = "Write a reply..."
                 commentInput.requestFocus()
+                showKeyboard()
             },
-            isNestedAdapter = false
+            isNestedAdapter = false,
+            viewModel = commentsViewModel
         )
 
-        commentsRecyclerView.adapter = commentsAdapter
+        // Handle focus changes
+        commentInput.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus && !isReplyMode) {
+                // Only reset for new comments, not replies
+                parentCommentId = null
+            }
+        }
 
-        // Set up comment button
+        // Handle comment input clicks
+        commentInput.setOnClickListener {
+            if (!isReplyMode) {
+                // Reset only if not in reply mode
+                parentCommentId = null
+                commentInput.hint = "Write a comment..."
+            }
+        }
+
+        // Set up add comment button
         addCommentButton.setOnClickListener {
             val commentText = commentInput.text.toString().trim()
             if (commentText.isNotEmpty()) {
+                Log.d(
+                    "CommentFragment",
+                    "Adding comment - isReplyMode: $isReplyMode, parentId: $parentCommentId"
+                )
                 addComment(commentText)
             } else {
                 Toast.makeText(requireContext(), "Comment cannot be empty", Toast.LENGTH_SHORT)
@@ -137,9 +161,21 @@ class CommentFragment(private val postId: Int) : Fragment() {
             }
         }
 
+        // Set up RecyclerView adapter
+        commentsRecyclerView.adapter = commentsAdapter
+
+        // Fetch initial comments
         fetchComments()
 
         return view
+    }
+
+    private fun showKeyboard() {
+        val imm =
+            requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        commentInput.post {
+            imm.showSoftInput(commentInput, InputMethodManager.SHOW_IMPLICIT)
+        }
     }
 
 
@@ -149,6 +185,14 @@ class CommentFragment(private val postId: Int) : Fragment() {
         fragmentContainerLayout.setOnTouchListener(null)
         fragmentContainerLayout.viewTreeObserver.removeOnGlobalLayoutListener { }
         Log.d("CommentFragment", "Swipe listener removed")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Clear ViewModel cache when fragment is destroyed
+        if (isRemoving) {
+            commentsViewModel.clearCache()
+        }
     }
 
 
@@ -161,37 +205,89 @@ class CommentFragment(private val postId: Int) : Fragment() {
 
     private fun addComment(commentText: String) {
         lifecycleScope.launch {
-            val currentUser = userViewModel.getUser()
+            try {
+                val currentUser = userViewModel.getUser()
+                if (currentUser != null) {
+                    val newComment = currentUser.userId?.let {
+                        CommentDto(
+                            commentId = null,
+                            userId = it,
+                            username = currentUser.username,
+                            postId = postId,
+                            content = commentText,
+                            sentiment = "Neutral",
+                            timestamp = System.currentTimeMillis().toString(),
+                            parentCommentId = if (isReplyMode) parentCommentId else null
+                        )
+                    }
 
+                    if (newComment != null) {
+                        val response = insertComment(newComment)
 
-            if (currentUser != null) {
-                val newComment = currentUser.userId?.let {
-                    CommentDto(
-                        commentId = null,
-                        userId = it,
-                        username = currentUser.username,
-                        postId = postId,
-                        content = commentText,
-                        sentiment = "Neutral",
-                        timestamp = System.currentTimeMillis().toString(),
-                        parentCommentId = parentCommentId,  // Attach parentCommentId if replying
-                    )
+                        if (response.isSuccessful && response.body()?.success == true) {
+                            // Create a new comment with the ID from response if available
+                            val commentWithId =
+                                if (response.body()?.message?.toIntOrNull() != null) {
+                                    newComment.copy(commentId = response.body()?.message?.toIntOrNull())
+                                } else {
+                                    newComment
+                                }
+
+                            withContext(Dispatchers.Main) {
+                                if (isReplyMode && parentCommentId != null) {
+                                    // Handle reply
+                                    val parentComment =
+                                        commentsAdapter.getPositionForComment(parentCommentId!!)
+                                    if (parentComment != -1) {
+                                        // If replies are not visible, make them visible
+                                        if (!commentsViewModel.visibleReplySections.value.contains(
+                                                parentCommentId
+                                            )
+                                        ) {
+                                            commentsViewModel.toggleReplySection(
+                                                parentCommentId!!,
+                                                true
+                                            )
+                                        }
+
+                                        // Add to cache and update UI
+                                        commentsViewModel.addCommentToCache(
+                                            parentCommentId!!,
+                                            commentWithId
+                                        )
+                                        commentsAdapter.addNewComment(commentWithId)
+                                    }
+                                } else {
+                                    // Add root comment
+                                    commentsAdapter.addNewComment(commentWithId)
+                                }
+
+                                // Clear input and reset state
+                                commentInput.text.clear()
+                                parentCommentId = null
+                                isReplyMode = false
+                                commentInput.hint = "Write a comment..."
+                            }
+                        } else {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    requireContext(),
+                                    "Failed to add comment: ${response.body()?.message ?: "Unknown error"}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    }
                 }
-
-                if (newComment != null) {
-                    insertComment(newComment)
+            } catch (e: Exception) {
+                Log.e("CommentFragment", "Error adding comment", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(requireContext(), "Error adding comment", Toast.LENGTH_SHORT)
+                        .show()
                 }
-
-                // Call the adapter to add the comment
-                refreshComments()
-                commentInput.text.clear()  // Clear the input field after adding comment
-                parentCommentId = null  // Reset parentCommentId after the reply is sent
-            } else {
-                Toast.makeText(requireContext(), "Failed to add comment", Toast.LENGTH_SHORT).show()
             }
         }
     }
-
 
     fun dispatchTouchEvent(event: MotionEvent): Boolean {
         return fragmentContainerLayout.dispatchTouchEvent(event)
@@ -222,12 +318,6 @@ class CommentFragment(private val postId: Int) : Fragment() {
         }
     }
 
-    private fun refreshComments() {
-        lifecycleScope.launch {
-            val commentsList = getCommentsForPost(postId)
-            commentsAdapter.updateComments(commentsList)
-        }
-    }
 
     private suspend fun getCommentsForPost(postId: Int): List<CommentDto> {
         return withContext(Dispatchers.IO) {

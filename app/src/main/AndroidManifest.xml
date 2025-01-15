@@ -18,8 +18,7 @@
 
         <activity
             android:name=".explore.LoadVideos"
-            android:exported="true"
-            android:theme="@style/Theme.AppCompat.DayNight" />
+            android:exported="true" />
 
         <activity
             android:name=".search.SearchActivity"

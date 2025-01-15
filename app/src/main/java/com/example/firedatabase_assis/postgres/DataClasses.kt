@@ -162,6 +162,17 @@ data class UserPreferencesDto(
     val avoidGenreIds: List<Int>
 )
 
+data class ReplyCountDto(
+    val parentId: Int,
+    val replyCount: Int
+)
+
+data class VideoPair(
+    val videoKey: String,
+    val postId: Int
+)
+
+
 data class ApiResponse(
     @SerializedName("success") val success: Boolean,
     @SerializedName("message") val message: String

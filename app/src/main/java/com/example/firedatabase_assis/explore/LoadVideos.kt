@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
-import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -23,11 +22,11 @@ import retrofit2.converter.gson.GsonConverterFactory
 class LoadVideos : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: VideoAdapter
+    private lateinit var userViewModel: UserViewModel
     private var offset = 0
     private val limit = 10
     private var isLoading = false
 
-    private val userViewModel: UserViewModel by viewModels() // Initialize UserViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,7 +34,8 @@ class LoadVideos : AppCompatActivity() {
 
         recyclerView = findViewById(R.id.recycler_view)
         recyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
-        adapter = VideoAdapter(mutableListOf(), this, userViewModel)
+        userViewModel = UserViewModel.getInstance(application)
+        adapter = VideoAdapter(mutableListOf(), this, userViewModel.getUser())
         recyclerView.adapter = adapter
 
         val snapHelper = FastSnapHelper(this)
@@ -100,28 +100,53 @@ class LoadVideos : AppCompatActivity() {
 
     private suspend fun fetchVideosFromApi(limit: Int, offset: Int): List<Pair<String, Int>> {
         return try {
-            // Make the API call
             val response = postsApi.getVideos(limit, offset)
+            Log.d("API_RESPONSE", "Response body: ${response.body()}")
 
-            // Check if the response is successful
             if (response.isSuccessful) {
-                response.body() ?: emptyList() // Return the list or an empty list if null
+                // Convert VideoResponse objects to Pairs
+                response.body()?.mapNotNull { videoPair ->
+                    if (videoPair.videoKey != null && videoPair.postId != null) {
+                        Pair(videoPair.videoKey, videoPair.postId)
+                    } else {
+                        Log.w("API_RESPONSE", "Skipping invalid video response: $videoPair")
+                        null
+                    }
+                } ?: emptyList()
             } else {
-                // Handle the error
-                println("Error: ${response.errorBody()?.string()}")
+                Log.e("API_ERROR", "Error: ${response.errorBody()?.string()}")
                 emptyList()
             }
         } catch (e: Exception) {
-            // Handle exceptions (e.g., network issues)
-            println("Exception: ${e.message}")
+            Log.e("API_EXCEPTION", "Exception: ${e.message}")
             emptyList()
         }
     }
 
     private fun processMovieVideos(videos: List<Pair<String, Int>>) {
-        adapter.addItems(videos)
-        videos.forEach { (videoKey, postId) ->
-            Log.d("VideoKeys", "Post ID: $postId, Key: $videoKey")
+        try {
+            // Skip any pairs where either value is null
+            val validVideos = videos.filter { (videoKey, postId) ->
+                if (videoKey == null || postId == null) {
+                    Log.w("PROCESS_WARNING", "Skipping null pair: ($videoKey, $postId)")
+                    false
+                } else {
+                    true
+                }
+            }
+
+            if (validVideos.isEmpty()) {
+                Log.w("PROCESS_WARNING", "No valid videos after filtering")
+                return
+            }
+
+            adapter.addItems(validVideos)
+
+            validVideos.forEach { (videoKey, postId) ->
+                Log.d("VideoKeys", "Valid entry - Post ID: $postId, Key: $videoKey")
+            }
+        } catch (e: Exception) {
+            Log.e("PROCESS_ERROR", "Error processing videos", e)
         }
     }
 
