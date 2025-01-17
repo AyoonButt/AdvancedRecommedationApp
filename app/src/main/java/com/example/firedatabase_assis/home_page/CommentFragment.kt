@@ -20,8 +20,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.login_setup.UserViewModel
-import com.example.firedatabase_assis.postgres.ApiResponse
 import com.example.firedatabase_assis.postgres.CommentDto
+import com.example.firedatabase_assis.postgres.CommentResponse
 import com.example.firedatabase_assis.postgres.Comments
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import kotlinx.coroutines.CoroutineScope
@@ -109,16 +109,12 @@ class CommentFragment(private val postId: Int) : Fragment() {
             }
         }
 
-        // Set up the adapter with reply handler
         commentsAdapter = CommentsAdapter(
             fragmentScope,
             requireContext(),
             mutableListOf(),
-            postId,
-            userViewModel.getUser(),
             { parentId ->
-                // Enhanced reply click handler
-                Log.d("CommentFragment", "Reply clicked for parent: $parentId")
+                Log.d("CommentFragment", "Reply clicked with parentId: $parentId")  // Add this
                 parentCommentId = parentId
                 isReplyMode = true
                 commentInput.hint = "Write a reply..."
@@ -225,13 +221,10 @@ class CommentFragment(private val postId: Int) : Fragment() {
                         val response = insertComment(newComment)
 
                         if (response.isSuccessful && response.body()?.success == true) {
-                            // Create a new comment with the ID from response if available
-                            val commentWithId =
-                                if (response.body()?.message?.toIntOrNull() != null) {
-                                    newComment.copy(commentId = response.body()?.message?.toIntOrNull())
-                                } else {
-                                    newComment
-                                }
+                            // Use the commentId directly from the response
+                            val commentWithId = response.body()?.commentId?.let { id ->
+                                newComment.copy(commentId = id)
+                            } ?: newComment
 
                             withContext(Dispatchers.Main) {
                                 if (isReplyMode && parentCommentId != null) {
@@ -239,7 +232,12 @@ class CommentFragment(private val postId: Int) : Fragment() {
                                     val parentComment =
                                         commentsAdapter.getPositionForComment(parentCommentId!!)
                                     if (parentComment != -1) {
-                                        // If replies are not visible, make them visible
+                                        // Add to cache
+                                        commentsViewModel.addCommentToCache(
+                                            parentCommentId!!,
+                                            commentWithId
+                                        )
+
                                         if (!commentsViewModel.visibleReplySections.value.contains(
                                                 parentCommentId
                                             )
@@ -250,11 +248,7 @@ class CommentFragment(private val postId: Int) : Fragment() {
                                             )
                                         }
 
-                                        // Add to cache and update UI
-                                        commentsViewModel.addCommentToCache(
-                                            parentCommentId!!,
-                                            commentWithId
-                                        )
+                                        // Update UI
                                         commentsAdapter.addNewComment(commentWithId)
                                     }
                                 } else {
@@ -345,7 +339,7 @@ class CommentFragment(private val postId: Int) : Fragment() {
         }
     }
 
-    private suspend fun insertComment(newComment: CommentDto): Response<ApiResponse> {
+    private suspend fun insertComment(newComment: CommentDto): Response<CommentResponse> {
         val retrofit = getRetrofitInstance()
         val api = retrofit.create(Comments::class.java)
         return api.addComment(newComment)

@@ -39,6 +39,29 @@ class CommentsViewModel : ViewModel() {
         toggleReplySection(parentId, true)
     }
 
+    // In ViewModel
+    fun updateReplyCountsRecursively(commentId: Int): Int {
+        val currentCounts = _replyCountsMap.value.toMutableMap()
+
+        // Get total count including nested replies
+        fun getTotalReplies(id: Int): Int {
+            val directReplies = getCachedReplies(id) ?: return 0
+            var total = directReplies.size
+
+            directReplies.forEach { reply ->
+                reply.commentId?.let { replyId ->
+                    total += getTotalReplies(replyId)
+                }
+            }
+            return total
+        }
+
+        val totalCount = getTotalReplies(commentId)
+        currentCounts[commentId] = totalCount
+        _replyCountsMap.value = currentCounts
+        return totalCount
+    }
+
     fun initializeReplies(parentId: Int, replies: List<CommentDto>) {
         repliesCache[parentId] = replies.toMutableList()
 

@@ -178,4 +178,9 @@ data class ApiResponse(
     @SerializedName("message") val message: String
 )
 
+data class CommentResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("message") val message: String,
+    @SerializedName("commentId") val commentId: Int,
+)
 

@@ -13,7 +13,6 @@ import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.postgres.ApiResponse
 import com.example.firedatabase_assis.postgres.CommentDto
 import com.example.firedatabase_assis.postgres.Comments
-import com.example.firedatabase_assis.postgres.UserEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -26,8 +25,6 @@ class CommentsAdapter(
     private val coroutineScope: CoroutineScope,
     private val context: Context,
     comments: List<CommentDto>,
-    private val postId: Int,
-    private val currentUser: UserEntity?,
     private val onReplyClicked: ((parentCommentId: Int) -> Unit),
     private val isNestedAdapter: Boolean = false,
     private val parentId: Int? = null,
@@ -53,42 +50,39 @@ class CommentsAdapter(
     private fun fetchReplyCountsForAllComments() {
         val commentIds = commentsList.mapNotNull { it.commentId }
         if (commentIds.isEmpty()) {
-            // Initialize empty state
             viewModel._replyCountsMap.value = emptyMap()
             return
         }
 
         coroutineScope.launch {
             try {
-                val response = withContext(Dispatchers.IO) {
+                // First fetch counts
+                val counts = withContext(Dispatchers.IO) {
                     val retrofit = getRetrofitInstance()
                     val api = retrofit.create(Comments::class.java)
-                    api.getReplyCountsForComments(commentIds)
+                    val response = api.getReplyCountsForComments(commentIds)
+                    response.body()?.associate { it.parentId to it.replyCount } ?: emptyMap()
                 }
 
-                if (response.isSuccessful) {
-                    val counts =
-                        response.body()?.associate { it.parentId to it.replyCount } ?: emptyMap()
-                    Log.d("CommentsAdapter", "Fetched reply counts: $counts")
+                Log.d("CommentsAdapter", "Fetched reply counts: $counts")
 
-                    // Reset all counts in ViewModel
-                    viewModel._replyCountsMap.value = counts
-
-                    // Fetch and cache replies for comments that have them
-                    withContext(Dispatchers.IO) {
-                        counts.forEach { (commentId, count) ->
-                            if (count > 0) {
-                                val replies = fetchRepliesForComment(commentId)
-                                // Sort replies by newest first before caching
-                                val sortedReplies = replies.sortedByDescending { it.timestamp }
-                                viewModel.initializeReplies(commentId, sortedReplies)
+                // For comments with replies, fetch and cache their replies
+                counts.forEach { (commentId, replyCount) ->
+                    if (replyCount > 0) {
+                        withContext(Dispatchers.IO) {
+                            val replies = fetchRepliesForComment(commentId)
+                            withContext(Dispatchers.Main) {
+                                viewModel.initializeReplies(commentId, replies)
                             }
                         }
                     }
+                }
 
-                    withContext(Dispatchers.Main) {
-                        notifyDataSetChanged()
-                    }
+                // Update counts in ViewModel
+                viewModel._replyCountsMap.value = counts
+
+                withContext(Dispatchers.Main) {
+                    notifyDataSetChanged()
                 }
             } catch (e: Exception) {
                 Log.e("CommentsAdapter", "Error fetching reply counts", e)
@@ -145,10 +139,16 @@ class CommentsAdapter(
         // Handle reply button visibility
         holder.replyButton.apply {
             visibility = View.VISIBLE
+            Log.d("CommentsAdapter", "Setting up reply button for comment ID: ${comment.commentId}")
             setOnClickListener {
+                Log.d(
+                    "CommentsAdapter",
+                    "Reply button clicked for comment ID: ${comment.commentId}"
+                )
                 comment.commentId?.let { parentId ->
+                    Log.d("CommentsAdapter", "Calling onReplyClicked with parentId: $parentId")
                     onReplyClicked(parentId)
-                }
+                } ?: Log.e("CommentsAdapter", "Comment ID is null when reply clicked")
             }
         }
 
@@ -190,8 +190,8 @@ class CommentsAdapter(
             // Hide replies
             hideReplies(commentId)
             viewModel.toggleReplySection(commentId, false)
-            holder.viewRepliesButton.text =
-                "View Replies (${viewModel.replyCountsMap.value[commentId] ?: 0})"
+            val replyCount = viewModel.replyCountsMap.value[commentId] ?: 0
+            holder.viewRepliesButton.text = "View Replies ($replyCount)"
         } else {
             // Show replies
             val cachedReplies = viewModel.getCachedReplies(commentId)
@@ -199,6 +199,7 @@ class CommentsAdapter(
                 // Use cached replies
                 showRepliesInline(holder, commentId, cachedReplies)
                 viewModel.toggleReplySection(commentId, true)
+                holder.viewRepliesButton.text = "Hide Replies (${cachedReplies.size})"
             } else {
                 // Fetch replies if not cached
                 coroutineScope.launch {
@@ -207,13 +208,19 @@ class CommentsAdapter(
                             fetchRepliesForComment(commentId)
                         }
 
-                        // Cache the fetched replies
-                        viewModel.initializeReplies(commentId, replies)
-
                         withContext(Dispatchers.Main) {
                             if (replies.isNotEmpty()) {
+                                // Cache the fetched replies
+                                viewModel.initializeReplies(commentId, replies)
                                 showRepliesInline(holder, commentId, replies)
                                 viewModel.toggleReplySection(commentId, true)
+
+                                // Update reply count
+                                val currentCounts = viewModel._replyCountsMap.value.toMutableMap()
+                                currentCounts[commentId] = replies.size
+                                viewModel._replyCountsMap.value = currentCounts
+
+                                holder.viewRepliesButton.text = "Hide Replies (${replies.size})"
                             } else {
                                 holder.viewRepliesButton.visibility = View.GONE
                             }
@@ -270,11 +277,32 @@ class CommentsAdapter(
         val parentPosition = getPositionForComment(commentId)
         if (parentPosition == -1) return
 
+        // Get all replies in the chain and show them
+        val allReplies = mutableListOf<CommentDto>()
+        val repliesQueue = ArrayDeque(replies)
+
+        while (repliesQueue.isNotEmpty()) {
+            val reply = repliesQueue.removeFirst()
+            allReplies.add(reply)
+
+            reply.commentId?.let { replyId ->
+                viewModel.getCachedReplies(replyId)?.let { nestedReplies ->
+                    repliesQueue.addAll(nestedReplies)
+                }
+            }
+        }
+
+        // Update the reply counts
+        viewModel.updateReplyCountsRecursively(commentId)
+
         // Insert all replies immediately after the parent comment
-        val sortedReplies = replies.sortedByDescending { it.timestamp } // Sort by newest first
+        val sortedReplies = allReplies.sortedByDescending { it.timestamp }
         commentsList.addAll(parentPosition + 1, sortedReplies)
-        notifyItemRangeInserted(parentPosition + 1, replies.size)
-        holder.viewRepliesButton.text = "Hide Replies (${replies.size})"
+        notifyItemRangeInserted(parentPosition + 1, sortedReplies.size)
+        holder.viewRepliesButton.text = "Hide Replies (${allReplies.size})"
+
+        // Update UI for comments with replies
+        notifyItemChanged(parentPosition)
     }
 
 
@@ -345,46 +373,27 @@ class CommentsAdapter(
             }
 
             else -> {
-                // Find the root parent of this reply chain
-                var rootParentId: Int = comment.parentCommentId
-                var currentComment = commentsList.find { it.commentId == rootParentId }
+                val parentId = comment.parentCommentId
+                val parentPosition = commentsList.indexOfFirst { it.commentId == parentId }
 
-                // Track the original parent ID before traversing up the chain
-                val immediateParentId = rootParentId
-
-                while (currentComment?.parentCommentId != null) {
-                    rootParentId = currentComment.parentCommentId!!
-                    currentComment = commentsList.find { it.commentId == rootParentId }
-                }
-
-                // Find immediate parent's position
-                val parentPosition = commentsList.indexOfFirst { it.commentId == immediateParentId }
                 if (parentPosition != -1) {
-                    // Only add to UI if the parent's replies are visible
-                    if (viewModel.visibleReplySections.value.contains(rootParentId)) {
+                    // Only update UI if replies are visible
+                    if (viewModel.visibleReplySections.value.contains(parentId)) {
                         val insertPosition = parentPosition + 1
                         commentsList.add(insertPosition, comment)
                         notifyItemInserted(insertPosition)
                     }
 
-                    // Always update caches regardless of visibility
-                    if (rootParentId != immediateParentId) {
-                        val rootReplies = viewModel.getCachedReplies(rootParentId) ?: listOf()
-                        viewModel.initializeReplies(rootParentId, listOf(comment) + rootReplies)
-                    }
+                    // Update counts and UI immediately
+                    val totalCount = viewModel.updateReplyCountsRecursively(parentId)
 
-                    val parentReplies = viewModel.getCachedReplies(immediateParentId) ?: listOf()
-                    viewModel.initializeReplies(immediateParentId, listOf(comment) + parentReplies)
-
-                    // Update count in ViewModel
-                    val currentCounts = viewModel._replyCountsMap.value.toMutableMap()
-                    currentCounts[rootParentId] =
-                        (viewModel.getCachedReplies(rootParentId)?.size ?: 0)
-                    viewModel._replyCountsMap.value = currentCounts
-
-                    // Update UI
+                    // Update parent comment UI to ensure count is refreshed
                     notifyItemChanged(parentPosition)
-                    if (rootParentId != immediateParentId) {
+
+                    // Find and update root parent if this is a nested reply
+                    val rootParentId = findRootParentId(parentId)
+                    if (rootParentId != parentId) {
+                        viewModel.updateReplyCountsRecursively(rootParentId)
                         val rootPosition =
                             commentsList.indexOfFirst { it.commentId == rootParentId }
                         if (rootPosition != -1) {
@@ -394,6 +403,18 @@ class CommentsAdapter(
                 }
             }
         }
+    }
+
+    private fun findRootParentId(commentId: Int): Int {
+        var currentId = commentId
+        var currentComment = commentsList.find { it.commentId == currentId }
+
+        while (currentComment?.parentCommentId != null) {
+            currentId = currentComment.parentCommentId!!
+            currentComment = commentsList.find { it.commentId == currentId }
+        }
+
+        return currentId
     }
 
     inner class CommentViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
