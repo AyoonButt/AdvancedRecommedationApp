@@ -296,9 +296,8 @@ class CommentsAdapter(
         viewModel.updateReplyCountsRecursively(commentId)
 
         // Insert all replies immediately after the parent comment
-        val sortedReplies = allReplies.sortedByDescending { it.timestamp }
-        commentsList.addAll(parentPosition + 1, sortedReplies)
-        notifyItemRangeInserted(parentPosition + 1, sortedReplies.size)
+        commentsList.addAll(parentPosition + 1, allReplies)
+        notifyItemRangeInserted(parentPosition + 1, allReplies.size)
         holder.viewRepliesButton.text = "Hide Replies (${allReplies.size})"
 
         // Update UI for comments with replies
