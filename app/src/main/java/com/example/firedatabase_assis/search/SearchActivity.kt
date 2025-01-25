@@ -18,7 +18,7 @@ import com.example.firedatabase_assis.R
 import kotlinx.coroutines.launch
 
 class SearchActivity : AppCompatActivity() {
-    private lateinit var movieAdapter: MovieTVAdapter
+    private lateinit var mediaAdapter: MediaItemAdapter
     private lateinit var profileAdapter: ProfileAdapter
     private lateinit var recyclerViewMovies: RecyclerView
     private lateinit var recyclerViewProfiles: RecyclerView
@@ -40,6 +40,7 @@ class SearchActivity : AppCompatActivity() {
         setupRecyclerViews()
         setupObservers()
         setupSearch()
+        setupPagination()
     }
 
     private fun initializeViews() {
@@ -51,12 +52,21 @@ class SearchActivity : AppCompatActivity() {
 
     private fun setupAdapters() {
         // Movie Adapter with click listener
-        movieAdapter = MovieTVAdapter { item ->
-            if (!viewModel.isLoading.value) {
-                viewModel.setSelectedItem(item)
-                showFragment(PosterFragment.newInstance(item))
-            }
-        }
+        mediaAdapter = MediaItemAdapter(
+            onItemClick = { item ->
+                if (!viewModel.isLoading.value) {
+                    viewModel.setSelectedItem(item) // Set the selected item in the view model
+
+                    // Check if the item is a Movie or TV and pass the isMovie flag
+                    val isMovie = item is Movie
+
+                    // Show PosterFragment with the corresponding flag
+                    showFragment(PosterFragment.newInstance(item.id, isMovie))
+                }
+            },
+            isRecommendation = false
+        )
+
 
         // Profile Adapter with click listener
         profileAdapter = ProfileAdapter { person ->
@@ -75,40 +85,37 @@ class SearchActivity : AppCompatActivity() {
             adapter = profileAdapter
         }
 
-        // Movies RecyclerView
+        // Media RecyclerView
         recyclerViewMovies.apply {
             layoutManager = GridLayoutManager(this@SearchActivity, 2)
-            adapter = movieAdapter
+            adapter = mediaAdapter
         }
     }
 
     private fun setupObservers() {
-
         viewModel.navigationEvent.observe(this) { event ->
             navigationManager.handleNavigation(event)
-        }
-
-        viewModel.navigationEvent.observe(this) { event ->
-            navigationManager.handleNavigationState(event)
-            findViewById<View>(R.id.container).visibility =
-                if (event is SearchViewModel.NavigationState.Close ||
-                    (event is SearchViewModel.NavigationState.Back && navigationManager.isRootFragment())
-                ) {
-                    View.GONE
-                } else {
-                    View.VISIBLE
-                }
+            findViewById<View>(R.id.container).visibility = when {
+                event is SearchViewModel.NavigationState.Close -> View.GONE
+                event is SearchViewModel.NavigationState.Back && navigationManager.isRootFragment() -> View.GONE
+                else -> View.VISIBLE
+            }
         }
 
         viewModel.profiles.observe(this) { profiles ->
+            println("Received profiles: ${profiles.size}")  // Debug log
             val validProfiles = profiles.filter { !it.profile_path.isNullOrEmpty() }
-            recyclerViewProfiles.visibility =
-                if (validProfiles.isEmpty()) View.GONE else View.VISIBLE
-            profileAdapter.submitData(validProfiles)
+            println("Valid profiles: ${validProfiles.size}")  // Debug log
+            recyclerViewProfiles.visibility = if (validProfiles.isEmpty()) View.GONE else {
+                println("Setting profiles visible")  // Debug log
+                View.VISIBLE
+            }
+            profileAdapter.submitList(validProfiles)
         }
 
-        viewModel.moviesAndShows.observe(this) { pair ->
-            movieAdapter.submitData(pair.first, pair.second)
+
+        viewModel.mediaItems.observe(this) { mediaItems ->
+            mediaAdapter.submitList(mediaItems)
         }
 
         lifecycleScope.launch {
@@ -120,16 +127,42 @@ class SearchActivity : AppCompatActivity() {
 
     private fun setupSearch() {
         editTextSearch.doAfterTextChanged { text ->
-            if (!text.isNullOrBlank()) {
-                viewModel.search(text.toString())
-            }
+            text?.toString()?.takeIf { it.isNotBlank() }?.let(viewModel::onSearchInput)
         }
 
         buttonSearch.setOnClickListener {
-            val query = editTextSearch.text.toString()
-            if (query.isNotEmpty()) {
+            editTextSearch.text?.toString()?.takeIf { it.isNotBlank() }?.let { query ->
                 hideKeyboard()
-                viewModel.search(query)
+                viewModel.onSearchInput(query)
+            }
+        }
+    }
+
+    private fun setupPagination() {
+        recyclerViewMovies.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                if (dy <= 0) return // Skip if scrolling up
+
+                val layoutManager = recyclerView.layoutManager as GridLayoutManager
+                val lastVisibleItem = layoutManager.findLastVisibleItemPosition()
+                val totalItemCount = layoutManager.itemCount
+
+                if (!viewModel.isLoading.value && lastVisibleItem >= totalItemCount - 5) {
+                    viewModel.loadNextPage()
+                }
+            }
+        })
+
+        // Observe paging state
+        lifecycleScope.launch {
+            viewModel.pagingState.collect { state ->
+                when (state) {
+                    is SearchViewModel.PagingState.Error -> {
+                        // Show error state (e.g., Snackbar)
+                    }
+
+                    else -> {} // Handle other states if needed
+                }
             }
         }
     }
@@ -139,28 +172,39 @@ class SearchActivity : AppCompatActivity() {
             is PosterFragment -> {
                 val args = fragment.arguments
                 when {
-                    args?.containsKey("movie") == true ->
-                        "poster_movie_${args.getParcelable<Movie>("movie")?.id}"
-
-                    args?.containsKey("tv") == true ->
-                        "poster_tv_${args.getParcelable<TV>("tv")?.id}"
+                    // Check if the item is a Movie or TV using the 'isMovie' flag
+                    args?.containsKey("is_movie") == true -> {
+                        val isMovie = args.getBoolean("is_movie")
+                        if (isMovie) {
+                            // Create a tag for Movie
+                            "poster_movie_${args.getInt("item_id")}"
+                        } else {
+                            // Create a tag for TV
+                            "poster_tv_${args.getInt("item_id")}"
+                        }
+                    }
 
                     else -> "poster_unknown"
                 }
             }
 
-            is PersonDetailFragment -> "person_${fragment.arguments?.getInt("person_id")}"
+            is PersonDetailFragment -> {
+                "person_${fragment.arguments?.getInt("person_id")}"
+            }
+
             else -> fragment.javaClass.simpleName
         }
 
         supportFragmentManager.beginTransaction()
             .setReorderingAllowed(true)
-            .replace(R.id.container, fragment, fragmentTag)
+            .add(R.id.container, fragment, fragmentTag)
+            .hide(supportFragmentManager.fragments.lastOrNull() ?: return)
             .addToBackStack(fragmentTag)
             .commit()
 
         findViewById<View>(R.id.container).visibility = View.VISIBLE
     }
+
 
     private fun hideKeyboard() {
         val inputMethodManager =

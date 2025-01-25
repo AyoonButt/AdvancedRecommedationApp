@@ -115,11 +115,20 @@
                 android:layout_marginBottom="16dp"
                 android:textSize="16sp" />
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Credits"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="8dp" />
+
             <!-- Credits RecyclerView -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/creditsRecyclerView"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="true" />
         </LinearLayout>
     </ScrollView>
 </LinearLayout>

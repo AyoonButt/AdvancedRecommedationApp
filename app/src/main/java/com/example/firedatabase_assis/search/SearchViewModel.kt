@@ -12,24 +12,34 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNot
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.IOException
 import java.util.Collections
 
 class SearchViewModel : ViewModel() {
-    private lateinit var navigationManager: NavigationManager
+
     private val client = OkHttpClient()
     private val gson = Gson()
 
     private val _profiles = MutableLiveData<List<Person>>()
     val profiles: LiveData<List<Person>> = _profiles
 
-    private val _moviesAndShows = MutableLiveData<Pair<List<Movie>, List<TV>>>()
-    val moviesAndShows: LiveData<Pair<List<Movie>, List<TV>>> = _moviesAndShows
+    private val _mediaItems = MutableLiveData<List<MediaItem>>()
+    val mediaItems: LiveData<List<MediaItem>> = _mediaItems
+
+    private val mediaItemList = mutableListOf<MediaItem>()
 
     private val _isLoadingPage = MutableStateFlow(false)
     private val _isSearching = MutableStateFlow(false)
@@ -43,6 +53,8 @@ class SearchViewModel : ViewModel() {
     private val _selectedItem = MutableLiveData<Any>()
     val selectedItem: LiveData<Any> = _selectedItem
 
+    private val searchDebouncer = FlowDebouncer<String>(300L)
+
     private var currentQuery = ""
     private var currentPage = 1
     private var totalPages = 1
@@ -52,102 +64,175 @@ class SearchViewModel : ViewModel() {
     private val tvList = Collections.synchronizedList(mutableListOf<TV>())
     private val profilesList = Collections.synchronizedList(mutableListOf<Person>())
 
-    fun search(query: String) {
-        if (query == currentQuery) return
-        if (_isSearching.value) return
+    sealed class PagingState {
+        object Idle : PagingState()
+        object Loading : PagingState()
+        data class Error(val message: String) : PagingState()
+    }
 
-        searchJob?.cancel()
+    private val _pagingState = MutableStateFlow<PagingState>(PagingState.Idle)
+    val pagingState: StateFlow<PagingState> = _pagingState.asStateFlow()
+
+    private var isLoadingNextPage = false
+
+
+    init {
         viewModelScope.launch {
-            try {
-                _isSearching.emit(true)
-                currentQuery = query
-                currentPage = 1
-                totalPages = 1
-                clearLists()
-                fetchPage(1)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                _isSearching.emit(false)
+            searchDebouncer.flow
+                .filterNotNull()
+                .filterNot { it.isBlank() }
+                .distinctUntilChanged()
+                .onEach { query ->
+                    searchJob?.cancel()
+                    clearLists()
+                    _isSearching.value = true
+                    if (query != null) {
+                        currentQuery = query
+                    }
+                    currentPage = 1
+                    totalPages = 1
+                    searchJob = launch {
+                        if (query != null) {
+                            performSearch(query)
+                        }
+                    }
+                }
+                .catch { e ->
+                    e.printStackTrace()
+                }
+                .collect()
+        }
+    }
+
+    private suspend fun performSearch(query: String) {
+        try {
+            _isSearching.value = true
+            val response = withContext(Dispatchers.IO) {
+                fetchSearchResults(query, currentPage)
             }
+
+            // Handle profiles first
+            synchronized(profilesList) {
+                profilesList.clear()
+                profilesList.addAll(response.profiles)
+                _profiles.value = profilesList.toList()  // Update profiles immediately
+            }
+
+            // Then handle media items
+            synchronized(moviesList) { moviesList.clear() }
+            synchronized(tvList) { tvList.clear() }
+
+            response.mediaItems.forEach {
+                when (it) {
+                    is Movie -> synchronized(moviesList) { moviesList.add(it) }
+                    is TV -> synchronized(tvList) { tvList.add(it) }
+                }
+            }
+
+            updateLiveData()
+            currentPage = response.currentPage
+            totalPages = response.totalPages
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            _isSearching.value = false
+        }
+    }
+
+    private fun fetchSearchResults(query: String, page: Int): SearchResponse {
+        val request = Request.Builder()
+            .url("https://api.themoviedb.org/3/search/multi?query=$query&include_adult=false&language=en-US&page=$page")
+            .get()
+            .addHeader("accept", "application/json")
+            .addHeader("Authorization", "Bearer ${BuildConfig.TMDB_API_KEY_BEARER}")
+            .build()
+
+        return client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("Unexpected response ${response.code}")
+
+            val responseBody = response.body?.string() ?: throw IOException("Empty response body")
+            val searchResult = gson.fromJson(responseBody, JsonObject::class.java)
+
+            val results = searchResult.getAsJsonArray("results")
+            val totalPages = searchResult.get("total_pages")?.asInt ?: 1
+            val currentPage = searchResult.get("page")?.asInt ?: page
+
+            val movies = mutableListOf<Movie>()
+            val tvShows = mutableListOf<TV>()
+            val profiles = mutableListOf<Person>()
+
+            results.forEach { resultJson ->
+                val result = gson.fromJson(resultJson, JsonObject::class.java)
+                when (result.get("media_type")?.asString) {
+                    "movie" -> {
+                        val movie = gson.fromJson(result, Movie::class.java)
+                        if (!movie.poster_path.isNullOrEmpty()) movies.add(movie)
+                    }
+
+                    "tv" -> {
+                        val tv = gson.fromJson(result, TV::class.java)
+                        if (!tv.poster_path.isNullOrEmpty()) tvShows.add(tv)
+                    }
+
+                    "person" -> {
+                        val person = gson.fromJson(result, Person::class.java)
+                        if (!person.profile_path.isNullOrEmpty()) profiles.add(person)
+                    }
+                }
+            }
+
+            SearchResponse(
+                mediaItems = movies + tvShows,
+                profiles = profiles,
+                currentPage = currentPage,
+                totalPages = totalPages
+            )
         }
     }
 
 
     fun loadNextPage() {
-        if (_isLoadingPage.value || currentPage >= totalPages) return
+        if (isLoadingNextPage || currentPage >= totalPages || currentQuery.isBlank()) return
+
+        isLoadingNextPage = true
+        _pagingState.value = PagingState.Loading
 
         viewModelScope.launch {
             try {
-                _isLoadingPage.emit(true)
-                fetchPage(currentPage + 1)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                _isLoadingPage.emit(false)
-            }
-        }
-    }
+                val response = withContext(Dispatchers.IO) {
+                    fetchSearchResults(currentQuery, currentPage + 1)
+                }
 
-    private suspend fun fetchPage(page: Int) {
-        withContext(Dispatchers.IO) {
-            try {
-                val request = Request.Builder()
-                    .url("https://api.themoviedb.org/3/search/multi?query=$currentQuery&include_adult=false&language=en-US&page=$page")
-                    .get()
-                    .addHeader("accept", "application/json")
-                    .addHeader("Authorization", "Bearer ${BuildConfig.TMDB_API_KEY_BEARER}")
-                    .build()
+                synchronized(mediaItemList) {
+                    response.mediaItems.forEach { newItem ->
+                        when (newItem) {
+                            is Movie -> if (!moviesList.any { it.id == newItem.id }) {
+                                moviesList.add(newItem)
+                            }
 
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) return@use
-
-                    response.body?.let { responseBody ->
-                        val json = responseBody.string()
-                        val searchResult = gson.fromJson(json, JsonObject::class.java)
-                        val results = searchResult.getAsJsonArray("results")
-
-                        totalPages = searchResult.get("total_pages")?.asInt ?: 1
-                        currentPage = page
-
-                        synchronized(moviesList) {
-                            synchronized(tvList) {
-                                synchronized(profilesList) {
-                                    results?.forEach { resultJson ->
-                                        val result =
-                                            gson.fromJson(resultJson, JsonObject::class.java)
-                                        when (result.get("media_type")?.asString) {
-                                            "movie" -> {
-                                                val movie = gson.fromJson(result, Movie::class.java)
-                                                if (!movie.poster_path.isNullOrEmpty()) {
-                                                    moviesList.add(movie)
-                                                }
-                                            }
-
-                                            "tv" -> {
-                                                val tv = gson.fromJson(result, TV::class.java)
-                                                if (!tv.poster_path.isNullOrEmpty()) {
-                                                    tvList.add(tv)
-                                                }
-                                            }
-
-                                            "person" -> {
-                                                val person =
-                                                    gson.fromJson(result, Person::class.java)
-                                                if (!person.profile_path.isNullOrEmpty()) {
-                                                    profilesList.add(person)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                            is TV -> if (!tvList.any { it.id == newItem.id }) {
+                                tvList.add(newItem)
                             }
                         }
-                        updateLiveData()
                     }
                 }
+
+                synchronized(profilesList) {
+                    response.profiles.forEach { newProfile ->
+                        if (!profilesList.any { it.id == newProfile.id }) {
+                            profilesList.add(newProfile)
+                        }
+                    }
+                }
+
+                currentPage = response.currentPage
+                totalPages = response.totalPages
+                updateLiveData()
+                _pagingState.value = PagingState.Idle
             } catch (e: Exception) {
-                e.printStackTrace()
+                _pagingState.value = PagingState.Error(e.message ?: "Unknown error")
+            } finally {
+                isLoadingNextPage = false
             }
         }
     }
@@ -156,23 +241,31 @@ class SearchViewModel : ViewModel() {
         synchronized(moviesList) { moviesList.clear() }
         synchronized(tvList) { tvList.clear() }
         synchronized(profilesList) { profilesList.clear() }
-        updateLiveData()
+        _profiles.value = emptyList()
+        _mediaItems.value = emptyList()
     }
 
     private fun updateLiveData() {
         viewModelScope.launch(Dispatchers.Main) {
-            _profiles.value = synchronized(profilesList) { profilesList.toList() }
-            _moviesAndShows.value = synchronized(moviesList) {
-                synchronized(tvList) {
-                    Pair(moviesList.toList(), tvList.toList())
-                }
+            synchronized(mediaItemList) {
+                mediaItemList.clear()
+                // Combine and sort all media items by popularity
+                val sortedItems = (moviesList + tvList).sortedByDescending { it.popularity }
+                mediaItemList.addAll(sortedItems)
             }
+            _profiles.value = synchronized(profilesList) { profilesList.toList() }
+            _mediaItems.value = synchronized(mediaItemList) { mediaItemList.toList() }
         }
     }
 
+    fun onSearchInput(query: String) {
+        viewModelScope.launch {
+            searchDebouncer.emit(query)
+        }
+    }
 
     sealed class NavigationState {
-        data class ShowPoster(val item: Any) : NavigationState()
+        data class ShowPoster(val id: Int, val isMovie: Boolean) : NavigationState()
         data class ShowPerson(val id: Int) : NavigationState()
         object Back : NavigationState()
         object Close : NavigationState()
@@ -189,9 +282,11 @@ class SearchViewModel : ViewModel() {
 
     fun setSelectedItem(item: Any) {
         viewModelScope.launch(Dispatchers.Main) {
+            println("Setting selected item: $item")
             _selectedItem.value = item
         }
     }
+
 
     override fun onCleared() {
         super.onCleared()

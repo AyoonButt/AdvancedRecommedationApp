@@ -1,6 +1,5 @@
 package com.example.firedatabase_assis.search
 
-import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -26,7 +25,7 @@ import org.json.JSONObject
 class PersonDetailFragment : Fragment() {
     private lateinit var viewModel: SearchViewModel
     private val client = OkHttpClient()
-    private lateinit var creditsAdapter: MovieTVAdapter
+    private lateinit var creditsAdapter: MediaItemAdapter  // Declare it at the class level
 
     companion object {
         fun newInstance(personId: Int): PersonDetailFragment {
@@ -45,12 +44,13 @@ class PersonDetailFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_person_details, container, false)
         viewModel = ViewModelProvider(requireActivity())[SearchViewModel::class.java]
-        setupViews(view)
-        loadPersonDetails()
+        setupViews(view)  // Setup the views
+        loadPersonDetails() // Load the person details asynchronously
         return view
     }
 
     private fun setupViews(view: View) {
+        // Setup back and close buttons
         view.findViewById<ImageView>(R.id.back).setOnClickListener {
             viewModel.navigate(SearchViewModel.NavigationState.Back)
         }
@@ -59,17 +59,28 @@ class PersonDetailFragment : Fragment() {
             viewModel.navigate(SearchViewModel.NavigationState.Close)
         }
 
-        creditsAdapter = MovieTVAdapter { item ->
-            viewModel.setSelectedItem(item)
-            viewModel.navigate(SearchViewModel.NavigationState.ShowPoster(item))
-        }
+        // Initialize the adapter (this was being re-declared before)
+        creditsAdapter = MediaItemAdapter(
+            onItemClick = { item ->
+                val isMovie = item is Movie
+                viewModel.setSelectedItem(item)
 
+                viewModel.navigate(
+                    SearchViewModel.NavigationState.ShowPoster(
+                        item.id,
+                        isMovie = isMovie
+                    )
+                )
+            },
+            isRecommendation = false
+        )
+
+        // Setup RecyclerView for credits (cast in this case)
         view.findViewById<RecyclerView>(R.id.creditsRecyclerView).apply {
             layoutManager = GridLayoutManager(context, 2)
-            adapter = creditsAdapter
+            adapter = creditsAdapter  // Set the initialized adapter
         }
     }
-
 
     private fun loadPersonDetails() {
         val personId = arguments?.getInt("person_id") ?: return
@@ -95,7 +106,7 @@ class PersonDetailFragment : Fragment() {
                     }
                 }
 
-                // Fetch credits
+                // Fetch credits (cast and crew)
                 val creditsUrl = "https://api.themoviedb.org/3/person/$personId/combined_credits"
                 val creditsRequest = Request.Builder()
                     .url(creditsUrl)
@@ -105,11 +116,16 @@ class PersonDetailFragment : Fragment() {
                 client.newCall(creditsRequest).execute().use { response ->
                     if (response.isSuccessful) {
                         val jsonData = response.body?.string()
-                        val credits = parseCredits(jsonData)
 
+                        // Parse the credits data into a List<MediaItem>
+                        val mediaItems = parseCredits(jsonData)
+
+                        // Post data to the main thread to update the adapter
                         withContext(Dispatchers.Main) {
-                            if (!isAdded) return@withContext
-                            creditsAdapter.submitData(credits.first, credits.second)
+                            if (!isAdded) return@withContext // Ensure fragment is still attached
+
+                            // Submit the parsed list to the adapter
+                            creditsAdapter.submitList(mediaItems)
                         }
                     }
                 }
@@ -142,9 +158,8 @@ class PersonDetailFragment : Fragment() {
         }
     }
 
-    private fun parseCredits(jsonData: String?): Pair<List<Movie>, List<TV>> {
-        val movies = mutableListOf<Movie>()
-        val tvShows = mutableListOf<TV>()
+    private fun parseCredits(jsonData: String?): List<MediaItem> {
+        val mediaItems = mutableListOf<MediaItem>()
 
         jsonData?.let {
             val jsonObject = JSONObject(it)
@@ -153,13 +168,18 @@ class PersonDetailFragment : Fragment() {
             for (i in 0 until cast.length()) {
                 val item = cast.getJSONObject(i)
                 when (item.getString("media_type")) {
-                    "movie" -> movies.add(Gson().fromJson(item.toString(), Movie::class.java))
-                    "tv" -> tvShows.add(Gson().fromJson(item.toString(), TV::class.java))
+                    "movie" -> mediaItems.add(
+                        Gson().fromJson(item.toString(), Movie::class.java).toMediaItem()
+                    )
+
+                    "tv" -> mediaItems.add(
+                        Gson().fromJson(item.toString(), TV::class.java).toMediaItem()
+                    )
                 }
             }
         }
 
-        return Pair(movies, tvShows)
+        return mediaItems
     }
 
     private fun calculateAge(birthDate: String): Int {
@@ -167,28 +187,4 @@ class PersonDetailFragment : Fragment() {
         val birthYear = birthDate.take(4).toIntOrNull() ?: return 0
         return java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) - birthYear
     }
-
-
-    // Add to both fragments
-    override fun onAttach(context: Context) {
-        super.onAttach(context)
-        println("onAttach: ${this.javaClass.simpleName} tag: ${this.tag}")
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        println("onCreate: ${this.javaClass.simpleName} tag: ${this.tag}")
-    }
-
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        println("onDestroyView: ${this.javaClass.simpleName} tag: ${this.tag}")
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        println("onDestroy: ${this.javaClass.simpleName} tag: ${this.tag}")
-    }
-
 }

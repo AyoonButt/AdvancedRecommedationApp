@@ -70,10 +70,6 @@ class ProfileAdapter(
         Glide.with(holder.imageView.context).clear(holder.imageView)
     }
 
-    fun submitData(profiles: List<Person>) {
-        val validProfiles = profiles.filter { !it.profile_path.isNullOrEmpty() }
-        submitList(validProfiles)
-    }
 }
 
 
