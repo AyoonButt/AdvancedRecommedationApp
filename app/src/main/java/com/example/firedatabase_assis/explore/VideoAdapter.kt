@@ -11,6 +11,8 @@ import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.postgres.TrailerInteractionDto
 import com.example.firedatabase_assis.postgres.TrailerInteractions
 import com.example.firedatabase_assis.postgres.UserEntity
+import com.example.firedatabase_assis.postgres.VideoDto
+import com.example.firedatabase_assis.search.SearchViewModel
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
@@ -26,9 +28,10 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 class VideoAdapter(
-    private val videos: MutableList<Pair<String, Int>>, // List of pairs (videoKey, postId)
+    private val videos: MutableList<VideoDto>,
     private val lifecycleOwner: LifecycleOwner,
-    private val currentUser: UserEntity?
+    private val currentUser: UserEntity?,
+    private val searchViewModel: SearchViewModel
 ) : RecyclerView.Adapter<VideoAdapter.ViewHolder>() {
 
     private var currentlyPlayingPlayer: YouTubePlayer? = null
@@ -75,12 +78,14 @@ class VideoAdapter(
         }
 
         private fun setupCustomPlayer(youTubePlayer: YouTubePlayer) {
+            val video = videos[bindingAdapterPosition]
             customPlayer = CustomPlayer(
                 itemView.context,
                 itemView,
                 youTubePlayer,
                 youtubePlayerView,
-                videos[bindingAdapterPosition].second // Pass postId to CustomPlayer
+                video,
+                searchViewModel
             )
         }
 
@@ -180,8 +185,8 @@ class VideoAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val (videoKey, _) = videos[position]
-        holder.youTubePlayer?.cueVideo(videoKey, 0f)
+        val video = videos[position]
+        holder.youTubePlayer?.cueVideo(video.videoKey, 0f)
     }
 
     override fun getItemCount(): Int {
@@ -195,7 +200,7 @@ class VideoAdapter(
         super.onViewDetachedFromWindow(holder)
     }
 
-    fun addItems(newVideos: List<Pair<String, Int>>) {
+    fun addItems(newVideos: List<VideoDto>) {
         val initialSize = videos.size
         videos.addAll(newVideos)
         notifyItemRangeInserted(initialSize, newVideos.size)

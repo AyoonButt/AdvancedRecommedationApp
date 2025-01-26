@@ -19,6 +19,7 @@ import com.example.firedatabase_assis.postgres.PostDto
 import com.example.firedatabase_assis.postgres.PostInteractions
 import com.example.firedatabase_assis.postgres.Posts
 import com.example.firedatabase_assis.postgres.UserPostInteractionDto
+import com.example.firedatabase_assis.search.SearchViewModel
 import com.google.gson.GsonBuilder
 import com.squareup.picasso.Picasso
 import kotlinx.coroutines.CoroutineScope
@@ -33,7 +34,9 @@ import retrofit2.converter.gson.GsonConverterFactory
 class MyPostAdapter(
     private val context: Context,
     private val movies: List<PostDto>,
-    private val userViewModel: UserViewModel
+    private val userViewModel: UserViewModel,
+    private val searchViewModel: SearchViewModel
+
 ) : RecyclerView.Adapter<MyPostAdapter.PostHolder>() {
 
     val gson = GsonBuilder()
@@ -47,6 +50,7 @@ class MyPostAdapter(
 
     private val postsService = retrofit.create(Posts::class.java)
     private val postInteractionsService = retrofit.create(PostInteractions::class.java)
+
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PostHolder {
         val view: View =
@@ -167,6 +171,19 @@ class MyPostAdapter(
             }
             updateData(holder, holder.postId)
         }
+
+        holder.info.setOnClickListener {
+            val isMovie = when (movie.type.lowercase()) {
+                "movie" -> true
+                else -> false
+            }
+            searchViewModel.navigate(
+                SearchViewModel.NavigationState.ShowPoster(
+                    movie.tmdbId, isMovie
+                )
+            )
+        }
+
     }
 
 
@@ -264,6 +281,7 @@ class MyPostAdapter(
         var insideHeart: ImageView = itemView.findViewById(R.id.insideHeart)
         var comments: ImageView = itemView.findViewById(R.id.comments)
         var saved: ImageView = itemView.findViewById(R.id.saved)
+        var info: ImageView = itemView.findViewById(R.id.info)
 
         var viewStartTime: Long = 0
         var viewEndTime: Long = 0

@@ -16,6 +16,8 @@ import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.home_page.CommentFragment
 import com.example.firedatabase_assis.postgres.Posts
 import com.example.firedatabase_assis.postgres.TrailerInteractions
+import com.example.firedatabase_assis.postgres.VideoDto
+import com.example.firedatabase_assis.search.SearchViewModel
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants.PlayerState
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
@@ -34,7 +36,8 @@ class CustomPlayer(
     customPlayerUi: View,
     private val youTubePlayer: YouTubePlayer,
     youTubePlayerView: YouTubePlayerView,
-    private val postID: Int // Add postId as a parameter
+    private val video: VideoDto,
+    private val searchViewModel: SearchViewModel
 ) : AbstractYouTubePlayerListener() {
 
     private val playerTracker: YouTubePlayerTracker = YouTubePlayerTracker()
@@ -56,6 +59,7 @@ class CustomPlayer(
     }
 
     // Add new fields to store the states
+    private var isMovie: Boolean = false
     private var likeState: Boolean = false
     private var saveState: Boolean = false
     private var commentButtonPressed: Boolean = false
@@ -83,6 +87,8 @@ class CustomPlayer(
         likeState = heart.tag == "liked"
         saveState = saved.tag == "saved"
 
+        isMovie = video.type == "movie"
+
         initViews(customPlayerUi)
 
         // Disable built-in touch interactions
@@ -98,6 +104,7 @@ class CustomPlayer(
         val heart = customPlayerUi.findViewById<ImageView>(R.id.heart)
         val comments = customPlayerUi.findViewById<ImageView>(R.id.comments)
         val saved = customPlayerUi.findViewById<ImageView>(R.id.saved)
+        val info = customPlayerUi.findViewById<ImageView>(R.id.info)
 
         heart.setOnClickListener {
             toggleLike(heart)
@@ -111,12 +118,12 @@ class CustomPlayer(
                 fragmentContainer.visibility = View.VISIBLE
 
                 activity.supportFragmentManager.beginTransaction()
-                    .replace(R.id.fragment_container, CommentFragment(postID))
+                    .replace(R.id.fragment_container, CommentFragment(video.postId))
                     .addToBackStack(null)
                     .commit()
 
                 // Update timestamp for comment interaction
-                updateInteractionTimestamp(postID)
+                updateInteractionTimestamp(video.postId)
             }
         }
 
@@ -128,11 +135,19 @@ class CustomPlayer(
             saved.tag = if (saveState) "saved" else "unsaved"
 
             // Update timestamp for save interaction
-            updateInteractionTimestamp(postID)
+            updateInteractionTimestamp(video.postId)
         }
 
         muteIcon.setOnClickListener {
             toggleMute()
+        }
+        info.setOnClickListener {
+            searchViewModel.navigate(
+                SearchViewModel.NavigationState.ShowPoster(
+                    video.tmdbId,
+                    isMovie
+                )
+            )
         }
     }
 
@@ -177,8 +192,8 @@ class CustomPlayer(
         insideHeart.startAnimation(animationSet)
 
         // Update like count and timestamp
-        updateLikeCount(postID)
-        updateInteractionTimestamp(postID)
+        updateLikeCount(video.postId)
+        updateInteractionTimestamp(video.postId)
     }
 
     private fun toggleMute() {

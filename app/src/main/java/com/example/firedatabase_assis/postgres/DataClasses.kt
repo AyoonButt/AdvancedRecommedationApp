@@ -172,6 +172,13 @@ data class VideoPair(
     val postId: Int
 )
 
+data class VideoDto(
+    val videoKey: String,
+    val postId: Int,
+    val tmdbId: Int,
+    val type: String
+)
+
 
 data class ApiResponse(
     @SerializedName("success") val success: Boolean,
@@ -183,4 +190,6 @@ data class CommentResponse(
     @SerializedName("message") val message: String,
     @SerializedName("commentId") val commentId: Int,
 )
+
+
 

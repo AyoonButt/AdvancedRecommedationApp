@@ -63,7 +63,8 @@ class PosterFragment : Fragment() {
         arguments?.let { args ->
             val id = args.getInt("id")
             val isMovie = args.getBoolean("isMovie", false)
-            if (isMovie) fetchMovieData(id) else fetchTVData(id)
+            val fetchData: (JSONObject) -> Unit = { data -> updateUI(data, isMovie) }
+            if (isMovie) fetchMovieData(id, fetchData) else fetchTVData(id, fetchData)
         }
         return view
     }
@@ -134,7 +135,7 @@ class PosterFragment : Fragment() {
     }
 
 
-    private fun fetchMovieData(id: Int) {
+    private fun fetchMovieData(id: Int, updateUI: (JSONObject) -> Unit) {
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val url =
@@ -149,7 +150,7 @@ class PosterFragment : Fragment() {
                         val jsonData = JSONObject(response.body?.string())
                         withContext(Dispatchers.Main) {
                             if (!isAdded) return@withContext
-                            updateMovieUI(jsonData)
+                            updateUI(jsonData)
                         }
                     }
                 }
@@ -159,7 +160,7 @@ class PosterFragment : Fragment() {
         }
     }
 
-    private fun fetchTVData(id: Int) {
+    private fun fetchTVData(id: Int, updateUI: (JSONObject) -> Unit) {
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val url =
@@ -174,7 +175,7 @@ class PosterFragment : Fragment() {
                         val jsonData = JSONObject(response.body?.string())
                         withContext(Dispatchers.Main) {
                             if (!isAdded) return@withContext
-                            updateTVSeriesUI(jsonData)
+                            updateUI(jsonData)
                         }
                     }
                 }
@@ -184,195 +185,91 @@ class PosterFragment : Fragment() {
         }
     }
 
-    private fun updateMovieUI(data: JSONObject) {
-        view?.apply {
-            // Basic Info
-            findViewById<TextView>(R.id.title).text = data.getString("title")
-            findViewById<TextView>(R.id.caption).text = data.getString("overview")
-
-            // Additional Details
-            findViewById<TextView>(R.id.releaseDate).text = data.getString("release_date")
-            findViewById<TextView>(R.id.runtime).text = "${data.getInt("runtime")} min"
-
-            // Genres
-            val genres = data.getJSONArray("genres")
-                .let { 0.until(it.length()).map { i -> it.getJSONObject(i).getString("name") } }
-                .joinToString(", ")
-            findViewById<TextView>(R.id.genres).text = genres
-
-            // Origin Country
-            val originCountries = data.getJSONArray("origin_country")
-                .let { 0.until(it.length()).map { i -> it.getString(i) } }
-                .joinToString(", ")
-            findViewById<TextView>(R.id.countries).text = originCountries
-
-            // Production Companies
-            val companies = data.getJSONArray("production_companies")
-                .let { 0.until(it.length()).map { i -> it.getJSONObject(i).getString("name") } }
-                .joinToString(", ")
-            findViewById<TextView>(R.id.companies).text = companies
-
-            // Collection info (if exists)
-            data.optJSONObject("belongs_to_collection")?.let { collection ->
-                findViewById<TextView>(R.id.collection).apply {
-                    visibility = View.VISIBLE
-                    text = collection.getString("name")
-                }
-            }
-
-            // Media content
-            val posterPath = data.getString("poster_path")
-            // Assuming parseVideos and selectBestVideoKey are defined elsewhere
-
-            setupViewPager(posterPath, selectBestVideoKey(data.getJSONObject("videos")))
-
-            // Cast
-            val cast = parseCast(data.getJSONObject("credits"))
-            castAdapter.submitList(cast)
-
-            // Recommendations
-            val recommendations = data.getJSONObject("recommendations")
-                .getJSONArray("results")
-                .let { array ->
-                    (0 until array.length()).map { i ->
-                        val item = array.getJSONObject(i)
-                        val mediaType =
-                            item.getString("media_type") // Get the media type (movie or tv)
-
-                        when (mediaType) {
-                            "movie" -> Movie(
-                                id = item.getInt("id"),
-                                title = item.getString("title"),
-                                poster_path = item.optString("poster_path", null),
-                                overview = item.getString("overview"),
-                                mediaType = "movie", // mediaType as "movie"
-                                originalLanguage = item.getString("original_language"),
-                                originalTitle = item.getString("original_title"),
-                                popularity = item.getDouble("popularity"),
-                                voteAverage = item.getDouble("vote_average"),
-                                firstAirDate = item.optString("release_date", ""),
-                                voteCount = item.getInt("vote_count"),
-                                genreIds = item.getJSONArray("genre_ids")
-                                    .let { genreArray ->
-                                        (0 until genreArray.length()).map {
-                                            genreArray.getInt(
-                                                it
-                                            )
-                                        }
-                                    }
-                            )
-
-                            "tv" -> TV(
-                                id = item.getInt("id"),
-                                title = item.getString("name"), // Use "name" for TV titles
-                                poster_path = item.optString("poster_path", null),
-                                overview = item.getString("overview"),
-                                mediaType = "tv", // mediaType as "tv"
-                                originalLanguage = item.getString("original_language"),
-                                originalTitle = item.getString("original_title"),
-                                popularity = item.getDouble("popularity"),
-                                voteAverage = item.getDouble("vote_average"),
-                                firstAirDate = item.optString(
-                                    "first_air_date",
-                                    ""
-                                ), // Use first_air_date for TV
-                                voteCount = item.getInt("vote_count"),
-                                genreIds = item.getJSONArray("genre_ids")
-                                    .let { genreArray ->
-                                        (0 until genreArray.length()).map {
-                                            genreArray.getInt(
-                                                it
-                                            )
-                                        }
-                                    }
-                            )
-
-                            else -> null // Handle cases where the media type is neither movie nor TV
-                        }
-                    }
-                        .filterNotNull() // Remove null items in case some entries were neither movie nor tv
-                }
-
-            recommendationsAdapter.submitList(recommendations)
-        }
-    }
-
-
-    private fun updateTVSeriesUI(data: JSONObject) {
+    private fun updateUI(data: JSONObject, isMovie: Boolean) {
         view?.apply {
             // Basic Info
             findViewById<TextView>(R.id.title).text =
-                data.getString("name") // Use "name" for TV titles
+                if (isMovie) data.getString("title") else data.getString("name")
             findViewById<TextView>(R.id.caption).text = data.getString("overview")
 
-            // Additional Details
-            findViewById<TextView>(R.id.releaseDate).text =
-                data.getString("first_air_date") // First air date
-            findViewById<TextView>(R.id.runtime).text = "${
-                data.getJSONArray("episode_run_time").let {
-                    if (it.length() > 0) it.getInt(0) else 0
-                }
-            } min" // Average episode run time
-
-            // Last Air Date
-            val lastAirDate = if (data.isNull("last_air_date")) {
-                "Current" // If no last air date, set to "Current"
-            } else {
-                data.getString("last_air_date")
+            // Movie-specific fields
+            findViewById<TextView>(R.id.releaseDate).apply {
+                text =
+                    if (isMovie) data.getString("release_date") else data.getString("first_air_date")
             }
-            findViewById<TextView>(R.id.lastAirDate).text = lastAirDate
-
-            // In Production
-            val inProduction = data.getBoolean("in_production")
-            findViewById<TextView>(R.id.inProduction).text =
-                if (inProduction) "In Production" else "Ended"
-
-            // Next Episode to Air
-            val nextEpisode = data.optJSONObject("next_episode_to_air")
-            findViewById<TextView>(R.id.nextEpisode).text = if (nextEpisode != null) {
-                nextEpisode.getString("name") // Name of the next episode
-            } else {
-                "No upcoming episodes"
+            findViewById<TextView>(R.id.runtime).apply {
+                text = if (isMovie) "${data.getInt("runtime")} min" else "${
+                    data.getJSONArray("episode_run_time").let {
+                        if (it.length() > 0) it.getInt(0) else 0
+                    }
+                } min"
             }
 
-            // Number of Episodes and Seasons
-            findViewById<TextView>(R.id.numberOfEpisodes).text =
-                "${data.getInt("number_of_episodes")} episodes"
-            findViewById<TextView>(R.id.numberOfSeasons).text =
-                "${data.getInt("number_of_seasons")} seasons"
+            // TV-specific fields
+            findViewById<TextView>(R.id.lastAirDate).apply {
+                visibility = if (!isMovie) View.VISIBLE else View.GONE
+                text = if (!isMovie) {
+                    if (data.isNull("last_air_date")) "Current" else data.getString("last_air_date")
+                } else null
+            }
 
-            // Genres
+            findViewById<TextView>(R.id.inProduction).apply {
+                visibility = if (!isMovie) View.VISIBLE else View.GONE
+                text = if (!isMovie) {
+                    if (data.getBoolean("in_production")) "In Production" else "Ended"
+                } else null
+            }
+
+            findViewById<TextView>(R.id.nextEpisode).apply {
+                visibility = if (!isMovie) View.VISIBLE else View.GONE
+                text = if (!isMovie) {
+                    data.optJSONObject("next_episode_to_air")?.getString("name")
+                        ?: "No upcoming episodes"
+                } else null
+            }
+
+            findViewById<TextView>(R.id.numberOfEpisodes).apply {
+                visibility = if (!isMovie) View.VISIBLE else View.GONE
+                text = if (!isMovie) "${data.getInt("number_of_episodes")} episodes" else null
+            }
+
+            findViewById<TextView>(R.id.numberOfSeasons).apply {
+                visibility = if (!isMovie) View.VISIBLE else View.GONE
+                text = if (!isMovie) "${data.getInt("number_of_seasons")} seasons" else null
+            }
+
+            // Common fields
             val genres = data.getJSONArray("genres")
                 .let { 0.until(it.length()).map { i -> it.getJSONObject(i).getString("name") } }
                 .joinToString(", ")
             findViewById<TextView>(R.id.genres).text = genres
 
-            // Origin Country
             val originCountries = data.getJSONArray("origin_country")
                 .let { 0.until(it.length()).map { i -> it.getString(i) } }
                 .joinToString(", ")
             findViewById<TextView>(R.id.countries).text = originCountries
 
-            // Production Companies
             val companies = data.getJSONArray("production_companies")
                 .let { 0.until(it.length()).map { i -> it.getJSONObject(i).getString("name") } }
                 .joinToString(", ")
             findViewById<TextView>(R.id.companies).text = companies
 
-            // Collection info (if exists)
-            data.optJSONObject("belongs_to_collection")?.let { collection ->
-                findViewById<TextView>(R.id.collection).apply {
-                    visibility = View.VISIBLE
-                    text = collection.getString("name")
-                }
+            findViewById<TextView>(R.id.collection).apply {
+                visibility =
+                    data.optJSONObject("belongs_to_collection")?.let { View.VISIBLE } ?: View.GONE
+                text = data.optJSONObject("belongs_to_collection")?.getString("name")
             }
 
             // Media content
             val posterPath = data.getString("poster_path")
             setupViewPager(posterPath, selectBestVideoKey(data.getJSONObject("videos")))
 
-            // Cast
-            val cast = parseTVCast(data.getJSONObject("aggregate_credits")) // Changed to "tv"
+            // Cast - use different fields based on type
+            val cast = if (isMovie) {
+                parseCast(data.getJSONObject("credits"))
+            } else {
+                parseTVCast(data.getJSONObject("aggregate_credits"))
+            }
             castAdapter.submitList(cast)
 
             // Recommendations
@@ -381,8 +278,7 @@ class PosterFragment : Fragment() {
                 .let { array ->
                     (0 until array.length()).map { i ->
                         val item = array.getJSONObject(i)
-                        val mediaType =
-                            item.getString("media_type") // Get the media type (movie or tv)
+                        val mediaType = item.getString("media_type")
 
                         when (mediaType) {
                             "movie" -> Movie(
@@ -390,7 +286,7 @@ class PosterFragment : Fragment() {
                                 title = item.getString("title"),
                                 poster_path = item.optString("poster_path", null),
                                 overview = item.getString("overview"),
-                                mediaType = "movie", // mediaType as "movie"
+                                mediaType = "movie",
                                 originalLanguage = item.getString("original_language"),
                                 originalTitle = item.getString("original_title"),
                                 popularity = item.getDouble("popularity"),
@@ -400,41 +296,39 @@ class PosterFragment : Fragment() {
                                 genreIds = item.getJSONArray("genre_ids")
                                     .let { genreArray ->
                                         (0 until genreArray.length()).map {
-                                            genreArray.getInt(it)
+                                            genreArray.getInt(
+                                                it
+                                            )
                                         }
                                     }
                             )
 
                             "tv" -> TV(
                                 id = item.getInt("id"),
-                                title = item.getString("name"), // Use "name" for TV titles
+                                title = item.getString("name"),
                                 poster_path = item.optString("poster_path", null),
                                 overview = item.getString("overview"),
-                                mediaType = "tv", // mediaType as "tv"
+                                mediaType = "tv",
                                 originalLanguage = item.getString("original_language"),
-                                originalTitle = item.getString("original_name"), // Changed to original_name
+                                originalTitle = item.getString("original_name"),
                                 popularity = item.getDouble("popularity"),
                                 voteAverage = item.getDouble("vote_average"),
-                                firstAirDate = item.getString("first_air_date"), // Use first_air_date for TV
+                                firstAirDate = item.optString("first_air_date", ""),
                                 voteCount = item.getInt("vote_count"),
                                 genreIds = item.getJSONArray("genre_ids")
                                     .let { genreArray ->
                                         (0 until genreArray.length()).map {
-                                            genreArray.getInt(it)
+                                            genreArray.getInt(
+                                                it
+                                            )
                                         }
                                     }
                             )
 
-                            else -> null // Handle cases where the media type is neither movie nor TV
+                            else -> null
                         }
-                    }
+                    }.filterNotNull()
                 }
-                .filterNotNull() // Remove null items in case some entries were neither movie nor tv
-
-            // Log the recommendations to see if the list is being populated with TV shows
-            println("Recommendations (Movies and TV): $recommendations")
-
-            // Pass the recommendations to the adapter
             recommendationsAdapter.submitList(recommendations)
         }
     }

@@ -50,33 +50,41 @@
             <!-- Button for like -->
             <ImageView
                 android:id="@+id/heart"
-                android:layout_width="32dp"
+                android:layout_width="0dp"
                 android:layout_height="32dp"
-                android:layout_marginStart="10dp"
-                android:layout_marginEnd="50dp"
+                android:layout_weight="1"
                 android:layout_marginTop="8dp"
                 app:srcCompat="@drawable/heart_outline" />
 
+            <!-- Button for comments -->
             <ImageView
                 android:id="@+id/comments"
-                android:layout_width="33dp"
+                android:layout_width="0dp"
                 android:layout_height="33dp"
-                android:layout_marginStart="10dp"
-                android:layout_marginEnd="50dp"
+                android:layout_weight="1"
                 android:layout_marginTop="8dp"
                 app:srcCompat="@drawable/chat" />
 
             <!-- Button for saved -->
             <ImageView
                 android:id="@+id/saved"
-                android:layout_width="32dp"
+                android:layout_width="0dp"
                 android:layout_height="32dp"
-                android:layout_marginEnd="12dp"
+                android:layout_weight="1"
                 android:layout_marginTop="8dp"
                 app:srcCompat="@drawable/icon_bookmark_unfilled" />
 
+            <!-- Button for info -->
+            <ImageView
+                android:id="@+id/info"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginTop="8dp"
+                app:srcCompat="@drawable/info" />
 
         </LinearLayout>
+
 
     </LinearLayout>
 </androidx.cardview.widget.CardView>

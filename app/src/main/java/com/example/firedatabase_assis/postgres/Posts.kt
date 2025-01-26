@@ -34,7 +34,7 @@ interface Posts {
     suspend fun getVideos(
         @Query("limit") limit: Int,
         @Query("offset") offset: Int
-    ): Response<List<VideoPair>>
+    ): Response<List<VideoDto>>
 
     @GET("/api/posts/{postId}")
     suspend fun getPostIdByTmdbId(@Query("tmdbId") tmdbId: Int): Response<Int?>

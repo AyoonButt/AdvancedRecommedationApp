@@ -10,7 +10,15 @@
         android:layout_height="match_parent"
         android:layout_margin="8dp"
         android:scrollbars="vertical"
+        android:nestedScrollingEnabled="true"
         tools:listitem="@layout/custom_player" />
 
+    <FrameLayout
+        android:id="@+id/poster_fragment_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:nestedScrollingEnabled="true"
+        android:background="@color/background"
+        android:visibility="gone" />
 
 </RelativeLayout>

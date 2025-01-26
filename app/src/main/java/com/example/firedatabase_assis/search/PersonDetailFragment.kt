@@ -87,7 +87,7 @@ class PersonDetailFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Fetch person details
+                // Person details request
                 val detailsUrl = "https://api.themoviedb.org/3/person/$personId"
                 val detailsRequest = Request.Builder()
                     .url(detailsUrl)
@@ -98,7 +98,6 @@ class PersonDetailFragment : Fragment() {
                     if (response.isSuccessful) {
                         val jsonData = response.body?.string()
                         val person = Gson().fromJson(jsonData, PersonDetails::class.java)
-
                         withContext(Dispatchers.Main) {
                             if (!isAdded) return@withContext
                             updatePersonUI(person)
@@ -106,7 +105,7 @@ class PersonDetailFragment : Fragment() {
                     }
                 }
 
-                // Fetch credits (cast and crew)
+                // Credits request
                 val creditsUrl = "https://api.themoviedb.org/3/person/$personId/combined_credits"
                 val creditsRequest = Request.Builder()
                     .url(creditsUrl)
@@ -116,15 +115,11 @@ class PersonDetailFragment : Fragment() {
                 client.newCall(creditsRequest).execute().use { response ->
                     if (response.isSuccessful) {
                         val jsonData = response.body?.string()
-
-                        // Parse the credits data into a List<MediaItem>
                         val mediaItems = parseCredits(jsonData)
-
-                        // Post data to the main thread to update the adapter
+                            .distinctBy { it.id } // Remove duplicates based on id
+                            .sortedByDescending { it.popularity }
                         withContext(Dispatchers.Main) {
-                            if (!isAdded) return@withContext // Ensure fragment is still attached
-
-                            // Submit the parsed list to the adapter
+                            if (!isAdded) return@withContext
                             creditsAdapter.submitList(mediaItems)
                         }
                     }

@@ -33,8 +33,9 @@
             android:layout_width="30dp"
             android:layout_height="30dp"
             android:src="@drawable/unmute_white"
+            android:layout_gravity="bottom"
             android:layout_marginStart="30dp"
-            android:layout_marginTop="573dp"
+            android:layout_marginBottom="55dp"
             android:visibility="visible" />
 
         <ImageView
@@ -58,8 +59,6 @@
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:layout_marginStart="10dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginEnd="50dp"
                 android:layout_marginBottom="25dp"
                 app:srcCompat="@drawable/heart_white_outline" />
 
@@ -68,8 +67,6 @@
                 android:layout_width="33dp"
                 android:layout_height="33dp"
                 android:layout_marginStart="10dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginEnd="50dp"
                 android:layout_marginBottom="25dp"
                 app:srcCompat="@drawable/chat_white" />
 
@@ -78,9 +75,15 @@
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:layout_marginStart="10dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginEnd="12dp"
+                android:layout_marginBottom="25dp"
                 app:srcCompat="@drawable/icon_bookmark_videos" />
+
+            <ImageView
+                android:id="@+id/info"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="10dp"
+                app:srcCompat="@drawable/info_white" />
         </LinearLayout>
     </FrameLayout>
 

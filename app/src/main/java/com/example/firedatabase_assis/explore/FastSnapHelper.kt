@@ -8,6 +8,8 @@ import androidx.recyclerview.widget.RecyclerView
 
 class FastSnapHelper(private val context: Context) : LinearSnapHelper() {
 
+    private var scrollEnabled = true
+
     override fun createSnapScroller(layoutManager: RecyclerView.LayoutManager): LinearSmoothScroller? {
         return if (layoutManager is RecyclerView.SmoothScroller.ScrollVectorProvider) {
             object : LinearSmoothScroller(context) {
@@ -26,5 +28,13 @@ class FastSnapHelper(private val context: Context) : LinearSnapHelper() {
         } else {
             null
         }
+    }
+
+    fun setScrollEnabled(enabled: Boolean) {
+        scrollEnabled = enabled
+    }
+
+    override fun onFling(velocityX: Int, velocityY: Int): Boolean {
+        return if (scrollEnabled) super.onFling(velocityX, velocityY) else false
     }
 }
