@@ -234,8 +234,8 @@ class ApiWorker(
             userParams.recentDate,
             apiWorkerParams.sortBy,
             userParams.region,
-            userParams.minTV,
-            userParams.maxTV,
+            userParams.minTv,
+            userParams.maxTv,
             providers
         )
     }

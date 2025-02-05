@@ -31,7 +31,10 @@ class CommentsAdapter(
     private val viewModel: CommentsViewModel
 ) : RecyclerView.Adapter<CommentsAdapter.CommentViewHolder>() {
 
+
     private var commentsList: MutableList<CommentDto> = mutableListOf()
+    private lateinit var webSocketManager: CommentWebSocketManager
+
 
     init {
         commentsList = if (comments.isEmpty()) {
@@ -39,24 +42,63 @@ class CommentsAdapter(
         } else {
             comments.filter { it.parentCommentId == null }.toMutableList()
         }
-        // Initialize empty reply counts map
-        viewModel._replyCountsMap.value = emptyMap()
-        // Only fetch counts if we have comments
+        // Initialize with empty map to ensure UI elements are visible
+        viewModel._replyCountsMap.value = commentsList.mapNotNull { comment ->
+            comment.commentId?.let { id ->
+                id to (viewModel._replyCountsMap.value[id] ?: 0)
+            }
+        }.toMap()
         if (commentsList.isNotEmpty()) {
             fetchReplyCountsForAllComments()
         }
+        setupWebSocket()
     }
+
+
+    private fun setupWebSocket() {
+        webSocketManager = CommentWebSocketManager(
+            BuildConfig.WEBSOCKET_URL,
+            viewModel,
+            coroutineScope
+        )
+
+        // Listen for new comments
+        coroutineScope.launch {
+            viewModel.lastReceivedComment.collect { update ->
+                when (update) {
+                    is CommentsViewModel.CommentUpdate.NewRoot -> {
+                        addNewComment(update.comment)
+                    }
+
+                    is CommentsViewModel.CommentUpdate.NewReply -> {
+                        if (viewModel.visibleReplySections.value.contains(update.parentId)) {
+                            // If the parent's replies are visible, add the new reply
+                            addNewComment(update.comment)
+                        } else {
+                            // Just update the reply count UI
+                            val parentPosition = getPositionForComment(update.parentId)
+                            if (parentPosition != -1) {
+                                notifyItemChanged(parentPosition)
+                            }
+                        }
+                    }
+
+                    null -> {} // Initial state or reset
+                }
+            }
+        }
+
+        webSocketManager.connect()
+    }
+
 
     private fun fetchReplyCountsForAllComments() {
         val commentIds = commentsList.mapNotNull { it.commentId }
-        if (commentIds.isEmpty()) {
-            viewModel._replyCountsMap.value = emptyMap()
-            return
-        }
+        if (commentIds.isEmpty()) return
 
         coroutineScope.launch {
             try {
-                // First fetch counts
+                // Fetch only the reply counts
                 val counts = withContext(Dispatchers.IO) {
                     val retrofit = getRetrofitInstance()
                     val api = retrofit.create(Comments::class.java)
@@ -64,31 +106,28 @@ class CommentsAdapter(
                     response.body()?.associate { it.parentId to it.replyCount } ?: emptyMap()
                 }
 
-                Log.d("CommentsAdapter", "Fetched reply counts: $counts")
-
-                // For comments with replies, fetch and cache their replies
-                counts.forEach { (commentId, replyCount) ->
-                    if (replyCount > 0) {
-                        withContext(Dispatchers.IO) {
-                            val replies = fetchRepliesForComment(commentId)
-                            withContext(Dispatchers.Main) {
-                                viewModel.initializeReplies(commentId, replies)
-                            }
-                        }
-                    }
+                // Update the counts in the ViewModel
+                val updatedCounts = viewModel._replyCountsMap.value.toMutableMap()
+                counts.forEach { (id, count) ->
+                    updatedCounts[id] = count
                 }
+                viewModel._replyCountsMap.value = updatedCounts
 
-                // Update counts in ViewModel
-                viewModel._replyCountsMap.value = counts
-
+            } catch (e: Exception) {
+                Log.e("CommentsAdapter", "Error fetching reply counts", e)
+                // Use cached/default values on error
+                val defaultCounts = commentIds.associateWith {
+                    viewModel._replyCountsMap.value[it] ?: 0
+                }
+                viewModel._replyCountsMap.value = defaultCounts
+            } finally {
                 withContext(Dispatchers.Main) {
                     notifyDataSetChanged()
                 }
-            } catch (e: Exception) {
-                Log.e("CommentsAdapter", "Error fetching reply counts", e)
             }
         }
     }
+
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CommentViewHolder {
         val view = LayoutInflater.from(context).inflate(R.layout.comment_item, parent, false)
@@ -139,7 +178,10 @@ class CommentsAdapter(
         // Handle reply button visibility
         holder.replyButton.apply {
             visibility = View.VISIBLE
-            Log.d("CommentsAdapter", "Setting up reply button for comment ID: ${comment.commentId}")
+            Log.d(
+                "CommentsAdapter",
+                "Setting up reply button for comment ID: ${comment.commentId}"
+            )
             setOnClickListener {
                 Log.d(
                     "CommentsAdapter",
@@ -187,21 +229,21 @@ class CommentsAdapter(
         val isVisible = viewModel.visibleReplySections.value.contains(commentId)
 
         if (isVisible) {
-            // Hide replies
             hideReplies(commentId)
             viewModel.toggleReplySection(commentId, false)
             val replyCount = viewModel.replyCountsMap.value[commentId] ?: 0
             holder.viewRepliesButton.text = "View Replies ($replyCount)"
+            // Update websocket subscriptions
+            webSocketManager.updateSubscriptions(viewModel.visibleReplySections.value)
         } else {
-            // Show replies
             val cachedReplies = viewModel.getCachedReplies(commentId)
             if (cachedReplies != null && cachedReplies.isNotEmpty()) {
-                // Use cached replies
                 showRepliesInline(holder, commentId, cachedReplies)
                 viewModel.toggleReplySection(commentId, true)
                 holder.viewRepliesButton.text = "Hide Replies (${cachedReplies.size})"
+                // Update websocket subscriptions
+                webSocketManager.updateSubscriptions(viewModel.visibleReplySections.value)
             } else {
-                // Fetch replies if not cached
                 coroutineScope.launch {
                     try {
                         val replies = withContext(Dispatchers.IO) {
@@ -210,12 +252,12 @@ class CommentsAdapter(
 
                         withContext(Dispatchers.Main) {
                             if (replies.isNotEmpty()) {
-                                // Cache the fetched replies
                                 viewModel.initializeReplies(commentId, replies)
                                 showRepliesInline(holder, commentId, replies)
                                 viewModel.toggleReplySection(commentId, true)
+                                // Update websocket subscriptions
+                                webSocketManager.updateSubscriptions(viewModel.visibleReplySections.value)
 
-                                // Update reply count
                                 val currentCounts = viewModel._replyCountsMap.value.toMutableMap()
                                 currentCounts[commentId] = replies.size
                                 viewModel._replyCountsMap.value = currentCounts

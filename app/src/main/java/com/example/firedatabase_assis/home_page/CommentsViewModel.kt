@@ -15,6 +15,40 @@ class CommentsViewModel : ViewModel() {
     val _replyCountsMap = MutableStateFlow<Map<Int, Int>>(emptyMap())
     val replyCountsMap: StateFlow<Map<Int, Int>> = _replyCountsMap.asStateFlow()
 
+
+    // In CommentsViewModel
+    private val _lastReceivedComment = MutableStateFlow<CommentUpdate?>(null)
+    val lastReceivedComment: StateFlow<CommentUpdate?> = _lastReceivedComment.asStateFlow()
+
+    sealed class CommentUpdate {
+        data class NewRoot(val comment: CommentDto) : CommentUpdate()
+        data class NewReply(val comment: CommentDto, val parentId: Int) : CommentUpdate()
+    }
+
+    fun addNewRootComment(comment: CommentDto) {
+        comment.commentId?.let { commentId ->
+            val counts = _replyCountsMap.value.toMutableMap()
+            counts[commentId] = 0
+            _replyCountsMap.value = counts
+
+            // Notify about new root comment
+            _lastReceivedComment.value = CommentUpdate.NewRoot(comment)
+        }
+    }
+
+    fun addNewReply(comment: CommentDto) {
+        comment.parentCommentId?.let { parentId ->
+            // Update reply count
+            val counts = _replyCountsMap.value.toMutableMap()
+            val currentCount = counts[parentId] ?: 0
+            counts[parentId] = currentCount + 1
+            _replyCountsMap.value = counts
+
+            // Notify about new reply
+            _lastReceivedComment.value = CommentUpdate.NewReply(comment, parentId)
+        }
+    }
+
     fun toggleReplySection(commentId: Int, visible: Boolean) {
         val currentSet = _visibleReplySections.value.toMutableSet()
         if (visible) {
@@ -71,7 +105,6 @@ class CommentsViewModel : ViewModel() {
     }
 
     fun getCachedReplies(parentId: Int): List<CommentDto>? = repliesCache[parentId]
-
     fun clearCache() {
         repliesCache.clear()
         _replyCountsMap.value = emptyMap()

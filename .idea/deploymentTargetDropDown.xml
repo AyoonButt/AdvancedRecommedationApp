@@ -22,12 +22,12 @@
               <deviceKey>
                 <Key>
                   <type value="VIRTUAL_DEVICE_PATH" />
-                  <value value="C:\Users\ayoon\.android\avd\Pixel_7a_API_33.avd" />
+                  <value value="C:\Users\ayoon\.android\avd\Pixel_6a_API_33.avd" />
                 </Key>
               </deviceKey>
             </Target>
           </targetSelectedWithDropDown>
-          <timeTargetWasSelectedWithDropDown value="2025-01-26T03:11:11.863096500Z" />
+          <timeTargetWasSelectedWithDropDown value="2025-02-03T20:27:53.234683Z" />
         </State>
       </entry>
     </value>

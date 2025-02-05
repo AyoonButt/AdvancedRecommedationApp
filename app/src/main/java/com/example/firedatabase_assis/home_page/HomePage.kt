@@ -2,7 +2,7 @@ package com.example.firedatabase_assis.home_page
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.MotionEvent
+import android.util.Log
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.FragmentManager
@@ -156,12 +156,12 @@ class HomePage : AppCompatActivity() {
                 // Check if the response is successful
                 if (response.isSuccessful) {
                     val newMovies = response.body() ?: emptyList()
-
+                    newMovies.forEach { movie ->
+                        Log.d("HomePage", "Movie: id=${movie.postId}, title=${movie.title}")
+                    }
                     if (newMovies.isNotEmpty()) {
-                        // Add the new data to the list and update the adapter
                         postData.addAll(newMovies)
                         adapter.notifyDataSetChanged()
-                        offset += limit
                     }
                 } else {
                     // Log or handle the error response
@@ -173,21 +173,6 @@ class HomePage : AppCompatActivity() {
                 isLoading = false
             }
         }
-    }
-
-
-    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        val fragmentContainer = findViewById<View>(R.id.fragment_container)
-        if (fragmentContainer != null && fragmentContainer.visibility == View.VISIBLE) {
-            val fragment = supportFragmentManager.findFragmentById(R.id.fragment_container)
-            if (fragment is CommentFragment) {
-                val result = fragment.dispatchTouchEvent(event)
-                if (result) {
-                    return true
-                }
-            }
-        }
-        return super.dispatchTouchEvent(event)
     }
 
     private fun showPosterFragment(id: Int, isMovie: Boolean) {

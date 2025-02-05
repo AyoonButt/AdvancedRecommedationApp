@@ -62,7 +62,8 @@ class MyPostAdapter(
         val movie = movies[position]
         holder.title.text = movie.title
         holder.overview.text = movie.overview
-        holder.postId = movie.postId!! // Set postId for the holder
+        holder.postId = movie.postId ?: 0 // Set postId for the holder
+
 
         // Load image using Picasso
         val baseURL = "https://image.tmdb.org/t/p/original${movie.posterPath}"
@@ -137,22 +138,26 @@ class MyPostAdapter(
                 fragmentContainer.layoutParams = layoutParams
 
                 val transaction = fragmentManager.beginTransaction()
-                val commentFragment = CommentFragment(movie.postId)
-                transaction.replace(R.id.fragment_container, commentFragment)
+                val commentFragment = movie.postId?.let { it1 -> CommentFragment(it1) }
+                if (commentFragment != null) {
+                    transaction.replace(R.id.fragment_container, commentFragment)
+                }
                 transaction.addToBackStack(null)
                 transaction.commit()
 
                 // Unregister swipe gesture listener when comment section closes
-                commentFragment.view?.addOnAttachStateChangeListener(object :
-                    View.OnAttachStateChangeListener {
-                    override fun onViewAttachedToWindow(v: View) {}
+                if (commentFragment != null) {
+                    commentFragment.view?.addOnAttachStateChangeListener(object :
+                        View.OnAttachStateChangeListener {
+                        override fun onViewAttachedToWindow(v: View) {}
 
-                    override fun onViewDetachedFromWindow(v: View) {
-                        fragmentContainer.setOnTouchListener(null)
-                        holder.commentMade =
-                            true // Assuming comment was made if fragment was opened
-                    }
-                })
+                        override fun onViewDetachedFromWindow(v: View) {
+                            fragmentContainer.setOnTouchListener(null)
+                            holder.commentMade =
+                                true // Assuming comment was made if fragment was opened
+                        }
+                    })
+                }
 
                 updateData(holder, holder.postId)
             }
@@ -223,19 +228,17 @@ class MyPostAdapter(
 
             if (userEntity != null) {
                 val interactionData = timeSpent?.let {
-                    userEntity.userId?.let { it1 ->
-                        UserPostInteractionDto(
-                            interactionId = 0,
-                            userId = it1,
-                            postId = mypostId,
-                            likeState = holder.likeState,
-                            saveState = holder.saveState,
-                            commentButtonPressed = holder.commentButtonPressed,
-                            commentMade = holder.commentMade,
-                            timestamp = getCurrentTimestamp(),
-                            timeSpentOnPost = it
-                        )
-                    }
+                    UserPostInteractionDto(
+                        interactionId = 0,
+                        userId = userEntity.userId,
+                        postId = mypostId,
+                        likeState = holder.likeState,
+                        saveState = holder.saveState,
+                        commentButtonPressed = holder.commentButtonPressed,
+                        commentMade = holder.commentMade,
+                        timestamp = getCurrentTimestamp(),
+                        timeSpentOnPost = it
+                    )
                 }
 
                 // Call the API to save interaction data
@@ -274,7 +277,7 @@ class MyPostAdapter(
 
     inner class PostHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         var imageView: ImageView = itemView.findViewById(R.id.poster_image)
-        var title: TextView = itemView.findViewById(R.id.movie_caption)
+        var title: TextView = itemView.findViewById(R.id.title)
         var overview: TextView = itemView.findViewById(R.id.movie_caption)
         var cardView: CardView = itemView.findViewById(R.id.card_view)
         var heart: ImageView = itemView.findViewById(R.id.heart)

@@ -87,16 +87,5 @@
         </LinearLayout>
     </FrameLayout>
 
-    <!-- Comment section container -->
-    <FrameLayout
-        android:id="@+id/fragment_container"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone"
-        app:behavior_hideable="true"
-        app:behavior_skipCollapsed="true"
-        app:behavior_draggable="true"
-        app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior" />
-
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

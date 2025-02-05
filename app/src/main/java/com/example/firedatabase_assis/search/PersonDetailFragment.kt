@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
+import com.example.firedatabase_assis.login_setup.UserViewModel
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -21,11 +22,17 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import org.threeten.bp.LocalDateTime
+import org.threeten.bp.format.DateTimeFormatter
 
 class PersonDetailFragment : Fragment() {
     private lateinit var viewModel: SearchViewModel
+    private lateinit var userViewModel: UserViewModel
     private val client = OkHttpClient()
-    private lateinit var creditsAdapter: MediaItemAdapter  // Declare it at the class level
+    private lateinit var creditsAdapter: MediaItemAdapter
+    private var startTimestamp: String? = null
+
+    private var isBackNavigation = false
 
     companion object {
         fun newInstance(personId: Int): PersonDetailFragment {
@@ -42,16 +49,20 @@ class PersonDetailFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        startTimestamp =
+            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
         val view = inflater.inflate(R.layout.fragment_person_details, container, false)
         viewModel = ViewModelProvider(requireActivity())[SearchViewModel::class.java]
-        setupViews(view)  // Setup the views
-        loadPersonDetails() // Load the person details asynchronously
+        userViewModel = UserViewModel.getInstance(requireActivity().application)
+        setupViews(view)
+        loadPersonDetails()
         return view
     }
 
     private fun setupViews(view: View) {
         // Setup back and close buttons
         view.findViewById<ImageView>(R.id.back).setOnClickListener {
+            isBackNavigation = true
             viewModel.navigate(SearchViewModel.NavigationState.Back)
         }
 
@@ -182,4 +193,42 @@ class PersonDetailFragment : Fragment() {
         val birthYear = birthDate.take(4).toIntOrNull() ?: return 0
         return java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) - birthYear
     }
+
+    private fun saveCurrentViewDuration() {
+        arguments?.let { args ->
+            val id = args.getInt("person_id")
+            startTimestamp?.let { startTime ->
+                val endTimestamp = LocalDateTime.now()
+                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+
+                userViewModel.currentUser.value?.userId?.let { userId ->
+                    viewModel.saveViewDuration(
+                        tmdbId = id,
+                        type = "person",
+                        startTime = startTime,
+                        endTime = endTimestamp,
+                        userId = userId,
+                        isBackNavigation = isBackNavigation
+                    )
+                }
+                startTimestamp = null
+            }
+        }
+    }
+
+
+    override fun onPause() {
+        super.onPause()
+        if (!isBackNavigation) {
+            saveCurrentViewDuration()
+        }
+    }
+
+    override fun onDetach() {
+        if (isBackNavigation) {
+            saveCurrentViewDuration()
+        }
+        super.onDetach()
+    }
+
 }

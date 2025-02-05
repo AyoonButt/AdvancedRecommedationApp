@@ -2,7 +2,6 @@ package com.example.firedatabase_assis.explore
 
 import android.os.Bundle
 import android.util.Log
-import android.view.MotionEvent
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.FragmentManager
@@ -12,7 +11,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
-import com.example.firedatabase_assis.home_page.CommentFragment
 import com.example.firedatabase_assis.login_setup.UserViewModel
 import com.example.firedatabase_assis.postgres.Posts
 import com.example.firedatabase_assis.postgres.VideoDto
@@ -196,21 +194,4 @@ class LoadVideos : AppCompatActivity() {
             .commit()
     }
 
-
-    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        // Check if CommentFragment is visible
-        val fragmentContainer = findViewById<View>(R.id.fragment_container)
-        if (fragmentContainer != null && fragmentContainer.visibility == View.VISIBLE) {
-            // If CommentFragment is visible, pass the event to it
-            val fragment = supportFragmentManager.findFragmentById(R.id.fragment_container)
-            if (fragment is CommentFragment) {
-                val result = fragment.dispatchTouchEvent(event)
-                if (result) {
-                    return true
-                }
-            }
-        }
-        // Otherwise, handle the event in the HomePage activity
-        return super.dispatchTouchEvent(event)
-    }
 }

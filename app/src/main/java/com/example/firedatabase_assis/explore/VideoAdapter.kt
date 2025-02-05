@@ -151,10 +151,10 @@ class VideoAdapter(
         private suspend fun createUserTrailerInteractionData(
             position: Int,
             user: UserEntity
-        ): TrailerInteractionDto? {
+        ): TrailerInteractionDto {
             val (_, postId) = videos[position]
 
-            return user.userId?.let {
+            return user.userId.let {
                 TrailerInteractionDto(
                     interactionId = null,
                     userId = it,

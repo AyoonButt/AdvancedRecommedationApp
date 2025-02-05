@@ -20,6 +20,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.threeten.bp.LocalDateTime
+import org.threeten.bp.format.DateTimeFormatter
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -59,11 +61,13 @@ class LoginForm : AppCompatActivity() {
                         if (userResponse.isSuccessful) {
                             userResponse.body()?.let { userEntity ->
                                 // Update UserViewModel with the user entity
+                                val timestamp = LocalDateTime.now()
+                                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                                updateRecentLogin(username, timestamp)
+                                
                                 userViewModel.setUser(userEntity)
-
                                 Log.d("LogIn", "User Entity $userEntity")
-                                // Pass the username to the HomePage activity
-                                updateRecentLogin(username)
+
                                 setupWorkManager()
                                 val intent = Intent(this@LoginForm, HomePage::class.java).apply {
                                     putExtra("username", username)
@@ -147,8 +151,8 @@ class LoginForm : AppCompatActivity() {
         return response.isSuccessful && response.body() == true
     }
 
-    private suspend fun updateRecentLogin(username: String) {
-        usersApi.updateRecentLogin(username) // Assuming you have this method in your Users interface
+    private suspend fun updateRecentLogin(username: String, timestamp: String) {
+        usersApi.updateRecentLogin(username, timestamp)
     }
 
     private fun showErrorDialog(message: String) {

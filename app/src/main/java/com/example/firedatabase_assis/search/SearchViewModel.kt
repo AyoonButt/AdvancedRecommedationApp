@@ -1,10 +1,13 @@
 package com.example.firedatabase_assis.search
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.firedatabase_assis.BuildConfig
+import com.example.firedatabase_assis.postgres.InfoDto
+import com.example.firedatabase_assis.postgres.Information
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +28,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import java.io.IOException
 import java.util.Collections
 
@@ -291,5 +296,46 @@ class SearchViewModel : ViewModel() {
     override fun onCleared() {
         super.onCleared()
         searchJob?.cancel()
+    }
+
+    private val _infoApi = Retrofit.Builder()
+        .baseUrl(BuildConfig.POSTRGRES_API_URL)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+        .create(Information::class.java)
+
+    fun saveViewDuration(
+        tmdbId: Int,
+        type: String,
+        startTime: String,
+        endTime: String,
+        userId: Int,
+        isBackNavigation: Boolean
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val infoDto = InfoDto(
+                    tmdbId = tmdbId,
+                    type = type,
+                    startTimestamp = startTime,
+                    endTimestamp = endTime,
+                    userId = userId
+                )
+                val response = _infoApi.saveInfo(infoDto)
+                if (response.isSuccessful) {
+                    Log.d(
+                        "SearchViewModel",
+                        "View info saved successfully - isBack: $isBackNavigation"
+                    )
+                } else {
+                    Log.e(
+                        "SearchViewModel",
+                        "Error saving view info: ${response.errorBody()?.string()}"
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("SearchViewModel", "Error saving view info", e)
+            }
+        }
     }
 }

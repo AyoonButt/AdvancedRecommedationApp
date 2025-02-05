@@ -44,6 +44,7 @@ class CommentFragment(private val postId: Int) : Fragment() {
     private lateinit var commentInput: EditText
     private var parentCommentId: Int? = null
     private var isReplyMode = false
+    private lateinit var webSocketManager: CommentWebSocketManager
 
     private var bottomSheetBehavior: BottomSheetBehavior<View>? = null
     private val bottomSheetCallback = object : BottomSheetBehavior.BottomSheetCallback() {
@@ -79,7 +80,15 @@ class CommentFragment(private val postId: Int) : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         commentsViewModel = ViewModelProvider(this)[CommentsViewModel::class.java]
+
+        webSocketManager = CommentWebSocketManager(
+            BuildConfig.POSTRGRES_API_URL,
+            commentsViewModel,
+            fragmentScope
+        )
+
     }
+
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -176,6 +185,7 @@ class CommentFragment(private val postId: Int) : Fragment() {
 
 
     override fun onDestroyView() {
+        webSocketManager.disconnect()
         fragmentScope.cancel()
         super.onDestroyView()
         fragmentContainerLayout.setOnTouchListener(null)
@@ -204,7 +214,7 @@ class CommentFragment(private val postId: Int) : Fragment() {
             try {
                 val currentUser = userViewModel.getUser()
                 if (currentUser != null) {
-                    val newComment = currentUser.userId?.let {
+                    val newComment = currentUser.userId.let {
                         CommentDto(
                             commentId = null,
                             userId = it,
@@ -361,6 +371,7 @@ class CommentFragment(private val postId: Int) : Fragment() {
     override fun onResume() {
         super.onResume()
         hideBottomNavBar()
+        webSocketManager.connect()  // Add this
     }
 
     override fun onPause() {

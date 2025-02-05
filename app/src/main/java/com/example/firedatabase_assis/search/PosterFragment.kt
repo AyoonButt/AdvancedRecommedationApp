@@ -17,6 +17,7 @@ import androidx.viewpager2.widget.ViewPager2
 import com.bumptech.glide.Glide
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
+import com.example.firedatabase_assis.login_setup.UserViewModel
 import com.example.firedatabase_assis.workers.Video
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
@@ -27,16 +28,22 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import org.threeten.bp.LocalDateTime
+import org.threeten.bp.format.DateTimeFormatter
 
 class PosterFragment : Fragment() {
 
     private lateinit var viewModel: SearchViewModel
+    private lateinit var userViewModel: UserViewModel
     private lateinit var viewPager: ViewPager2
     private lateinit var indicatorContainer: LinearLayout
     private lateinit var castRecyclerView: RecyclerView
     private lateinit var castAdapter: CastAdapter
     private lateinit var recommendationsAdapter: MediaItemAdapter
     private val client = OkHttpClient()
+
+    private var startTimestamp: String? = null
+    private var isBackNavigation = false
 
 
     override fun onAttach(context: Context) {
@@ -49,6 +56,7 @@ class PosterFragment : Fragment() {
         super.onCreate(savedInstanceState)
         println("onCreate: ${this.javaClass.simpleName} tag: ${this.tag}")
         viewModel = ViewModelProvider(requireActivity())[SearchViewModel::class.java]
+        userViewModel = UserViewModel.getInstance(requireActivity().application)
     }
 
     override fun onCreateView(
@@ -56,6 +64,8 @@ class PosterFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        startTimestamp =
+            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
         val view = inflater.inflate(R.layout.fragment_poster, container, false)
         println("onCreateView: ${this.javaClass.simpleName} tag: ${this.tag}")
         setupViews(view)
@@ -72,6 +82,7 @@ class PosterFragment : Fragment() {
     private fun setupViews(view: View) {
 
         view.findViewById<ImageView>(R.id.back).setOnClickListener {
+            isBackNavigation = true  // Set flag when back is clicked
             viewModel.navigate(SearchViewModel.NavigationState.Back)
         }
 
@@ -479,39 +490,42 @@ class PosterFragment : Fragment() {
         println("onViewCreated: ${this.javaClass.simpleName} tag: ${this.tag}")
     }
 
-    override fun onStart() {
-        super.onStart()
-        println("onStart: ${this.javaClass.simpleName} tag: ${this.tag}")
-    }
-
-    override fun onResume() {
-        super.onResume()
-        println("onResume: ${this.javaClass.simpleName} tag: ${this.tag}")
-    }
 
     override fun onPause() {
         super.onPause()
-        println("onPause: ${this.javaClass.simpleName} tag: ${this.tag}")
-    }
-
-    override fun onStop() {
-        super.onStop()
-        println("onStop: ${this.javaClass.simpleName} tag: ${this.tag}")
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        println("onDestroyView: ${this.javaClass.simpleName} tag: ${this.tag}")
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        println("onDestroy: ${this.javaClass.simpleName} tag: ${this.tag}")
+        if (!isBackNavigation) {
+            saveCurrentViewDuration()
+        }
     }
 
     override fun onDetach() {
+        if (isBackNavigation) {
+            saveCurrentViewDuration()
+        }
         super.onDetach()
-        println("onDetach: ${this.javaClass.simpleName} tag: ${this.tag}")
+    }
+
+    private fun saveCurrentViewDuration() {
+        arguments?.let { args ->
+            val id = args.getInt("id")
+            val isMovie = args.getBoolean("isMovie", false)
+            startTimestamp?.let { startTime ->
+                val endTimestamp = LocalDateTime.now()
+                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+
+                userViewModel.currentUser.value?.userId?.let { userId ->
+                    viewModel.saveViewDuration(
+                        tmdbId = id,
+                        type = if (isMovie) "movie" else "tv",
+                        startTime = startTime,
+                        endTime = endTimestamp,
+                        userId = userId,
+                        isBackNavigation = isBackNavigation
+                    )
+                }
+                startTimestamp = null
+            }
+        }
     }
 
     inner class PosterViewPagerAdapter(private val items: List<ViewPagerItem>) :

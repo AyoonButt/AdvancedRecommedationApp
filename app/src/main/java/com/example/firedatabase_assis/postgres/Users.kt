@@ -27,9 +27,10 @@ interface Users {
         @Query("password") password: String
     ): Response<Boolean>
 
-    @PUT("/api/users/update-login")
+    @PUT("/api/users/{username}/login")
     suspend fun updateRecentLogin(
-        @Query("username") username: String
+        @Path("username") username: String,
+        @Query("timestamp") timestamp: String
     ): Response<Void>
 
     @GET("/api/users/params/{userId}")
