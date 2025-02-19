@@ -5,6 +5,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface Genres {
@@ -24,5 +25,16 @@ interface Genres {
     suspend fun getGenreIdsByNames(
         @Query("names") names: List<String>
     ): Response<List<Int>>
+
+    @GET("/api/genres/user/{userId}/genres")
+    suspend fun getUserGenres(
+        @Path("userId") userId: Int
+    ): Response<List<UserGenreDto>>
+
+    @POST("/api/genres/user/{userId}/update-genres")
+    suspend fun updateUserGenres(
+        @Path("userId") userId: Int,
+        @Body genres: List<UserGenreDto>
+    ): Response<List<UserGenreDto>>
 
 }

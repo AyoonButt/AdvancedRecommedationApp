@@ -14,9 +14,11 @@ import androidx.core.content.ContextCompat
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.home_page.CommentFragment
+import com.example.firedatabase_assis.login_setup.UserViewModel
+import com.example.firedatabase_assis.postgres.InteractionStates
+import com.example.firedatabase_assis.postgres.PostDto
 import com.example.firedatabase_assis.postgres.Posts
 import com.example.firedatabase_assis.postgres.TrailerInteractions
-import com.example.firedatabase_assis.postgres.VideoDto
 import com.example.firedatabase_assis.search.SearchViewModel
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants.PlayerState
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
@@ -26,6 +28,7 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.threeten.bp.LocalDateTime
 import org.threeten.bp.format.DateTimeFormatter
 import retrofit2.Retrofit
@@ -36,14 +39,16 @@ class CustomPlayer(
     customPlayerUi: View,
     private val youTubePlayer: YouTubePlayer,
     youTubePlayerView: YouTubePlayerView,
-    private val video: VideoDto,
-    private val searchViewModel: SearchViewModel
+    private val video: PostDto,
+    private val searchViewModel: SearchViewModel,
+    private val userViewModel: UserViewModel
 ) : AbstractYouTubePlayerListener() {
 
     private val playerTracker: YouTubePlayerTracker = YouTubePlayerTracker()
     private val panel: View = customPlayerUi.findViewById(R.id.panel)
     private val insideHeart = customPlayerUi.findViewById<ImageView>(R.id.insideHeart)
     private val muteIcon = customPlayerUi.findViewById<ImageView>(R.id.unmute)
+
 
     private var isMuted = false
     private var playTime: Long = 0
@@ -67,25 +72,19 @@ class CustomPlayer(
     private var replayCount = 0
 
     // Create the Retrofit instance
-    val retrofit = Retrofit.Builder()
+    private val retrofit = Retrofit.Builder()
         .baseUrl(BuildConfig.POSTRGRES_API_URL)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 
     // Instantiate your Posts API
-    val postsApi = retrofit.create(Posts::class.java)
-    val interactionsApi = retrofit.create(TrailerInteractions::class.java)
+    private val postsApi = retrofit.create(Posts::class.java)
+    private val interactionsApi = retrofit.create(TrailerInteractions::class.java)
 
     init {
         youTubePlayer.removeListener(playerTracker)
         youTubePlayer.addListener(this)
 
-        // Initialize states based on UI
-        val heart = customPlayerUi.findViewById<ImageView>(R.id.heart)
-        val saved = customPlayerUi.findViewById<ImageView>(R.id.saved)
-
-        likeState = heart.tag == "liked"
-        saveState = saved.tag == "saved"
 
         isMovie = video.type == "movie"
 
@@ -106,8 +105,35 @@ class CustomPlayer(
         val saved = customPlayerUi.findViewById<ImageView>(R.id.saved)
         val info = customPlayerUi.findViewById<ImageView>(R.id.info)
 
+        CoroutineScope(Dispatchers.IO).launch {
+            val userId = userViewModel.currentUser.value?.userId ?: return@launch
+            val states = video.postId?.let { getStates(userId, it) } ?: InteractionStates()
+
+            withContext(Dispatchers.Main) {
+                // Update class-level states
+                this@CustomPlayer.likeState = states.isLiked
+                this@CustomPlayer.saveState = states.isSaved
+
+                // Update UI
+                heart.setImageResource(
+                    if (likeState) R.drawable.heart_red else R.drawable.heart_white_outline
+                )
+                heart.tag = if (likeState) "liked" else "unliked"
+
+                saved.setImageResource(
+                    if (saveState) R.drawable.icon_bookmark_filled else R.drawable.icon_bookmark_videos
+                )
+                saved.tag = if (saveState) "saved" else "unsaved"
+            }
+        }
+
+
         heart.setOnClickListener {
             toggleLike(heart)
+        }
+
+        saved.setOnClickListener {
+            toggleSave(saved)
         }
 
         comments.setOnClickListener {
@@ -117,30 +143,22 @@ class CustomPlayer(
             if (fragmentContainer != null) {
                 fragmentContainer.visibility = View.VISIBLE
 
-                activity.supportFragmentManager.beginTransaction()
-                    .replace(R.id.fragment_container, CommentFragment(video.postId))
-                    .addToBackStack(null)
-                    .commit()
+                video.postId?.let { postId ->
+                    CommentFragment(postId).also { fragment ->
+                        activity.supportFragmentManager.beginTransaction()
+                            .replace(R.id.fragment_container, fragment)
+                            .addToBackStack(null)
+                            .commit()
+                    }
 
-                // Update timestamp for comment interaction
-                updateInteractionTimestamp(video.postId)
+                }
             }
-        }
-
-        saved.setOnClickListener {
-            saveState = !saveState  // Toggle the state
-            saved.setImageResource(
-                if (saveState) R.drawable.icon_bookmark_filled else R.drawable.icon_bookmark_videos
-            )
-            saved.tag = if (saveState) "saved" else "unsaved"
-
-            // Update timestamp for save interaction
-            updateInteractionTimestamp(video.postId)
         }
 
         muteIcon.setOnClickListener {
             toggleMute()
         }
+
         info.setOnClickListener {
             searchViewModel.navigate(
                 SearchViewModel.NavigationState.ShowPoster(
@@ -192,8 +210,20 @@ class CustomPlayer(
         insideHeart.startAnimation(animationSet)
 
         // Update like count and timestamp
-        updateLikeCount(video.postId)
-        updateInteractionTimestamp(video.postId)
+        video.postId?.let {
+            updateLikeCount(it)
+
+        }
+
+    }
+
+    private fun toggleSave(saved: ImageView) {
+        saveState = !saveState
+        saved.setImageResource(
+            if (saveState) R.drawable.icon_bookmark_filled
+            else R.drawable.icon_bookmark_videos
+        )
+        saved.tag = if (saveState) "saved" else "unsaved"
     }
 
     private fun toggleMute() {
@@ -224,30 +254,12 @@ class CustomPlayer(
         }
     }
 
-
     // Start tracking play time
     fun startTrackingTime() {
         if (!isTrackingTime) {
             isTrackingTime = true
             handler.post(trackingRunnable)
         }
-    }
-
-    // Stop tracking play time
-    fun stopTrackingTime() {
-        isTrackingTime = false
-        handler.removeCallbacks(trackingRunnable)
-        // Save playTime to the database if necessary
-    }
-
-    // Reset the play time
-    fun resetPlayTime() {
-        playTime = 0
-    }
-
-    // Get the play time
-    fun getPlayTime(): Long {
-        return playTime
     }
 
     // Get current states
@@ -281,13 +293,19 @@ class CustomPlayer(
         return current.format(formatter)
     }
 
-    private fun updateInteractionTimestamp(postId: Int) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                interactionsApi.updateInteractionTimestamp(postId, getCurrentTimestamp())
-            } catch (e: Exception) {
-                // Handle error
+
+    private suspend fun getStates(userId: Int, postId: Int): InteractionStates {
+        return try {
+            val response = interactionsApi.getTrailerInteractionStates(userId, postId)
+            if (response.isSuccessful) {
+                response.body() ?: InteractionStates()
+            } else {
+                InteractionStates()  // Default to false states if request fails
             }
+        } catch (e: Exception) {
+            println("Error getting interaction states: ${e.message}")
+            InteractionStates()  // Default to false states on error
         }
     }
+
 }

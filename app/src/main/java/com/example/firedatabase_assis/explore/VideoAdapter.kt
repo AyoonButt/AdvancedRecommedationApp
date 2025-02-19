@@ -8,10 +8,11 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
+import com.example.firedatabase_assis.login_setup.UserViewModel
+import com.example.firedatabase_assis.postgres.PostDto
 import com.example.firedatabase_assis.postgres.TrailerInteractionDto
 import com.example.firedatabase_assis.postgres.TrailerInteractions
 import com.example.firedatabase_assis.postgres.UserEntity
-import com.example.firedatabase_assis.postgres.VideoDto
 import com.example.firedatabase_assis.search.SearchViewModel
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
@@ -28,10 +29,11 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 class VideoAdapter(
-    private val videos: MutableList<VideoDto>,
+    private val videos: MutableList<PostDto>,
     private val lifecycleOwner: LifecycleOwner,
     private val currentUser: UserEntity?,
-    private val searchViewModel: SearchViewModel
+    private val searchViewModel: SearchViewModel,
+    private val userViewModel: UserViewModel,
 ) : RecyclerView.Adapter<VideoAdapter.ViewHolder>() {
 
     private var currentlyPlayingPlayer: YouTubePlayer? = null
@@ -44,6 +46,8 @@ class VideoAdapter(
 
 
     private val interactionsApi = retrofit.create(TrailerInteractions::class.java)
+
+    private var startTimestamp = ""
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val youtubePlayerView: YouTubePlayerView =
@@ -60,10 +64,16 @@ class VideoAdapter(
                         "Player initialized for position: $bindingAdapterPosition"
                     )
                     this@ViewHolder.youTubePlayer = youTubePlayer
+
+                    startTimestamp = getCurrentTimestamp()
+
                     if (bindingAdapterPosition != RecyclerView.NO_POSITION) {
-                        val (videoKey, _) = videos[bindingAdapterPosition]
-                        youTubePlayer.cueVideo(videoKey, 0f)
+                        val videoKey = videos[bindingAdapterPosition].videoKey
+                        videoKey.let {
+                            youTubePlayer.cueVideo(it, 0f)
+                        }
                     }
+
                     setupCustomPlayer(youTubePlayer)
                     setupAutoplayAndLoop(youTubePlayer)
                 }
@@ -85,7 +95,8 @@ class VideoAdapter(
                 youTubePlayer,
                 youtubePlayerView,
                 video,
-                searchViewModel
+                searchViewModel,
+                userViewModel
             )
         }
 
@@ -125,7 +136,7 @@ class VideoAdapter(
 
                     val interactionData =
                         currentUser?.let {
-                            createUserTrailerInteractionData(bindingAdapterPosition, it)
+                            createUserTrailerInteractionDto(bindingAdapterPosition, it)
                         }
 
                     if (interactionData == null) {
@@ -148,29 +159,32 @@ class VideoAdapter(
                 }
             }
 
-        private suspend fun createUserTrailerInteractionData(
+        private fun createUserTrailerInteractionDto(
             position: Int,
             user: UserEntity
-        ): TrailerInteractionDto {
-            val (_, postId) = videos[position]
+        ): TrailerInteractionDto? {
+            val video = videos[position]
+            val postId = video.postId
+            val currentTime = getCurrentTimestamp()
 
-            return user.userId.let {
+            return postId?.let {
                 TrailerInteractionDto(
                     interactionId = null,
-                    userId = it,
-                    postId = postId,
-                    timeSpent = customPlayer.getPlayTime(),
+                    userId = user.userId,
+                    postId = it,
+                    startTimestamp = startTimestamp,
+                    endTimestamp = currentTime,
                     replayCount = customPlayer.getReplayCount(),
                     isMuted = customPlayer.getIsMuted(),
                     likeState = customPlayer.getLikeState(),
                     saveState = customPlayer.getSaveState(),
                     commentButtonPressed = customPlayer.wasCommentButtonPressed(),
-                    commentMade = customPlayer.wasCommentMade(),
-                    timestamp = getCurrentTimestamp()
+                    commentMade = customPlayer.wasCommentMade()
                 )
             }
         }
     }
+
 
     private fun getCurrentTimestamp(): String {
         val current = LocalDateTime.now()
@@ -200,7 +214,7 @@ class VideoAdapter(
         super.onViewDetachedFromWindow(holder)
     }
 
-    fun addItems(newVideos: List<VideoDto>) {
+    fun addItems(newVideos: List<PostDto>) {
         val initialSize = videos.size
         videos.addAll(newVideos)
         notifyItemRangeInserted(initialSize, newVideos.size)

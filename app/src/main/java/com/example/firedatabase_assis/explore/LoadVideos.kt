@@ -1,19 +1,20 @@
 package com.example.firedatabase_assis.explore
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.firedatabase_assis.BaseActivity
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.login_setup.UserViewModel
+import com.example.firedatabase_assis.postgres.PostDto
 import com.example.firedatabase_assis.postgres.Posts
-import com.example.firedatabase_assis.postgres.VideoDto
 import com.example.firedatabase_assis.search.PersonDetailFragment
 import com.example.firedatabase_assis.search.PosterFragment
 import com.example.firedatabase_assis.search.SearchViewModel
@@ -23,7 +24,7 @@ import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-class LoadVideos : AppCompatActivity() {
+class LoadVideos : BaseActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: VideoAdapter
     private lateinit var userViewModel: UserViewModel
@@ -36,12 +37,19 @@ class LoadVideos : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_load_videos)
+        setupBottomNavigation(R.id.bottom_menu_explore)
 
         recyclerView = findViewById(R.id.recycler_view)
         recyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
         userViewModel = UserViewModel.getInstance(application)
         searchViewModel = ViewModelProvider(this)[SearchViewModel::class.java]
-        adapter = VideoAdapter(mutableListOf(), this, userViewModel.getUser(), searchViewModel)
+        adapter = VideoAdapter(
+            mutableListOf(),
+            this,
+            userViewModel.getUser(),
+            searchViewModel,
+            userViewModel
+        )
         recyclerView.adapter = adapter
 
         val snapHelper = FastSnapHelper(this)
@@ -110,6 +118,12 @@ class LoadVideos : AppCompatActivity() {
         })
     }
 
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+
+    }
+
     private fun loadMoviesAndSeriesFromBottomUp() {
         isLoading = true
         lifecycleScope.launch {
@@ -133,9 +147,9 @@ class LoadVideos : AppCompatActivity() {
     // Instantiate your Posts API
     private val postsApi = retrofit.create(Posts::class.java)
 
-    private suspend fun fetchVideosFromApi(limit: Int, offset: Int): List<VideoDto> {
+    private suspend fun fetchVideosFromApi(limit: Int, offset: Int): List<PostDto> {
         return try {
-            val response = postsApi.getVideos(limit, offset)
+            val response = postsApi.getPosts(limit, offset)
             Log.d("API_RESPONSE", "Response body: ${response.body()}")
 
             if (response.isSuccessful) {
@@ -150,7 +164,7 @@ class LoadVideos : AppCompatActivity() {
         }
     }
 
-    private fun processMovieVideos(videos: List<VideoDto>) {
+    private fun processMovieVideos(videos: List<PostDto>) {
         try {
             if (videos.isEmpty()) {
                 Log.w("PROCESS_WARNING", "No videos to process")

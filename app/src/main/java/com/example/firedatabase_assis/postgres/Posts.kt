@@ -38,4 +38,14 @@ interface Posts {
 
     @GET("/api/posts/{postId}")
     suspend fun getPostIdByTmdbId(@Query("tmdbId") tmdbId: Int): Response<Int?>
+
+
+    @GET("api/posts/paged")
+    suspend fun getPagedPostDtos(
+        @Query("interactionIds") interactionIds: List<Int>,
+        @Query("page") page: Int = 0,
+        @Query("pageSize") pageSize: Int = 20
+    ): Response<List<PostDto>>
+
+
 }

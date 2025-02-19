@@ -5,11 +5,24 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.postgres.UserEntity
+import com.example.firedatabase_assis.postgres.UserUpdate
+import com.example.firedatabase_assis.postgres.Users
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class UserViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _currentUser = MutableLiveData<UserEntity?>()
+
+    private val retrofit = Retrofit.Builder()
+        .baseUrl(BuildConfig.POSTRGRES_API_URL)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    private val api: Users = retrofit.create(Users::class.java)
+
     val currentUser: LiveData<UserEntity?> = _currentUser
 
     fun setUser(user: UserEntity) {
@@ -32,6 +45,23 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getLanguage(): String? {
         return _currentUser.value?.language
+    }
+
+    suspend fun updateUserProfile(userId: Int, updates: UserUpdate): Result<UserEntity> {
+        return try {
+            val response = api.updateUser(userId, updates)
+            if (response.isSuccessful) {
+                response.body()?.let { userEntity ->
+                    _currentUser.value = userEntity
+                    Result.success(userEntity)
+                } ?: Result.failure(Exception("Response body was null"))
+            } else {
+                Result.failure(Exception("Failed to update user: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Log.e("UserViewModel", "Error updating user profile: ${e.message}")
+            Result.failure(e)
+        }
     }
 
     companion object {

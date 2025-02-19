@@ -49,4 +49,10 @@ interface TrailerInteractions {
         @Path("userId") userId: Int
     ): Response<List<Int>>
 
+    @GET("/api/trailer-interactions/{userId}/{postId}/states")
+    suspend fun getTrailerInteractionStates(
+        @Path("userId") userId: Int,
+        @Path("postId") postId: Int
+    ): Response<InteractionStates>
+
 }

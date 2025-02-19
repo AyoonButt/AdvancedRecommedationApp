@@ -1,140 +1,423 @@
 import android.R
 import android.content.Context
-import android.util.Log
 import android.widget.ArrayAdapter
 import android.widget.Spinner
-import com.example.firedatabase_assis.BuildConfig
-import com.example.firedatabase_assis.postgres.GenreEntity
-import com.example.firedatabase_assis.postgres.Genres
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
 
 
 object SpinnerUtils {
-    fun setupLanguageSpinner(context: Context, spinner: Spinner) {
-        val languages = mutableListOf("Select Language")
-        languages.addAll(
-            listOf(
-                "Abkhazian", "Afar", "Afrikaans", "Akan", "Albanian", "Amharic", "Arabic",
-                "Aragonese", "Armenian", "Assamese", "Avaric", "Avestan", "Aymara",
-                "Azerbaijani", "Bambara", "Bashkir", "Basque", "Belarusian", "Bengali",
-                "Bihari", "Bislama", "Bosnian", "Breton", "Bulgarian", "Burmese", "Catalan",
-                "Chamorro", "Chechen", "Chichewa; Nyanja", "Chinese", "Corsican", "Cree",
-                "Croatian", "Czech", "Danish", "Divehi", "Dutch", "Dzongkha", "English",
-                "Esperanto", "Estonian", "Ewe", "Faroese", "Fijian", "Finnish", "French",
-                "Frisian", "Gaelic", "Galician", "Ganda", "Georgian", "German", "Greek",
-                "Guarani", "Gujarati", "Haitian; Haitian Creole", "Hausa", "Hebrew", "Herero",
-                "Hindi", "Hiri Motu", "Hungarian", "Icelandic", "Ido", "Igbo", "Indonesian",
-                "Interlingua", "Interlingue", "Inuktitut", "Inupiaq", "Irish", "Italian",
-                "Japanese", "Javanese", "Kannada", "Kanuri", "Kashmiri", "Kazakh", "Khmer",
-                "Kikuyu", "Kinyarwanda", "Kirghiz", "Kongo", "Korean", "Kurdish", "Kuanyama",
-                "Latin", "Latvian", "Letzeburgesch", "Limburgish", "Lingala", "Lithuanian",
-                "Luba-Katanga", "Macedonian", "Malagasy", "Malay", "Malayalam", "Maltese",
-                "Manx", "Maori", "Marathi", "Marshall", "Moldavian", "Mongolian", "Nauru",
-                "Navajo", "Ndebele", "Nepali", "Northern Sami", "Norwegian", "Norwegian Bokmål",
-                "Norwegian Nynorsk", "Nyanja", "Occitan", "Ojibwa", "Oriya", "Oromo",
-                "Ossetian; Ossetic", "Pali", "Punjabi", "Persian", "Polish", "Portuguese",
-                "Pushto", "Quechua", "Raeto-Romance", "Romanian", "Romansh", "Rundi", "Russian",
-                "Sami", "Samoan", "Sango", "Sanskrit", "Serbian", "Serbo-Croatian", "Sesotho",
-                "Setswana", "Shona", "Sindhi", "Sinhalese", "Slovak", "Slovenian", "Somali",
-                "Spanish", "Sundanese", "Swahili", "Swati", "Swedish", "Tagalog", "Tahitian",
-                "Tajik", "Tamil", "Tatar", "Telugu", "Thai", "Tibetan", "Tigrinya", "Tonga",
-                "Tsonga", "Tswana", "Turkish", "Turkmen", "Twi", "Uighur", "Ukrainian", "Urdu",
-                "Uzbek", "Venda", "Vietnamese", "Volapük", "Walloon", "Welsh", "Wolof",
-                "Western Frisian", "Xhosa", "Yiddish", "Yoruba", "Zhuang", "Zulu"
-            )
-        )
 
+    private val languages = listOf(
+        "Select Language",
+        "Abkhazian", "Afar", "Afrikaans", "Akan", "Albanian", "Amharic", "Arabic",
+        "Aragonese", "Armenian", "Assamese", "Avaric", "Avestan", "Aymara",
+        "Azerbaijani", "Bambara", "Bashkir", "Basque", "Belarusian", "Bengali",
+        "Bihari", "Bislama", "Bosnian", "Breton", "Bulgarian", "Burmese", "Catalan",
+        "Chamorro", "Chechen", "Chichewa; Nyanja", "Chinese", "Corsican", "Cree",
+        "Croatian", "Czech", "Danish", "Divehi", "Dutch", "Dzongkha", "English",
+        "Esperanto", "Estonian", "Ewe", "Faroese", "Fijian", "Finnish", "French",
+        "Frisian", "Gaelic", "Galician", "Ganda", "Georgian", "German", "Greek",
+        "Guarani", "Gujarati", "Haitian; Haitian Creole", "Hausa", "Hebrew", "Herero",
+        "Hindi", "Hiri Motu", "Hungarian", "Icelandic", "Ido", "Igbo", "Indonesian",
+        "Interlingua", "Interlingue", "Inuktitut", "Inupiaq", "Irish", "Italian",
+        "Japanese", "Javanese", "Kannada", "Kanuri", "Kashmiri", "Kazakh", "Khmer",
+        "Kikuyu", "Kinyarwanda", "Kirghiz", "Kongo", "Korean", "Kurdish", "Kuanyama",
+        "Latin", "Latvian", "Letzeburgesch", "Limburgish", "Lingala", "Lithuanian",
+        "Luba-Katanga", "Macedonian", "Malagasy", "Malay", "Malayalam", "Maltese",
+        "Manx", "Maori", "Marathi", "Marshall", "Moldavian", "Mongolian", "Nauru",
+        "Navajo", "Ndebele", "Nepali", "Northern Sami", "Norwegian", "Norwegian Bokmål",
+        "Norwegian Nynorsk", "Nyanja", "Occitan", "Ojibwa", "Oriya", "Oromo",
+        "Ossetian; Ossetic", "Pali", "Punjabi", "Persian", "Polish", "Portuguese",
+        "Pushto", "Quechua", "Raeto-Romance", "Romanian", "Romansh", "Rundi", "Russian",
+        "Sami", "Samoan", "Sango", "Sanskrit", "Serbian", "Serbo-Croatian", "Sesotho",
+        "Setswana", "Shona", "Sindhi", "Sinhalese", "Slovak", "Slovenian", "Somali",
+        "Spanish", "Sundanese", "Swahili", "Swati", "Swedish", "Tagalog", "Tahitian",
+        "Tajik", "Tamil", "Tatar", "Telugu", "Thai", "Tibetan", "Tigrinya", "Tonga",
+        "Tsonga", "Tswana", "Turkish", "Turkmen", "Twi", "Uighur", "Ukrainian", "Urdu",
+        "Uzbek", "Venda", "Vietnamese", "Volapük", "Walloon", "Welsh", "Wolof",
+        "Western Frisian", "Xhosa", "Yiddish", "Yoruba", "Zhuang", "Zulu"
+    )
+
+
+    private val regions = listOf(
+        "Select Region",
+        "Andorra", "United Arab Emirates", "Antigua and Barbuda", "Albania", "Angola",
+        "Argentina", "Austria", "Australia", "Azerbaijan", "Bosnia and Herzegovina",
+        "Barbados", "Belgium", "Burkina Faso", "Bulgaria", "Bahrain", "Bermuda",
+        "Bolivia", "Brazil", "Bahamas", "Belarus", "Belize", "Canada",
+        "Democratic Republic of the Congo (Kinshasa)", "Switzerland", "Côte d’Ivoire",
+        "Chile", "Cameroon", "Colombia", "Costa Rica", "Cuba", "Cape Verde", "Cyprus",
+        "Czech Republic", "Germany", "Denmark", "Dominican Republic", "Algeria",
+        "Ecuador", "Estonia", "Egypt", "Spain", "Finland", "Fiji", "France",
+        "United Kingdom", "French Guiana", "Ghana", "Gibraltar", "Guadeloupe",
+        "Equatorial Guinea", "Greece", "Guatemala", "Guyana", "Hong Kong SAR China",
+        "Honduras", "Croatia", "Hungary", "Indonesia", "Ireland", "Israel", "India",
+        "Iraq", "Iceland", "Italy", "Jamaica", "Jordan", "Japan", "Kenya", "South Korea",
+        "Kuwait", "Lebanon", "St. Lucia", "Liechtenstein", "Lithuania", "Luxembourg",
+        "Latvia", "Libya", "Morocco", "Monaco", "Moldova", "Montenegro", "Madagascar",
+        "Macedonia", "Mali", "Malta", "Mauritius", "Malawi", "Mexico", "Malaysia",
+        "Mozambique", "Niger", "Nigeria", "Nicaragua", "Netherlands", "Norway",
+        "New Zealand", "Oman", "Panama", "Peru", "French Polynesia", "Papua New Guinea",
+        "Philippines", "Pakistan", "Poland", "Palestinian Territories", "Portugal",
+        "Paraguay", "Qatar", "Romania", "Serbia", "Russia", "Saudi Arabia", "Seychelles",
+        "Sweden", "Singapore", "Slovenia", "Slovakia", "San Marino", "Senegal",
+        "El Salvador", "Turks & Caicos Islands", "Chad", "Thailand", "Tunisia", "Turkey",
+        "Trinidad & Tobago", "Taiwan", "Tanzania", "Ukraine", "Uganda", "United States",
+        "Uruguay", "Vatican City", "Venezuela", "Kosovo", "Yemen", "South Africa",
+        "Zambia", "Zimbabwe"
+    )
+
+
+    private val languageMap = mapOf(
+        "ab" to "Abkhazian",
+        "aa" to "Afar",
+        "af" to "Afrikaans",
+        "ak" to "Akan",
+        "sq" to "Albanian",
+        "am" to "Amharic",
+        "ar" to "Arabic",
+        "an" to "Aragonese",
+        "hy" to "Armenian",
+        "as" to "Assamese",
+        "av" to "Avaric",
+        "ae" to "Avestan",
+        "ay" to "Aymara",
+        "az" to "Azerbaijani",
+        "bm" to "Bambara",
+        "ba" to "Bashkir",
+        "eu" to "Basque",
+        "be" to "Belarusian",
+        "bn" to "Bengali",
+        "bh" to "Bihari",
+        "bi" to "Bislama",
+        "bs" to "Bosnian",
+        "br" to "Breton",
+        "bg" to "Bulgarian",
+        "my" to "Burmese",
+        "ca" to "Catalan",
+        "ch" to "Chamorro",
+        "ce" to "Chechen",
+        "ny" to "Chichewa; Nyanja",
+        "zh" to "Chinese",
+        "co" to "Corsican",
+        "cr" to "Cree",
+        "hr" to "Croatian",
+        "cs" to "Czech",
+        "da" to "Danish",
+        "dv" to "Divehi",
+        "nl" to "Dutch",
+        "dz" to "Dzongkha",
+        "en" to "English",
+        "eo" to "Esperanto",
+        "et" to "Estonian",
+        "ee" to "Ewe",
+        "fo" to "Faroese",
+        "fj" to "Fijian",
+        "fi" to "Finnish",
+        "fr" to "French",
+        "fy" to "Frisian",
+        "gd" to "Gaelic",
+        "gl" to "Galician",
+        "lg" to "Ganda",
+        "ka" to "Georgian",
+        "de" to "German",
+        "el" to "Greek",
+        "gn" to "Guarani",
+        "gu" to "Gujarati",
+        "ht" to "Haitian; Haitian Creole",
+        "ha" to "Hausa",
+        "he" to "Hebrew",
+        "hz" to "Herero",
+        "hi" to "Hindi",
+        "ho" to "Hiri Motu",
+        "hu" to "Hungarian",
+        "is" to "Icelandic",
+        "io" to "Ido",
+        "ig" to "Igbo",
+        "id" to "Indonesian",
+        "ia" to "Interlingua",
+        "ie" to "Interlingue",
+        "iu" to "Inuktitut",
+        "ik" to "Inupiaq",
+        "ga" to "Irish",
+        "it" to "Italian",
+        "ja" to "Japanese",
+        "jv" to "Javanese",
+        "kn" to "Kannada",
+        "kr" to "Kanuri",
+        "ks" to "Kashmiri",
+        "kk" to "Kazakh",
+        "km" to "Khmer",
+        "ki" to "Kikuyu",
+        "rw" to "Kinyarwanda",
+        "ky" to "Kirghiz",
+        "kg" to "Kongo",
+        "ko" to "Korean",
+        "ku" to "Kurdish",
+        "kj" to "Kuanyama",
+        "la" to "Latin",
+        "lv" to "Latvian",
+        "lb" to "Letzeburgesch",
+        "li" to "Limburgish",
+        "ln" to "Lingala",
+        "lt" to "Lithuanian",
+        "lu" to "Luba-Katanga",
+        "mk" to "Macedonian",
+        "mg" to "Malagasy",
+        "ms" to "Malay",
+        "ml" to "Malayalam",
+        "mt" to "Maltese",
+        "gv" to "Manx",
+        "mi" to "Maori",
+        "mr" to "Marathi",
+        "mh" to "Marshall",
+        "mo" to "Moldavian",
+        "mn" to "Mongolian",
+        "na" to "Nauru",
+        "nv" to "Navajo",
+        "nd" to "Ndebele",
+        "ne" to "Nepali",
+        "se" to "Northern Sami",
+        "no" to "Norwegian",
+        "nb" to "Norwegian Bokmål",
+        "nn" to "Norwegian Nynorsk",
+        "oc" to "Occitan",
+        "oj" to "Ojibwa",
+        "or" to "Oriya",
+        "om" to "Oromo",
+        "os" to "Ossetian; Ossetic",
+        "pi" to "Pali",
+        "pa" to "Punjabi",
+        "fa" to "Persian",
+        "pl" to "Polish",
+        "pt" to "Portuguese",
+        "ps" to "Pushto",
+        "qu" to "Quechua",
+        "rm" to "Raeto-Romance",
+        "ro" to "Romanian",
+        "rn" to "Rundi",
+        "ru" to "Russian",
+        "sm" to "Samoan",
+        "sg" to "Sango",
+        "sa" to "Sanskrit",
+        "sr" to "Serbian",
+        "sh" to "Serbo-Croatian",
+        "st" to "Sesotho",
+        "tn" to "Setswana",
+        "sn" to "Shona",
+        "sd" to "Sindhi",
+        "si" to "Sinhalese",
+        "sk" to "Slovak",
+        "sl" to "Slovenian",
+        "so" to "Somali",
+        "es" to "Spanish",
+        "su" to "Sundanese",
+        "sw" to "Swahili",
+        "ss" to "Swati",
+        "sv" to "Swedish",
+        "tl" to "Tagalog",
+        "ty" to "Tahitian",
+        "tg" to "Tajik",
+        "ta" to "Tamil",
+        "tt" to "Tatar",
+        "te" to "Telugu",
+        "th" to "Thai",
+        "bo" to "Tibetan",
+        "ti" to "Tigrinya",
+        "to" to "Tonga",
+        "ts" to "Tsonga",
+        "tr" to "Turkish",
+        "tk" to "Turkmen",
+        "tw" to "Twi",
+        "ug" to "Uighur",
+        "uk" to "Ukrainian",
+        "ur" to "Urdu",
+        "uz" to "Uzbek",
+        "ve" to "Venda",
+        "vi" to "Vietnamese",
+        "vo" to "Volapük",
+        "wa" to "Walloon",
+        "cy" to "Welsh",
+        "wo" to "Wolof",
+        "yi" to "Yiddish",
+        "yo" to "Yoruba",
+        "za" to "Zhuang",
+        "zu" to "Zulu"
+    )
+
+    private val regionMap = mapOf(
+        "AD" to "Andorra",
+        "AE" to "United Arab Emirates",
+        "AG" to "Antigua and Barbuda",
+        "AL" to "Albania",
+        "AO" to "Angola",
+        "AR" to "Argentina",
+        "AT" to "Austria",
+        "AU" to "Australia",
+        "AZ" to "Azerbaijan",
+        "BA" to "Bosnia and Herzegovina",
+        "BB" to "Barbados",
+        "BE" to "Belgium",
+        "BF" to "Burkina Faso",
+        "BG" to "Bulgaria",
+        "BH" to "Bahrain",
+        "BM" to "Bermuda",
+        "BO" to "Bolivia",
+        "BR" to "Brazil",
+        "BS" to "Bahamas",
+        "BY" to "Belarus",
+        "BZ" to "Belize",
+        "CA" to "Canada",
+        "CD" to "Democratic Republic of the Congo (Kinshasa)",
+        "CH" to "Switzerland",
+        "CI" to "Côte d'Ivoire",
+        "CL" to "Chile",
+        "CM" to "Cameroon",
+        "CO" to "Colombia",
+        "CR" to "Costa Rica",
+        "CU" to "Cuba",
+        "CV" to "Cape Verde",
+        "CY" to "Cyprus",
+        "CZ" to "Czech Republic",
+        "DE" to "Germany",
+        "DK" to "Denmark",
+        "DO" to "Dominican Republic",
+        "DZ" to "Algeria",
+        "EC" to "Ecuador",
+        "EE" to "Estonia",
+        "EG" to "Egypt",
+        "ES" to "Spain",
+        "FI" to "Finland",
+        "FJ" to "Fiji",
+        "FR" to "France",
+        "GB" to "United Kingdom",
+        "GF" to "French Guiana",
+        "GH" to "Ghana",
+        "GI" to "Gibraltar",
+        "GP" to "Guadeloupe",
+        "GQ" to "Equatorial Guinea",
+        "GR" to "Greece",
+        "GT" to "Guatemala",
+        "GY" to "Guyana",
+        "HK" to "Hong Kong SAR China",
+        "HN" to "Honduras",
+        "HR" to "Croatia",
+        "HU" to "Hungary",
+        "ID" to "Indonesia",
+        "IE" to "Ireland",
+        "IL" to "Israel",
+        "IN" to "India",
+        "IQ" to "Iraq",
+        "IS" to "Iceland",
+        "IT" to "Italy",
+        "JM" to "Jamaica",
+        "JO" to "Jordan",
+        "JP" to "Japan",
+        "KE" to "Kenya",
+        "KR" to "South Korea",
+        "KW" to "Kuwait",
+        "LB" to "Lebanon",
+        "LC" to "St. Lucia",
+        "LI" to "Liechtenstein",
+        "LT" to "Lithuania",
+        "LU" to "Luxembourg",
+        "LV" to "Latvia",
+        "LY" to "Libya",
+        "MA" to "Morocco",
+        "MC" to "Monaco",
+        "MD" to "Moldova",
+        "ME" to "Montenegro",
+        "MG" to "Madagascar",
+        "MK" to "Macedonia",
+        "ML" to "Mali",
+        "MT" to "Malta",
+        "MU" to "Mauritius",
+        "MW" to "Malawi",
+        "MX" to "Mexico",
+        "MY" to "Malaysia",
+        "MZ" to "Mozambique",
+        "NE" to "Niger",
+        "NG" to "Nigeria",
+        "NI" to "Nicaragua",
+        "NL" to "Netherlands",
+        "NO" to "Norway",
+        "NZ" to "New Zealand",
+        "OM" to "Oman",
+        "PA" to "Panama",
+        "PE" to "Peru",
+        "PF" to "French Polynesia",
+        "PG" to "Papua New Guinea",
+        "PH" to "Philippines",
+        "PK" to "Pakistan",
+        "PL" to "Poland",
+        "PS" to "Palestinian Territories",
+        "PT" to "Portugal",
+        "PY" to "Paraguay",
+        "QA" to "Qatar",
+        "RO" to "Romania",
+        "RS" to "Serbia",
+        "RU" to "Russia",
+        "SA" to "Saudi Arabia",
+        "SC" to "Seychelles",
+        "SE" to "Sweden",
+        "SG" to "Singapore",
+        "SI" to "Slovenia",
+        "SK" to "Slovakia",
+        "SM" to "San Marino",
+        "SN" to "Senegal",
+        "SV" to "El Salvador",
+        "TC" to "Turks & Caicos Islands",
+        "TD" to "Chad",
+        "TH" to "Thailand",
+        "TN" to "Tunisia",
+        "TR" to "Turkey",
+        "TT" to "Trinidad & Tobago",
+        "TW" to "Taiwan",
+        "TZ" to "Tanzania",
+        "UA" to "Ukraine",
+        "UG" to "Uganda",
+        "US" to "United States",
+        "UY" to "Uruguay",
+        "VA" to "Vatican City",
+        "VE" to "Venezuela",
+        "XK" to "Kosovo",
+        "YE" to "Yemen",
+        "ZA" to "South Africa",
+        "ZM" to "Zambia",
+        "ZW" to "Zimbabwe"
+    )
+
+
+    fun setupLanguageSpinner(context: Context, spinner: Spinner) {
         val languageAdapter = ArrayAdapter(context, R.layout.simple_spinner_item, languages)
         languageAdapter.setDropDownViewResource(R.layout.simple_spinner_dropdown_item)
         spinner.adapter = languageAdapter
     }
 
     fun setupRegionSpinner(context: Context, spinner: Spinner) {
-        val regions = mutableListOf("Select Region")
-        regions.addAll(
-            listOf(
-                "Andorra", "United Arab Emirates", "Antigua and Barbuda", "Albania", "Angola",
-                "Argentina", "Austria", "Australia", "Azerbaijan", "Bosnia and Herzegovina",
-                "Barbados", "Belgium", "Burkina Faso", "Bulgaria", "Bahrain", "Bermuda",
-                "Bolivia", "Brazil", "Bahamas", "Belarus", "Belize", "Canada",
-                "Democratic Republic of the Congo (Kinshasa)", "Switzerland", "Côte d’Ivoire",
-                "Chile", "Cameroon", "Colombia", "Costa Rica", "Cuba", "Cape Verde", "Cyprus",
-                "Czech Republic", "Germany", "Denmark", "Dominican Republic", "Algeria",
-                "Ecuador", "Estonia", "Egypt", "Spain", "Finland", "Fiji", "France",
-                "United Kingdom", "French Guiana", "Ghana", "Gibraltar", "Guadeloupe",
-                "Equatorial Guinea", "Greece", "Guatemala", "Guyana", "Hong Kong SAR China",
-                "Honduras", "Croatia", "Hungary", "Indonesia", "Ireland", "Israel", "India",
-                "Iraq", "Iceland", "Italy", "Jamaica", "Jordan", "Japan", "Kenya", "South Korea",
-                "Kuwait", "Lebanon", "St. Lucia", "Liechtenstein", "Lithuania", "Luxembourg",
-                "Latvia", "Libya", "Morocco", "Monaco", "Moldova", "Montenegro", "Madagascar",
-                "Macedonia", "Mali", "Malta", "Mauritius", "Malawi", "Mexico", "Malaysia",
-                "Mozambique", "Niger", "Nigeria", "Nicaragua", "Netherlands", "Norway",
-                "New Zealand", "Oman", "Panama", "Peru", "French Polynesia", "Papua New Guinea",
-                "Philippines", "Pakistan", "Poland", "Palestinian Territories", "Portugal",
-                "Paraguay", "Qatar", "Romania", "Serbia", "Russia", "Saudi Arabia", "Seychelles",
-                "Sweden", "Singapore", "Slovenia", "Slovakia", "San Marino", "Senegal",
-                "El Salvador", "Turks & Caicos Islands", "Chad", "Thailand", "Tunisia", "Turkey",
-                "Trinidad & Tobago", "Taiwan", "Tanzania", "Ukraine", "Uganda", "United States",
-                "Uruguay", "Vatican City", "Venezuela", "Kosovo", "Yemen", "South Africa",
-                "Zambia", "Zimbabwe"
-            )
-        )
-
         val regionAdapter = ArrayAdapter(context, R.layout.simple_spinner_item, regions)
         regionAdapter.setDropDownViewResource(R.layout.simple_spinner_dropdown_item)
         spinner.adapter = regionAdapter
     }
+
+    fun getLanguagePosition(languageCode: String): Int {
+        val fullName = languageMap[languageCode.lowercase()] ?: "English"
+        return languages.indexOf(fullName).takeIf { it != -1 } ?: languages.indexOf("English")
+    }
+
+    fun getRegionPosition(regionCode: String): Int {
+        val fullName = regionMap[regionCode.uppercase()] ?: "United States"
+        return regions.indexOf(fullName).takeIf { it != -1 } ?: regions.indexOf("United States")
+    }
+
+    fun getLanguageCode(fullName: String): String {
+        return languageMap.entries.firstOrNull { it.value == fullName }?.key ?: "en"
+    }
+
+    fun getRegionCode(fullName: String): String {
+        return regionMap.entries.firstOrNull { it.value == fullName }?.key ?: "US"
+    }
+
 }
 
-object GenresManager {
-    private val genres = mutableSetOf<GenreEntity>()
-
-    private val retrofit = Retrofit.Builder()
-        .baseUrl(BuildConfig.POSTRGRES_API_URL)
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
-
-    private val genresApi: Genres = retrofit.create(Genres::class.java)
-
-    // Initialize with default genres
-    suspend fun init() {
-        try {
-            insertDefaultGenres()
-        } catch (e: Exception) {
-            Log.e("DataManager", "Error loading genres", e)
-        }
-    }
 
 
-    // Method to add a new genre
-    suspend fun addGenre(genre: GenreEntity) {
-        try {
-            val response = genresApi.addGenre(genre)
-            if (response.isSuccessful) {
-                genres.add(genre)
-            } else {
-                Log.e("DataManager", "Failed to add genre: ${response.errorBody()?.string()}")
-            }
-        } catch (e: Exception) {
-            Log.e("DataManager", "Error adding genre", e)
-        }
-    }
-
-    // Method to insert default genres using API
-    private suspend fun insertDefaultGenres() {
-        try {
-            val response = genresApi.insertDefaultGenres()
-            if (response.isSuccessful) {
-                init()
-            } else {
-                Log.e(
-                    "DataManager",
-                    "Failed to insert default genres: ${response.errorBody()?.string()}"
-                )
-            }
-        } catch (e: Exception) {
-            Log.e("DataManager", "Error inserting default genres", e)
-        }
-    }
-}

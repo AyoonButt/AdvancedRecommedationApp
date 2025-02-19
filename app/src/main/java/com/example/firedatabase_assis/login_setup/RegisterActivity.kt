@@ -2,13 +2,11 @@ package com.example.firedatabase_assis.login_setup
 
 
 //import HomePage
-import GenresManager
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.firedatabase_assis.databinding.ActivityMainBinding
-import com.example.firedatabase_assis.postgres.ProvidersManager
 import com.jakewharton.threetenabp.AndroidThreeTen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,8 +17,7 @@ class RegisterActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
 
-    // Initialize GenresManager and ProviderManager
-    private val genresManager = GenresManager
+
     private val providerManager = ProvidersManager()  // Initialize ProvidersApi
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,7 +52,6 @@ class RegisterActivity : AppCompatActivity() {
                     try {
                         // Initialize genres and providers concurrently
                         withContext(Dispatchers.IO) {
-                            genresManager.init()
                             providerManager.fetchAndSendProviders()
                         }
 

@@ -16,6 +16,9 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="tiramisu">
 
+        <activity
+            android:name=".BaseActivity"
+            android:exported="false" />
 
         <activity
             android:name=".explore.LoadVideos"
@@ -24,15 +27,6 @@
         <activity
             android:name=".search.SearchActivity"
             android:exported="true" />
-
-        <activity
-            android:name=".settings.GenresActivity"
-            android:exported="true"
-            android:theme="@style/Theme.AppCompat.DayNight" />
-        <activity
-            android:name=".settings.SubscriptionsActivity"
-            android:exported="true"
-            android:theme="@style/Theme.AppCompat.DayNight" />
 
         <activity
             android:name=".login_setup.SetupActivity"
@@ -58,12 +52,38 @@
 
         <activity
             android:name=".settings.SettingsActivity"
-            android:exported="true"
-            android:theme="@style/Theme.AppCompat.DayNight" />
+            android:exported="true" />
         <activity
-            android:name=".settings.TimeActivity"
-            android:exported="true"
-            android:theme="@style/Theme.AppCompat.DayNight" />
+            android:name=".settings.GenresActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".settings.SubscriptionsActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".settings.PreferencesActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".settings.SecurityActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".settings.LanguageActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".interactions.InteractionsActivity"
+            android:exported="true" />
+        <activity
+            android:name=".interactions.FeedActivity"
+            android:exported="true" />
+
+        <activity
+            android:name=".interactions.SingleItemActivity"
+            android:exported="true" />
+
 
     </application>
 

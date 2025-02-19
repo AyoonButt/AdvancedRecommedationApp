@@ -9,7 +9,7 @@ import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.postgres.Credits
 import com.example.firedatabase_assis.postgres.PostDto
 import com.example.firedatabase_assis.postgres.Posts
-import com.example.firedatabase_assis.postgres.UserParams
+import com.example.firedatabase_assis.postgres.UserPreferencesDto
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.jakewharton.threetenabp.AndroidThreeTen
@@ -99,19 +99,19 @@ class ApiWorker(
                 return@withContext Result.failure()
             }
 
-            val userParams = fetchUserParams(userId) // Retrieve userParams from the database
-            if (userParams == null) {
-                Log.e("ApiWorker", "No userParams found for userId: $userId")
+            val userPreferences = getUserPreferences(userId)
+            if (userPreferences == null) {
+                Log.e("ApiWorker", "No userPrefereneces found for userId: $userId")
                 return@withContext Result.failure()
             }
 
             Log.i(
                 "ApiWorker",
-                "Processing providers for userId: $userId with userParams: $userParams"
+                "Processing providers for userId: $userId with userPreferences: $userPreferences"
             )
 
-            // Process providers based on the userParams
-            processProvidersForUser(userId, userParams)
+            // Process providers based on the userPreferences
+            processProvidersForUser(userId, userPreferences)
 
             Log.i("ApiWorker", "doWork completed successfully for userId: $userId")
             return@withContext Result.success()
@@ -126,7 +126,7 @@ class ApiWorker(
     private suspend fun incrementReleaseDate(
         currentDate: String,
         currentYear: Int,
-        userParams: UserParams,
+        userPreferences: UserPreferencesDto,
         providers: String
     ): String {
         val dateFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd")
@@ -156,7 +156,7 @@ class ApiWorker(
                 try {
                     val isValid = checkDate(
                         increment,
-                        userParams,
+                        userPreferences,
                         providers
                     )
 
@@ -182,62 +182,82 @@ class ApiWorker(
     }
 
     private suspend fun checkDate(
-        date: LocalDate, userParams: UserParams, providers: String
+        date: LocalDate,
+        userPreferences: UserPreferencesDto,
+        providers: String
     ): Boolean {
-        // Update to use `providers` parameter
-        val response =
-            getMovies(
-                1,
-                date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
-                userParams,
-                providers
-            )
-        return response.isSuccessful && (response.body()?.total_pages ?: 0) < 500
+        val response = getMovies(
+            1,
+            date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
+            userPreferences,
+            providers
+        )
+        return if (response != null) {
+            response.isSuccessful && (response.body()?.total_pages ?: 0) < 500
+        } else {
+            false
+        }
     }
 
 
     private suspend fun getMovies(
         page: Int,
         releaseDateGte: String,
-        userParams: UserParams,
+        userPreferences: UserPreferencesDto?,
         providers: String
-    ): Response<APIResponse> {
-        return api.getMovies(
-            apiWorkerParams.apiKey,
-            apiWorkerParams.includeAdult,
-            apiWorkerParams.includeVideo,
-            userParams.language,
-            page,
-            releaseDateGte,
-            userParams.recentDate,
-            apiWorkerParams.sortBy,
-            userParams.region,
-            userParams.minMovie,
-            userParams.maxMovie,
-            providers
-        )
+    ): Response<APIResponse>? {
+        return if (userPreferences != null) {
+            userPreferences.minMovie?.let { minMovie ->
+                userPreferences.maxMovie?.let { maxMovie ->
+                    api.getMovies(
+                        apiWorkerParams.apiKey,
+                        apiWorkerParams.includeAdult,
+                        apiWorkerParams.includeVideo,
+                        userPreferences.language,
+                        page,
+                        releaseDateGte,
+                        userPreferences.recentDate,
+                        apiWorkerParams.sortBy,
+                        userPreferences.region,
+                        minMovie,
+                        maxMovie,
+                        providers
+                    )
+                }
+            }
+        } else {
+            null
+        }
     }
 
     private suspend fun getSeries(
         page: Int,
         releaseDateGte: String,
-        userParams: UserParams,
-        providers: String // Change from List<Int> to String
-    ): Response<APIResponse> {
-        return api.getSeries(
-            apiWorkerParams.apiKey,
-            apiWorkerParams.includeAdult,
-            apiWorkerParams.includeVideo,
-            userParams.language,
-            page,
-            releaseDateGte,
-            userParams.recentDate,
-            apiWorkerParams.sortBy,
-            userParams.region,
-            userParams.minTv,
-            userParams.maxTv,
-            providers
-        )
+        userPreferences: UserPreferencesDto?,
+        providers: String
+    ): Response<APIResponse>? {
+        return if (userPreferences != null) {
+            userPreferences.minTv?.let { minTv ->
+                userPreferences.maxTv?.let { maxTv ->
+                    api.getSeries(
+                        apiWorkerParams.apiKey,
+                        apiWorkerParams.includeAdult,
+                        apiWorkerParams.includeVideo,
+                        userPreferences.language,
+                        page,
+                        releaseDateGte,
+                        userPreferences.recentDate,
+                        apiWorkerParams.sortBy,
+                        userPreferences.region,
+                        minTv,
+                        maxTv,
+                        providers
+                    )
+                }
+            }
+        } else {
+            null
+        }
     }
 
     private fun selectBestVideoKey(videos: List<Video>): String? {
@@ -272,7 +292,7 @@ class ApiWorker(
     }
 
 
-    private suspend fun processProvidersForUser(userId: Int, userParams: UserParams) =
+    private suspend fun processProvidersForUser(userId: Int, userPreferences: UserPreferencesDto?) =
         coroutineScope {
             val providers = getProvidersByPriority(userId)
             Log.d("ProvidersProcessing", "Processing ${providers.size} providers for user: $userId")
@@ -284,8 +304,16 @@ class ApiWorker(
 
                     // Process movies and TV series concurrently for each provider
                     coroutineScope {
-                        val movieJob = async { processMediaType("movie", userParams, providerId) }
-                        val tvJob = async { processMediaType("tv", userParams, providerId) }
+                        val movieJob = async {
+                            if (userPreferences != null) {
+                                processMediaType("movie", userPreferences, providerId)
+                            }
+                        }
+                        val tvJob = async {
+                            if (userPreferences != null) {
+                                processMediaType("tv", userPreferences, providerId)
+                            }
+                        }
 
                         // Wait for both movie and TV processing to complete
                         movieJob.await()
@@ -300,52 +328,54 @@ class ApiWorker(
 
     private suspend fun processMediaType(
         type: String,
-        userParams: UserParams,
+        userPreferences: UserPreferencesDto,
         providerId: Int
     ) {
         var page = 1
-        var releaseDateGte = userParams.oldestDate
+        var releaseDateGte = userPreferences.oldestDate
         val currentYear = LocalDate.now().year
         val providersString = providerId.toString()
 
         var hasNextPage = true
         while (hasNextPage) {
             val response = if (type == "movie") {
-                getMovies(page, releaseDateGte, userParams, providersString)
+                getMovies(page, releaseDateGte, userPreferences, providersString)
             } else {
-                getSeries(page, releaseDateGte, userParams, providersString)
+                getSeries(page, releaseDateGte, userPreferences, providersString)
             }
 
-            if (response.isSuccessful) {
-                val body = response.body()
-                body?.let { apiResponse ->
-                    val mediaResults = apiResponse.results
+            if (response != null) {
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    body?.let { apiResponse ->
+                        val mediaResults = apiResponse.results
 
-                    // Process media in batches with concurrent video key and post insertion
-                    processMediaBatch(type, mediaResults, providerId)
+                        // Process media in batches with concurrent video key and post insertion
+                        processMediaBatch(type, mediaResults, providerId)
 
-                    // Pagination and date incrementation logic
-                    if (apiResponse.page < apiResponse.total_pages && page < 500) {
-                        page++
-                    } else {
-                        if (page >= 500) {
-                            releaseDateGte = incrementReleaseDate(
-                                releaseDateGte,
-                                currentYear,
-                                userParams,
-                                providersString
-                            )
-                            page = 1
+                        // Pagination and date incrementation logic
+                        if (apiResponse.page < apiResponse.total_pages && page < 500) {
+                            page++
                         } else {
-                            hasNextPage = false
+                            if (page >= 500) {
+                                releaseDateGte = incrementReleaseDate(
+                                    releaseDateGte,
+                                    currentYear,
+                                    userPreferences,
+                                    providersString
+                                )
+                                page = 1
+                            } else {
+                                hasNextPage = false
+                            }
                         }
+                    } ?: run {
+                        hasNextPage = false
                     }
-                } ?: run {
+                } else {
+                    Log.e("ApiWorker", "Error: ${response.code()} - ${response.message()}")
                     hasNextPage = false
                 }
-            } else {
-                Log.e("ApiWorker", "Error: ${response.code()} - ${response.message()}")
-                hasNextPage = false
             }
         }
     }

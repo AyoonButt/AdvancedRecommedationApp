@@ -1,7 +1,9 @@
-package com.example.firedatabase_assis.postgres
+package com.example.firedatabase_assis.login_setup
 
 import android.util.Log
 import com.example.firedatabase_assis.BuildConfig
+import com.example.firedatabase_assis.postgres.Providers
+import com.example.firedatabase_assis.postgres.SubscriptionProvider
 import com.google.gson.JsonParser
 import okhttp3.OkHttpClient
 import okhttp3.Request

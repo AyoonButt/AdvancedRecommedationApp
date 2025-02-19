@@ -11,10 +11,12 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.login_setup.UserViewModel
+import com.example.firedatabase_assis.postgres.InteractionStates
 import com.example.firedatabase_assis.postgres.PostDto
 import com.example.firedatabase_assis.postgres.PostInteractions
 import com.example.firedatabase_assis.postgres.Posts
@@ -26,8 +28,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.threeten.bp.LocalDateTime
-import org.threeten.bp.format.DateTimeFormatter
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -79,6 +79,28 @@ class MyPostAdapter(
         holder.commentButtonPressed = false
         holder.commentMade = false
 
+        CoroutineScope(Dispatchers.IO).launch {
+            val userId = userViewModel.currentUser.value?.userId ?: return@launch
+            val states = getStates(userId, holder.postId)
+
+            withContext(Dispatchers.Main) {
+                // Initialize interaction states from backend
+                holder.likeState = states.isLiked
+                holder.saveState = states.isSaved
+
+                // Update UI to reflect states
+                holder.heart.setImageResource(
+                    if (states.isLiked) R.drawable.heart_red else R.drawable.heart_outline
+                )
+                holder.heart.tag = if (states.isLiked) "liked" else "unliked"
+
+                holder.saved.setImageResource(
+                    if (states.isSaved) R.drawable.icon_bookmark_filled else R.drawable.icon_bookmark_unfilled
+                )
+                holder.saved.tag = if (states.isSaved) "saved" else "not_saved"
+            }
+        }
+
         // Add double click listener to card view
         holder.cardView.setOnClickListener(object : DoubleClickListener() {
             override fun onDoubleClick(v: View?) {
@@ -121,7 +143,6 @@ class MyPostAdapter(
                 holder.heart.setImageResource(R.drawable.heart_outline)
                 holder.heart.tag = "unliked"
             }
-            updateData(holder, holder.postId) // Log interaction with a timestamp
         }
 
         // Set up comments section
@@ -159,7 +180,6 @@ class MyPostAdapter(
                     })
                 }
 
-                updateData(holder, holder.postId)
             }
         }
 
@@ -174,7 +194,6 @@ class MyPostAdapter(
                 holder.saved.setImageResource(R.drawable.icon_bookmark_unfilled)
                 holder.saved.tag = "not_saved"
             }
-            updateData(holder, holder.postId)
         }
 
         holder.info.setOnClickListener {
@@ -204,22 +223,13 @@ class MyPostAdapter(
     override fun onViewDetachedFromWindow(holder: PostHolder) {
         holder.viewEndTime = System.currentTimeMillis()
         if (holder.viewStartTime != 0L) {
-            val timeSpent = holder.viewEndTime - holder.viewStartTime
-            updateData(holder, holder.postId, timeSpent)
+            updateData(holder, holder.postId)
         }
         super.onViewDetachedFromWindow(holder)
     }
 
-    private fun getCurrentTimestamp(): String {
-        val current = LocalDateTime.now()
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-        return current.format(formatter)
-    }
-
-
-    // 2. Modify the updateData function
     private fun updateData(
-        holder: PostHolder, mypostId: Int, timeSpent: Long? = null
+        holder: PostHolder, myPostId: Int
     ) {
         CoroutineScope(Dispatchers.IO).launch {
 
@@ -227,23 +237,22 @@ class MyPostAdapter(
             val userEntity = userViewModel.currentUser.value
 
             if (userEntity != null) {
-                val interactionData = timeSpent?.let {
-                    UserPostInteractionDto(
-                        interactionId = 0,
-                        userId = userEntity.userId,
-                        postId = mypostId,
-                        likeState = holder.likeState,
-                        saveState = holder.saveState,
-                        commentButtonPressed = holder.commentButtonPressed,
-                        commentMade = holder.commentMade,
-                        timestamp = getCurrentTimestamp(),
-                        timeSpentOnPost = it
-                    )
-                }
+
+                val interactionData = UserPostInteractionDto(
+                    interactionId = 0,
+                    userId = userEntity.userId,
+                    postId = myPostId,
+                    startTimestamp = holder.viewStartTime.toString(),
+                    endTimestamp = holder.viewEndTime.toString(),
+                    likeState = holder.likeState,
+                    saveState = holder.saveState,
+                    commentButtonPressed = holder.commentButtonPressed,
+                    commentMade = holder.commentMade
+                )
 
                 // Call the API to save interaction data
                 val response =
-                    interactionData?.let { postInteractionsService.saveInteractionData(it) }
+                    interactionData.let { postInteractionsService.saveInteractionData(it) }
                 withContext(Dispatchers.Main) {
                     if (response != null) {
                         if (response.isSuccessful) {
@@ -263,6 +272,11 @@ class MyPostAdapter(
         }
     }
 
+    private fun calculateEndTimestamp(startTimestamp: String, timeSpent: Long): String {
+        val startTime = startTimestamp.toLong()
+        return (startTime + timeSpent).toString()
+    }
+
 
     private fun updateLikeCount(postId: Int) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -271,6 +285,44 @@ class MyPostAdapter(
             } catch (e: Exception) {
                 // Handle error
             }
+        }
+    }
+
+    private suspend fun getStates(userId: Int, postId: Int): InteractionStates {
+        return try {
+            val response = postInteractionsService.getPostInteractionStates(userId, postId)
+            if (response.isSuccessful) {
+                response.body() ?: InteractionStates()
+            } else {
+                InteractionStates()  // Default to false states if request fails
+            }
+        } catch (e: Exception) {
+            println("Error getting interaction states: ${e.message}")
+            InteractionStates()  // Default to false states on error
+        }
+    }
+
+
+    // Force save function without throttling for activity lifecycle events
+    private fun saveInteraction(
+        holder: PostHolder,
+        currentTime: Long = System.currentTimeMillis()
+    ) {
+        holder.viewEndTime = currentTime
+        updateData(holder, holder.postId)
+        holder.lastInteractionUpdate = currentTime
+    }
+
+    // Modified to force save all visible interactions
+    fun saveAllVisibleInteractions(recyclerView: RecyclerView) {
+        val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+        val firstVisible = layoutManager.findFirstVisibleItemPosition()
+        val lastVisible = layoutManager.findLastVisibleItemPosition()
+        val currentTime = System.currentTimeMillis()
+
+        for (i in firstVisible..lastVisible) {
+            val holder = recyclerView.findViewHolderForAdapterPosition(i) as? PostHolder ?: continue
+            saveInteraction(holder, currentTime)
         }
     }
 
@@ -294,5 +346,8 @@ class MyPostAdapter(
         var saveState: Boolean = false
         var commentButtonPressed: Boolean = false
         var commentMade: Boolean = false
+
+        var lastInteractionUpdate: Long = 0
+
     }
 }

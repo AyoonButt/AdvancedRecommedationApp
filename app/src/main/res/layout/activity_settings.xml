@@ -1,40 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
+    android:orientation="vertical">
 
-    tools:context=".login_setup.MainActivity">
-
-
-    <RelativeLayout
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-
-        <Button
-            android:id="@+id/backSettings"
-            android:layout_width="37dp"
-            android:layout_height="34dp"
-            android:layout_marginStart="10dp"
-            android:layout_marginLeft="10dp"
-            android:layout_marginTop="10dp"
-            android:layout_marginEnd="10dp"
-            android:layout_marginRight="10dp"
-            android:layout_marginBottom="10dp"
-            android:background="@drawable/arrow_back"
-            android:padding="15dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="Settings"
-            android:textColor="@color/black"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-    </RelativeLayout>
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -44,13 +19,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
-
-            <ImageView
-                android:layout_width="100dp"
-                android:layout_height="100dp"
-                android:layout_gravity="center"
-                android:layout_marginTop="10dp"
-                android:src="@mipmap/profile1" />
 
             <TextView
                 android:id="@+id/DisplayUsername"
@@ -64,10 +32,19 @@
                 android:textStyle="italic" />
 
             <TextView
+                android:id="@+id/username"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:text="User Name"
+                android:text="Username"
+                android:textSize="15sp" />
+
+            <TextView
+                android:id="@+id/email"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="Email"
                 android:textSize="15sp" />
 
             <Button
@@ -144,7 +121,7 @@
                         android:textColor="@color/black"
                         android:textStyle="normal" />
 
-                    <Switch
+                    <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switch_notifications"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -153,35 +130,7 @@
                         android:switchMinWidth="50dp" />
 
                 </RelativeLayout>
-                <!--Other to de-->
-                <RelativeLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
 
-                    <ImageView
-                        android:id="@+id/other"
-                        android:layout_width="39dp"
-                        android:layout_height="39dp"
-                        android:padding="11dp"
-                        android:src="@drawable/notification" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_centerVertical="true"
-                        android:layout_toEndOf="@id/other"
-                        android:text="other"
-                        android:textColor="@color/black"
-                        android:textStyle="normal" />
-
-                    <Switch
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:layout_centerVertical="true"
-                        android:switchMinWidth="50dp" />
-
-                </RelativeLayout>
 
             </LinearLayout>
 
@@ -194,10 +143,16 @@
                 android:background="@drawable/lightor_backgroung"
                 android:orientation="vertical"
                 android:padding="15dp">
-                <!--Security & Pivacy-->
+
+
+                <!--Security & Privacy-->
                 <RelativeLayout
+                    android:id="@+id/securityLayout"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
+                    android:layout_height="wrap_content"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackground">
 
                     <ImageView
                         android:id="@+id/security"
@@ -211,7 +166,7 @@
                         android:layout_height="wrap_content"
                         android:layout_centerVertical="true"
                         android:layout_toEndOf="@id/security"
-                        android:text="Security &amp; Pivacy"
+                        android:text="Security &amp; Privacy"
                         android:textColor="@color/black"
                         android:textStyle="normal" />
 
@@ -224,11 +179,49 @@
                         android:padding="11dp" />
 
                 </RelativeLayout>
-                <!--Time Zone-->
 
+                <!-- Activity Section -->
                 <RelativeLayout
+                    android:id="@+id/activityLayout"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
+                    android:layout_height="wrap_content"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackground">
+
+                    <ImageView
+                        android:id="@+id/your_activity"
+                        android:layout_width="39dp"
+                        android:layout_height="39dp"
+                        android:padding="11dp"
+                        android:src="@drawable/youractivity" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:layout_toEndOf="@id/your_activity"
+                        android:text="Your Activity"
+                        android:textColor="@color/black"
+                        android:textStyle="normal" />
+
+                    <Button
+                        android:id="@+id/btActiviity"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:layout_alignParentEnd="true"
+                        android:background="@drawable/arrow_forward"
+                        android:padding="11dp" />
+                </RelativeLayout>
+
+                <!-- Language Section -->
+                <RelativeLayout
+                    android:id="@+id/languageLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackground">
 
                     <ImageView
                         android:id="@+id/pictimezone"
@@ -242,10 +235,9 @@
                         android:layout_height="wrap_content"
                         android:layout_centerVertical="true"
                         android:layout_toEndOf="@id/pictimezone"
-                        android:text="Time Zone"
+                        android:text="Language &amp; Region"
                         android:textColor="@color/black"
                         android:textStyle="normal" />
-
 
                     <Button
                         android:id="@+id/btTime"
@@ -255,13 +247,51 @@
                         android:layout_centerVertical="true"
                         android:background="@drawable/arrow_forward"
                         android:padding="11dp" />
-
-
                 </RelativeLayout>
-                <!--Genre-->
+
+                <!-- Media Preferences Section -->
                 <RelativeLayout
+                    android:id="@+id/preferencesLayout"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
+                    android:layout_height="wrap_content"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackground">
+
+                    <ImageView
+                        android:id="@+id/Preferences"
+                        android:layout_width="39dp"
+                        android:layout_height="39dp"
+                        android:padding="11dp"
+                        android:src="@drawable/preferences" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:layout_toEndOf="@id/Preferences"
+                        android:text="Media Preferences"
+                        android:textColor="@color/black"
+                        android:textStyle="normal" />
+
+                    <Button
+                        android:id="@+id/pfNext"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:background="@drawable/arrow_forward"
+                        android:padding="11dp" />
+                </RelativeLayout>
+
+                <!-- Subscriptions Section -->
+                <RelativeLayout
+                    android:id="@+id/subscriptionLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackground">
 
                     <ImageView
                         android:id="@+id/genre"
@@ -287,12 +317,16 @@
                         android:layout_centerVertical="true"
                         android:background="@drawable/arrow_forward"
                         android:padding="11dp" />
-
                 </RelativeLayout>
-                <!--Questions-->
+
+                <!-- Genre Preferences Section -->
                 <RelativeLayout
+                    android:id="@+id/genresLayout"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
+                    android:layout_height="wrap_content"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackground">
 
                     <ImageView
                         android:id="@+id/questions"
@@ -318,7 +352,6 @@
                         android:layout_centerVertical="true"
                         android:background="@drawable/arrow_forward"
                         android:padding="11dp" />
-
                 </RelativeLayout>
 
             </LinearLayout>

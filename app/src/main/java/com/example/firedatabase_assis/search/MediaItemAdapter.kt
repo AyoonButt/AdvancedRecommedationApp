@@ -59,6 +59,18 @@ class MediaItemAdapter(
         }
     }
 
+    override fun onViewDetachedFromWindow(holder: RecyclerView.ViewHolder) {
+        super.onViewDetachedFromWindow(holder)
+        when (holder) {
+            is SearchViewHolder -> holder.onViewDestroyed()
+            is RecommendationViewHolder -> holder.onViewDestroyed()
+        }
+    }
+
+    fun cleanup() {
+        submitList(null)
+    }
+
     class SearchViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         private val imageView: ImageView = view.findViewById(R.id.poster_image)
         private val titleView: TextView = view.findViewById(R.id.title)
@@ -72,17 +84,28 @@ class MediaItemAdapter(
             itemView.setOnClickListener { onItemClick(item) }
         }
 
+        private var isViewHolderDestroyed = false
+
         fun unbind() {
-            Glide.with(imageView.context).clear(imageView)
-            imageView.setImageDrawable(null)
-            titleView.text = ""
-            itemView.setOnClickListener(null)
+            try {
+                // Only clear images if not destroyed
+                if (!isViewHolderDestroyed) {
+                    Glide.with(itemView.context).clear(itemView)
+                }
+            } catch (e: Exception) {
+                // Ignore cleanup errors
+            }
+        }
+
+        fun onViewDestroyed() {
+            isViewHolderDestroyed = true
         }
     }
 
     class RecommendationViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         private val imageView: ImageView = view.findViewById(R.id.poster_image)
         private val titleView: TextView = view.findViewById(R.id.title)
+        private var isViewHolderDestroyed = false
 
         fun bind(item: MediaItem, onItemClick: (MediaItem) -> Unit) {
             titleView.text = item.title
@@ -98,6 +121,10 @@ class MediaItemAdapter(
             imageView.setImageDrawable(null)
             titleView.text = ""
             itemView.setOnClickListener(null)
+        }
+
+        fun onViewDestroyed() {
+            isViewHolderDestroyed = true
         }
     }
 

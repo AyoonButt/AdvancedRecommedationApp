@@ -1,6 +1,8 @@
 package com.example.firedatabase_assis.postgres
 
+import android.os.Parcelable
 import com.google.gson.annotations.SerializedName
+import kotlinx.parcelize.Parcelize
 
 data class UserEntity(
     @SerializedName("userId") val userId: Int,
@@ -21,25 +23,15 @@ data class UserEntity(
 )
 
 data class GenreEntity(
-    @SerializedName("genre_id") val genreId: Int? = null,
-    @SerializedName("genre_name") val genreName: String = ""
+    @SerializedName("genreId") val genreId: Int = 0,
+    @SerializedName("genreName") val genreName: String = ""
 )
 
 data class SubscriptionProvider(
-    @SerializedName("provider_id") val providerId: Int? = null,
-    @SerializedName("provider_name") val providerName: String
+    @SerializedName("providerId") val providerId: Int? = null,
+    @SerializedName("providerName") val providerName: String
 )
 
-data class UserParams(
-    @SerializedName("language") val language: String,
-    @SerializedName("region") val region: String,
-    @SerializedName("min_movie") val minMovie: Int,
-    @SerializedName("max_movie") val maxMovie: Int,
-    @SerializedName("min_tv") val minTv: Int,
-    @SerializedName("max_tv") val maxTv: Int,
-    @SerializedName("oldest_date") val oldestDate: String,
-    @SerializedName("recent_date") val recentDate: String
-)
 
 data class UserRequest(
     @SerializedName("user_dto") val userDto: UserDto,
@@ -48,12 +40,6 @@ data class UserRequest(
     @SerializedName("avoid_genres") val avoidGenres: List<Int>
 )
 
-data class UserUpdateRequest(
-    @SerializedName("user_dto") val userDto: UserDto,
-    @SerializedName("subscriptions") val subscriptions: List<Int>,
-    @SerializedName("genres") val genres: List<Int>,
-    @SerializedName("avoid_genres") val avoidGenres: List<Int>
-)
 
 data class CommentDto(
     @SerializedName("comment_id") val commentId: Int?,
@@ -73,18 +59,33 @@ data class ReplyDto(
     @SerializedName("timestamp") val timestamp: String? = null
 )
 
+data class TrailerInteractionDto(
+    @SerializedName("interaction_id") val interactionId: Int?,
+    @SerializedName("user_id") val userId: Int,
+    @SerializedName("post_id") val postId: Int,
+    @SerializedName("start_timestamp") val startTimestamp: String,
+    @SerializedName("end_timestamp") val endTimestamp: String,
+    @SerializedName("replay_count") val replayCount: Int,
+    @SerializedName("is_muted") val isMuted: Boolean,
+    @SerializedName("like_state") val likeState: Boolean,
+    @SerializedName("save_state") val saveState: Boolean,
+    @SerializedName("comment_button_pressed") val commentButtonPressed: Boolean,
+    @SerializedName("comment_made") val commentMade: Boolean
+)
+
 data class UserPostInteractionDto(
     @SerializedName("interaction_id") val interactionId: Int?,
     @SerializedName("user_id") val userId: Int,
     @SerializedName("post_id") val postId: Int,
-    @SerializedName("time_spent_on_post") val timeSpentOnPost: Long,
+    @SerializedName("start_timestamp") val startTimestamp: String,
+    @SerializedName("end_timestamp") val endTimestamp: String,
     @SerializedName("like_state") val likeState: Boolean = false,
     @SerializedName("save_state") val saveState: Boolean = false,
     @SerializedName("comment_button_pressed") val commentButtonPressed: Boolean = false,
-    @SerializedName("comment_made") val commentMade: Boolean = false,
-    @SerializedName("timestamp") val timestamp: String
+    @SerializedName("comment_made") val commentMade: Boolean = false
 )
 
+@Parcelize
 data class PostDto(
     @SerializedName("post_id") val postId: Int?,
     @SerializedName("tmdb_id") val tmdbId: Int,
@@ -103,21 +104,7 @@ data class PostDto(
     @SerializedName("post_like_count") val postLikeCount: Int = 0,
     @SerializedName("trailer_like_count") val trailerLikeCount: Int = 0,
     @SerializedName("video_key") val videoKey: String
-)
-
-data class TrailerInteractionDto(
-    @SerializedName("interaction_id") val interactionId: Int?,
-    @SerializedName("user_id") val userId: Int,
-    @SerializedName("post_id") val postId: Int,
-    @SerializedName("time_spent") val timeSpent: Long,
-    @SerializedName("replay_count") val replayCount: Int,
-    @SerializedName("is_muted") val isMuted: Boolean,
-    @SerializedName("like_state") val likeState: Boolean,
-    @SerializedName("save_state") val saveState: Boolean,
-    @SerializedName("comment_button_pressed") val commentButtonPressed: Boolean,
-    @SerializedName("comment_made") val commentMade: Boolean,
-    @SerializedName("timestamp") val timestamp: String
-)
+) : Parcelable
 
 data class UserDto(
     @SerializedName("user_id") val userId: Int?,
@@ -138,7 +125,7 @@ data class UserDto(
 )
 
 data class UserPreferencesDto(
-    @SerializedName("user_id") val userId: Int?,
+    @SerializedName("user_id") val userId: Int,
     @SerializedName("language") val language: String,
     @SerializedName("region") val region: String,
     @SerializedName("min_movie") val minMovie: Int?,
@@ -182,6 +169,28 @@ data class InfoDto(
     val userId: Int
 )
 
+data class UserSubscriptionDto(
+    @SerializedName("user_id")
+    val userId: Int,
+    @SerializedName("provider_id")
+    val providerId: Int,
+    @SerializedName("provider_name")
+    val providerName: String,
+    @SerializedName("priority")
+    val priority: Int
+)
+
+data class UserGenreDto(
+    @SerializedName("user_id")
+    val userId: Int,
+    @SerializedName("genre_id")
+    val genreId: Int,
+    @SerializedName("genre_name")
+    val genreName: String,
+    @SerializedName("priority")
+    val priority: Int
+)
+
 data class ApiResponse(
     @SerializedName("success") val success: Boolean,
     @SerializedName("message") val message: String
@@ -191,4 +200,23 @@ data class CommentResponse(
     @SerializedName("success") val success: Boolean,
     @SerializedName("message") val message: String,
     @SerializedName("comment_id") val commentId: Int
+)
+
+data class UserUpdate(
+    @SerializedName("language") val language: String? = null,
+    @SerializedName("region") val region: String? = null,
+    @SerializedName("minMovie") val minMovie: Int? = null,
+    @SerializedName("maxMovie") val maxMovie: Int? = null,
+    @SerializedName("minTV") val minTV: Int? = null,
+    @SerializedName("maxTV") val maxTV: Int? = null,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("username") val username: String? = null,
+    @SerializedName("email") val email: String? = null,
+    @SerializedName("oldestDate") val oldestDate: String? = null,
+    @SerializedName("recentDate") val recentDate: String? = null
+)
+
+data class InteractionStates(
+    @SerializedName("isLiked") val isLiked: Boolean = false,
+    @SerializedName("isSaved") val isSaved: Boolean = false
 )

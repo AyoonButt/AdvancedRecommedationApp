@@ -79,6 +79,9 @@ class SearchViewModel : ViewModel() {
     val pagingState: StateFlow<PagingState> = _pagingState.asStateFlow()
 
     private var isLoadingNextPage = false
+    private var isSearchPaused = false
+    private var pendingQuery: String? = null
+    private var lastSearchText: String = ""
 
 
     init {
@@ -88,16 +91,14 @@ class SearchViewModel : ViewModel() {
                 .filterNot { it.isBlank() }
                 .distinctUntilChanged()
                 .onEach { query ->
-                    searchJob?.cancel()
-                    clearLists()
-                    _isSearching.value = true
-                    if (query != null) {
+                    if (!isSearchPaused) {
+                        searchJob?.cancel()
+                        clearLists()
+                        _isSearching.value = true
                         currentQuery = query
-                    }
-                    currentPage = 1
-                    totalPages = 1
-                    searchJob = launch {
-                        if (query != null) {
+                        currentPage = 1
+                        totalPages = 1
+                        searchJob = launch {
                             performSearch(query)
                         }
                     }
@@ -108,6 +109,37 @@ class SearchViewModel : ViewModel() {
                 .collect()
         }
     }
+
+    fun pauseSearch() {
+        isSearchPaused = true
+        searchJob?.cancel()
+    }
+
+    fun resumeSearch() {
+        isSearchPaused = false
+        // Resume with either pending query or last search text
+        pendingQuery?.let { query ->
+            pendingQuery = null
+            onSearchInput(query)
+        } ?: if (lastSearchText.isNotBlank()) {
+            onSearchInput(lastSearchText)
+        } else {
+
+        }
+    }
+
+    fun onSearchInput(query: String) {
+        lastSearchText = query
+        if (isSearchPaused) {
+            pendingQuery = query
+            return
+        }
+
+        viewModelScope.launch {
+            searchDebouncer.emit(query)
+        }
+    }
+
 
     private suspend fun performSearch(query: String) {
         try {
@@ -242,12 +274,15 @@ class SearchViewModel : ViewModel() {
         }
     }
 
-    private fun clearLists() {
+    fun clearLists() {
         synchronized(moviesList) { moviesList.clear() }
         synchronized(tvList) { tvList.clear() }
         synchronized(profilesList) { profilesList.clear() }
         _profiles.value = emptyList()
         _mediaItems.value = emptyList()
+        currentQuery = ""
+        lastSearchText = ""
+        pendingQuery = null
     }
 
     private fun updateLiveData() {
@@ -263,11 +298,6 @@ class SearchViewModel : ViewModel() {
         }
     }
 
-    fun onSearchInput(query: String) {
-        viewModelScope.launch {
-            searchDebouncer.emit(query)
-        }
-    }
 
     sealed class NavigationState {
         data class ShowPoster(val id: Int, val isMovie: Boolean) : NavigationState()

@@ -10,11 +10,10 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface Users {
-
     @GET("/api/users/username")
     suspend fun getUserByUsername(
         @Query("username") username: String
-    ): Response<UserEntity?>
+    ): Response<UserEntity>
 
     @POST("/api/users/add")
     suspend fun addUser(
@@ -31,26 +30,23 @@ interface Users {
     suspend fun updateRecentLogin(
         @Path("username") username: String,
         @Query("timestamp") timestamp: String
-    ): Response<Void>
-
-    @GET("/api/users/params/{userId}")
-    suspend fun fetchUserParams(
-        @Path("userId") userId: Int
-    ): Response<UserParams?>
-
-    @GET("/api/users/info/{userId}")
-    suspend fun getUserInfo(
-        @Path("userId") userId: Int
-    ): Response<UserPreferencesDto>
+    ): Response<ApiResponse>
 
     @PUT("/api/users/{userId}")
     suspend fun updateUser(
         @Path("userId") userId: Int,
-        @Body userUpdateRequest: UserUpdateRequest
-    ): Response<String>
+        @Body update: UserUpdate
+    ): Response<UserEntity>
+
+    @GET("/api/users/{userId}/preferences")
+    suspend fun getUserPreferences(
+        @Path("userId") userId: Int
+    ): Response<UserPreferencesDto>
 
     @GET("/api/users/{userId}/providers")
     suspend fun getProvidersByPriority(
         @Path("userId") userId: Int
-    ): Response<List<Int>>  // Returns list of provider IDs sorted by priority
+    ): Response<List<Int>>
+
+
 }

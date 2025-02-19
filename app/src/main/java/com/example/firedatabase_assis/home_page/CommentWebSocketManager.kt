@@ -39,7 +39,7 @@ class CommentWebSocketManager(
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.DISCONNECTED)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
-    private val gson = GsonBuilder()
+    private val gson = GsonBuilder().setLenient()
         .registerTypeAdapter(ServerMessage::class.java, object : JsonDeserializer<ServerMessage> {
             override fun deserialize(
                 json: JsonElement,

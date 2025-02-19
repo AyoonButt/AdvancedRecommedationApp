@@ -1,12 +1,12 @@
 package com.example.firedatabase_assis.search
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
@@ -14,10 +14,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.firedatabase_assis.BaseActivity
 import com.example.firedatabase_assis.R
 import kotlinx.coroutines.launch
 
-class SearchActivity : AppCompatActivity() {
+class SearchActivity : BaseActivity() {
     private lateinit var mediaAdapter: MediaItemAdapter
     private lateinit var profileAdapter: ProfileAdapter
     private lateinit var recyclerViewMovies: RecyclerView
@@ -31,9 +32,15 @@ class SearchActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_search)
+        setupBottomNavigation(R.id.bottom_menu_search)
 
         navigationManager = NavigationManager(supportFragmentManager)
         viewModel = ViewModelProvider(this)[SearchViewModel::class.java]
+
+        // Check if this is a refresh
+        if (intent.getBooleanExtra("refresh", false)) {
+            viewModel.clearLists()  // Clear existing data
+        }
 
         initializeViews()
         setupAdapters()
@@ -41,6 +48,11 @@ class SearchActivity : AppCompatActivity() {
         setupObservers()
         setupSearch()
         setupPagination()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
     }
 
     private fun initializeViews() {
@@ -222,10 +234,39 @@ class SearchActivity : AppCompatActivity() {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        viewModel.pauseSearch()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Only resume search if there's text in the search box
+        editTextSearch.text?.toString()?.takeIf { it.isNotBlank() }?.let { query ->
+            viewModel.resumeSearch()
+        }
+    }
+
     override fun onDestroy() {
-        recyclerViewMovies.clearOnScrollListeners()
-        recyclerViewMovies.adapter = null
-        recyclerViewProfiles.adapter = null
+        try {
+            if (isFinishing) {
+                recyclerViewMovies.layoutManager = null
+                recyclerViewProfiles.layoutManager = null
+
+                mediaAdapter.cleanup()
+                profileAdapter.cleanup()
+
+                // Clear scroll listeners before adapters
+                recyclerViewMovies.clearOnScrollListeners()
+
+                // Set adapters to null last
+                recyclerViewMovies.adapter = null
+                recyclerViewProfiles.adapter = null
+            }
+        } catch (e: Exception) {
+            // Ignore cleanup errors
+        }
         super.onDestroy()
     }
+
 }

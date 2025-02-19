@@ -16,43 +16,31 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <EditText
-            android:id="@+id/editTextAddSubscription"
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Language"
+            android:textSize="16sp"
+            android:layout_marginBottom="8dp" />
+
+        <Spinner
+            android:id="@+id/spinnerLanguage"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Search providers" />
-
-        <ScrollView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <LinearLayout
-                android:id="@+id/linearLayoutProviders"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone" />
-        </ScrollView>
+            android:layout_marginBottom="24dp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Your Subscriptions"
-            android:textStyle="bold"
-            android:layout_marginTop="16dp"
+            android:text="Region"
+            android:textSize="16sp"
             android:layout_marginBottom="8dp" />
 
-        <ScrollView
+        <Spinner
+            android:id="@+id/spinnerRegion"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1">
-
-            <LinearLayout
-                android:id="@+id/linearLayoutSubscriptions"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical" />
-        </ScrollView>
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp" />
 
         <Button
             android:id="@+id/saveButton"

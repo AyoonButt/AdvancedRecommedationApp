@@ -22,7 +22,23 @@ class ProfileAdapter(
     class ProfileViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val imageView: ImageView = view.findViewById(R.id.profile_image)
         val textView: TextView = view.findViewById(R.id.name)
+        var isViewHolderDestroyed = false
+
+        fun unbind() {
+            try {
+                if (!isViewHolderDestroyed) {
+                    Glide.with(itemView.context).clear(imageView)
+                }
+            } catch (e: Exception) {
+                // Ignore cleanup errors
+            }
+        }
+
+        fun onViewDestroyed() {
+            isViewHolderDestroyed = true
+        }
     }
+
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ProfileViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -34,32 +50,33 @@ class ProfileAdapter(
         val profile = getItem(position)
         holder.textView.text = profile.name
 
-        Glide.with(holder.imageView.context)
-            .load("https://image.tmdb.org/t/p/original${profile.profile_path}")
-            .circleCrop()
-            .listener(object : RequestListener<android.graphics.drawable.Drawable> {
-                override fun onLoadFailed(
-                    e: GlideException?,
-                    model: Any?,
-                    target: Target<android.graphics.drawable.Drawable>?,
-                    isFirstResource: Boolean
-                ): Boolean {
-                    return false
-                }
+        if (!holder.isViewHolderDestroyed) {
+            Glide.with(holder.imageView.context)
+                .load("https://image.tmdb.org/t/p/original${profile.profile_path}")
+                .circleCrop()
+                .listener(object : RequestListener<android.graphics.drawable.Drawable> {
+                    override fun onLoadFailed(
+                        e: GlideException?,
+                        model: Any?,
+                        target: Target<android.graphics.drawable.Drawable>?,
+                        isFirstResource: Boolean
+                    ): Boolean {
+                        return false
+                    }
 
-                override fun onResourceReady(
-                    resource: android.graphics.drawable.Drawable?,
-                    model: Any?,
-                    target: Target<android.graphics.drawable.Drawable>?,
-                    dataSource: DataSource?,
-                    isFirstResource: Boolean
-                ): Boolean {
-                    return false
-                }
-            })
-            .into(holder.imageView)
+                    override fun onResourceReady(
+                        resource: android.graphics.drawable.Drawable?,
+                        model: Any?,
+                        target: Target<android.graphics.drawable.Drawable>?,
+                        dataSource: DataSource?,
+                        isFirstResource: Boolean
+                    ): Boolean {
+                        return false
+                    }
+                })
+                .into(holder.imageView)
+        }
 
-        // Set item click listener
         holder.itemView.setOnClickListener {
             onItemClick(profile)
         }
@@ -67,7 +84,16 @@ class ProfileAdapter(
 
     override fun onViewRecycled(holder: ProfileViewHolder) {
         super.onViewRecycled(holder)
-        Glide.with(holder.imageView.context).clear(holder.imageView)
+        holder.unbind()
+    }
+
+    override fun onViewDetachedFromWindow(holder: ProfileViewHolder) {
+        super.onViewDetachedFromWindow(holder)
+        holder.onViewDestroyed()
+    }
+
+    fun cleanup() {
+        submitList(null)
     }
 
 }

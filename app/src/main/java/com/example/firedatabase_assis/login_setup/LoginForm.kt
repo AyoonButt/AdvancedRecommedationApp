@@ -64,7 +64,7 @@ class LoginForm : AppCompatActivity() {
                                 val timestamp = LocalDateTime.now()
                                     .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
                                 updateRecentLogin(username, timestamp)
-                                
+
                                 userViewModel.setUser(userEntity)
                                 Log.d("LogIn", "User Entity $userEntity")
 

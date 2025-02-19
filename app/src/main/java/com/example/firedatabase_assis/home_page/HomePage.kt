@@ -4,30 +4,28 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.firedatabase_assis.BaseActivity
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.databinding.ActivityHomePageBinding
-import com.example.firedatabase_assis.explore.LoadVideos
 import com.example.firedatabase_assis.login_setup.UserViewModel
 import com.example.firedatabase_assis.postgres.PostDto
 import com.example.firedatabase_assis.postgres.Posts
 import com.example.firedatabase_assis.search.NavigationManager
 import com.example.firedatabase_assis.search.PersonDetailFragment
 import com.example.firedatabase_assis.search.PosterFragment
-import com.example.firedatabase_assis.search.SearchActivity
 import com.example.firedatabase_assis.search.SearchViewModel
-import com.example.firedatabase_assis.settings.SettingsActivity
+import com.google.gson.GsonBuilder
 import kotlinx.coroutines.launch
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-class HomePage : AppCompatActivity() {
+class HomePage : BaseActivity() {
     private lateinit var binding: ActivityHomePageBinding
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: MyPostAdapter
@@ -48,6 +46,7 @@ class HomePage : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityHomePageBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        setupBottomNavigation(R.id.bottom_menu_home)
 
         userViewModel = UserViewModel.getInstance(application)
         navigationManager = NavigationManager(supportFragmentManager)
@@ -59,9 +58,13 @@ class HomePage : AppCompatActivity() {
         recyclerView.adapter = adapter
 
         // Initialize Retrofit
+        val gson = GsonBuilder()
+            .setLenient()
+            .create()
+
         val retrofit = Retrofit.Builder()
             .baseUrl(BuildConfig.POSTRGRES_API_URL)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
 
         postsService = retrofit.create(Posts::class.java)
@@ -114,35 +117,12 @@ class HomePage : AppCompatActivity() {
             }
         }
 
-        binding.bottomNavBar.setOnItemSelectedListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.bottom_menu_home -> {
-                    val intent = Intent(this, HomePage::class.java)
-                    startActivity(intent)
-                    true
-                }
+    }
 
-                R.id.bottom_menu_explore -> {
-                    val intent = Intent(this, LoadVideos::class.java)
-                    startActivity(intent)
-                    true
-                }
-
-                R.id.bottom_menu_search -> {
-                    val intent = Intent(this, SearchActivity::class.java)
-                    startActivity(intent)
-                    true
-                }
-
-                R.id.bottom_menu_settings -> {
-                    val intent = Intent(this, SettingsActivity::class.java)
-                    startActivity(intent)
-                    true
-                }
-
-                else -> false
-            }
-        }
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // Restore any needed state here
     }
 
     private fun loadData() {
@@ -189,5 +169,16 @@ class HomePage : AppCompatActivity() {
             .addToBackStack("person_$id")
             .commit()
     }
+
+    override fun onPause() {
+        super.onPause()
+        (recyclerView.adapter as? MyPostAdapter)?.saveAllVisibleInteractions(recyclerView)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        (recyclerView.adapter as? MyPostAdapter)?.saveAllVisibleInteractions(recyclerView)
+    }
+
 }
 

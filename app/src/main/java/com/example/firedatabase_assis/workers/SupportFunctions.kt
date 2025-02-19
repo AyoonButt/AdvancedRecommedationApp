@@ -2,7 +2,7 @@ package com.example.firedatabase_assis.workers
 
 import android.util.Log
 import com.example.firedatabase_assis.BuildConfig
-import com.example.firedatabase_assis.postgres.UserParams
+import com.example.firedatabase_assis.postgres.UserPreferencesDto
 import com.example.firedatabase_assis.postgres.Users
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -17,21 +17,33 @@ private val apiRetrofit = Retrofit.Builder()
 private val usersApi = apiRetrofit.create(Users::class.java)
 
 
-suspend fun fetchUserParams(userId: Int): UserParams? {
+suspend fun getUserPreferences(userId: Int): UserPreferencesDto? {
     return try {
-        val response = usersApi.fetchUserParams(userId)
+        // Log the request attempt with userId
+        Log.d("API Request", "Fetching user preferences for userId: $userId")
+
+        val response = usersApi.getUserPreferences(userId)
+
         if (response.isSuccessful) {
-            response.body()  // Return the UserParams object if successful
+            // Log successful response
+            Log.d("API Success", "User preferences fetched successfully for userId: $userId")
+            response.body()  // Return the UserPreferencesDto object if successful
         } else {
+            // Log error response
             Log.e(
                 "API Error",
-                "Failed to fetch user params for userId: $userId, Error: ${
+                "Failed to fetch user preferences for userId: $userId, Error: ${
                     response.errorBody()?.string()
                 }"
             )
             null  // Return null if response is unsuccessful
         }
     } catch (e: Exception) {
+        // Log the exception with stack trace
+        Log.e(
+            "API Exception",
+            "Exception occurred while fetching user preferences: ${e.localizedMessage}"
+        )
         e.printStackTrace()
         null  // Return null if an exception occurs
     }

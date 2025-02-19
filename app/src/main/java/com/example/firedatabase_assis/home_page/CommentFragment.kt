@@ -370,22 +370,18 @@ class CommentFragment(private val postId: Int) : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        hideBottomNavBar()
         webSocketManager.connect()  // Add this
     }
 
-    override fun onPause() {
-        super.onPause()
-        showBottomNavBar()
-    }
+    /* private fun hideBottomNavBar() {
+         activity?.findViewById<View>(R.id.bottom_nav_bar)?.visibility = View.GONE
+     }
 
-    private fun hideBottomNavBar() {
-        activity?.findViewById<View>(R.id.bottom_nav_bar)?.visibility = View.GONE
-    }
+     private fun showBottomNavBar() {
+         activity?.findViewById<View>(R.id.bottom_nav_bar)?.visibility = View.VISIBLE
+     }
 
-    private fun showBottomNavBar() {
-        activity?.findViewById<View>(R.id.bottom_nav_bar)?.visibility = View.VISIBLE
-    }
+     */
 
 
 }
