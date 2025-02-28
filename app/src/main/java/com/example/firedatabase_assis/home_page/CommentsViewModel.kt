@@ -15,14 +15,31 @@ class CommentsViewModel : ViewModel() {
     val _replyCountsMap = MutableStateFlow<Map<Int, Int>>(emptyMap())
     val replyCountsMap: StateFlow<Map<Int, Int>> = _replyCountsMap.asStateFlow()
 
-
-    // In CommentsViewModel
     private val _lastReceivedComment = MutableStateFlow<CommentUpdate?>(null)
     val lastReceivedComment: StateFlow<CommentUpdate?> = _lastReceivedComment.asStateFlow()
+
+    private val _selectedComments = MutableStateFlow<Set<Int>>(emptySet())
+    val selectedComments: StateFlow<Set<Int>> = _selectedComments.asStateFlow()
+
 
     sealed class CommentUpdate {
         data class NewRoot(val comment: CommentDto) : CommentUpdate()
         data class NewReply(val comment: CommentDto, val parentId: Int) : CommentUpdate()
+    }
+
+
+    fun setCommentSelected(commentId: Int, selected: Boolean) {
+        val currentSelected = _selectedComments.value.toMutableSet()
+        if (selected) {
+            currentSelected.add(commentId)
+        } else {
+            currentSelected.remove(commentId)
+        }
+        _selectedComments.value = currentSelected
+    }
+
+    fun clearSelections() {
+        _selectedComments.value = emptySet()
     }
 
     fun addNewRootComment(comment: CommentDto) {

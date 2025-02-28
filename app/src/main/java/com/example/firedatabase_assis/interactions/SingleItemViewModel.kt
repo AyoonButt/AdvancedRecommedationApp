@@ -10,8 +10,6 @@ import com.example.firedatabase_assis.postgres.Posts
 import com.example.firedatabase_assis.postgres.UserPostInteractionDto
 import com.google.gson.GsonBuilder
 import kotlinx.coroutines.launch
-import org.threeten.bp.LocalDateTime
-import org.threeten.bp.format.DateTimeFormatter
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -38,7 +36,6 @@ class SingleItemViewModel : ViewModel() {
         likeState: Boolean,
         saveState: Boolean,
         commentButtonPressed: Boolean,
-        commentMade: Boolean,
         startTime: Long,
         endTime: Long = System.currentTimeMillis()
     ) {
@@ -52,8 +49,7 @@ class SingleItemViewModel : ViewModel() {
                     endTimestamp = endTime.toString(),
                     likeState = likeState,
                     saveState = saveState,
-                    commentButtonPressed = commentButtonPressed,
-                    commentMade = commentMade
+                    commentButtonPressed = commentButtonPressed
                 )
                 postInteractionsService.saveInteractionData(interactionData)
             } catch (e: Exception) {
@@ -74,10 +70,6 @@ class SingleItemViewModel : ViewModel() {
         }
     }
 
-    private fun getCurrentTimestamp(): String {
-        val current = LocalDateTime.now()
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-        return current.format(formatter)
-    }
+
 }
 

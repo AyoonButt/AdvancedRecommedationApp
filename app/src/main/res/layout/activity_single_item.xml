@@ -1,48 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:layout_height="match_parent">
 
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary" />
+        android:layout_alignParentTop="true"
+        android:background="?attr/colorPrimary"
+        android:elevation="4dp" />
 
-    <ScrollView
+    <!-- Content container for both types of content -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/post_layout"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:layout_below="@id/toolbar" />
 
-        <LinearLayout
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/player_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/toolbar"
+        android:visibility="gone" />
+
+    <!-- Comments container -->
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/toolbar">
+
+        <FrameLayout
+            android:id="@+id/fragment_container"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:layout_height="match_parent"
+            android:visibility="gone"
+            app:behavior_hideable="true"
+            app:behavior_peekHeight="0dp"
+            app:behavior_skipCollapsed="true"
+            app:behavior_draggable="true"
+            app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior" />
 
-            <!-- This will include your post_layout.xml -->
-            <include
-                android:id="@+id/post_layout"
-                layout="@layout/post_layout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
-            <FrameLayout
-                android:id="@+id/player_ui"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@android:color/black"></FrameLayout>
-
-            <FrameLayout
-                android:id="@+id/youtube_player_view"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-
-            <FrameLayout
-                android:id="@+id/fragment_container"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:visibility="gone" />
-
-        </LinearLayout>
-    </ScrollView>
-</LinearLayout>
+</RelativeLayout>

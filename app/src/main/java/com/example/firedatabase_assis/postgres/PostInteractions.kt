@@ -25,9 +25,7 @@ interface PostInteractions {
 
     @GET("/api/interactions/saved/user/{userId}")
     suspend fun getSavedPosts(@Path("userId") userId: Int): Response<List<Int>>
-
-    @GET("/api/interactions/commented/user/{userId}")
-    suspend fun getCommentMadePosts(@Path("userId") userId: Int): Response<List<Int>>
+    
 
     @GET("/api/interactions/{userId}/{postId}/states")
     suspend fun getPostInteractionStates(

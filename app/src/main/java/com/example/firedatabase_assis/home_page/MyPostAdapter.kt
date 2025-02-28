@@ -77,7 +77,6 @@ class MyPostAdapter(
         holder.likeState = holder.heart.tag == "liked"
         holder.saveState = holder.saved.tag == "saved"
         holder.commentButtonPressed = false
-        holder.commentMade = false
 
         CoroutineScope(Dispatchers.IO).launch {
             val userId = userViewModel.currentUser.value?.userId ?: return@launch
@@ -159,7 +158,8 @@ class MyPostAdapter(
                 fragmentContainer.layoutParams = layoutParams
 
                 val transaction = fragmentManager.beginTransaction()
-                val commentFragment = movie.postId?.let { it1 -> CommentFragment(it1) }
+                val commentFragment =
+                    movie.postId?.let { it1 -> CommentFragment(it1, commentType = "post") }
                 if (commentFragment != null) {
                     transaction.replace(R.id.fragment_container, commentFragment)
                 }
@@ -174,8 +174,6 @@ class MyPostAdapter(
 
                         override fun onViewDetachedFromWindow(v: View) {
                             fragmentContainer.setOnTouchListener(null)
-                            holder.commentMade =
-                                true // Assuming comment was made if fragment was opened
                         }
                     })
                 }
@@ -247,7 +245,6 @@ class MyPostAdapter(
                     likeState = holder.likeState,
                     saveState = holder.saveState,
                     commentButtonPressed = holder.commentButtonPressed,
-                    commentMade = holder.commentMade
                 )
 
                 // Call the API to save interaction data
@@ -345,7 +342,6 @@ class MyPostAdapter(
         var likeState: Boolean = false
         var saveState: Boolean = false
         var commentButtonPressed: Boolean = false
-        var commentMade: Boolean = false
 
         var lastInteractionUpdate: Long = 0
 

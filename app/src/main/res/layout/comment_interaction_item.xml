@@ -4,6 +4,9 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="4dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
     app:cardBackgroundColor="@android:color/transparent"
     app:cardElevation="0dp">
 
@@ -12,9 +15,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="8dp"
-        android:clickable="false"
-        android:focusable="false">
+        android:padding="8dp">
 
         <!-- Replied-To User Indicator -->
         <TextView
@@ -46,30 +47,6 @@
                 android:layout_weight="1"
                 android:layout_marginStart="8dp" />
         </LinearLayout>
-
-        <TextView
-            android:id="@+id/reply_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Reply"
-            android:padding="8dp"
-            android:layout_marginStart="8dp"
-            android:layout_marginTop="4dp"
-            android:textColor="?android:attr/colorPrimary"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true" />
-
-        <!-- Centered "View Replies" Button -->
-        <TextView
-            android:id="@+id/view_replies_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="View Replies"
-            android:layout_marginTop="10dp"
-            android:textColor="?android:attr/colorPrimary"
-            android:visibility="gone" />
 
     </LinearLayout>
 </androidx.cardview.widget.CardView>

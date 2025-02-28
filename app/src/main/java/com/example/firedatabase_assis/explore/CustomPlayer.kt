@@ -68,7 +68,6 @@ class CustomPlayer(
     private var likeState: Boolean = false
     private var saveState: Boolean = false
     private var commentButtonPressed: Boolean = false
-    private var commentMade: Boolean = false
     private var replayCount = 0
 
     // Create the Retrofit instance
@@ -144,7 +143,7 @@ class CustomPlayer(
                 fragmentContainer.visibility = View.VISIBLE
 
                 video.postId?.let { postId ->
-                    CommentFragment(postId).also { fragment ->
+                    CommentFragment(postId, commentType = "trailer").also { fragment ->
                         activity.supportFragmentManager.beginTransaction()
                             .replace(R.id.fragment_container, fragment)
                             .addToBackStack(null)
@@ -266,7 +265,6 @@ class CustomPlayer(
     fun getLikeState(): Boolean = likeState
     fun getSaveState(): Boolean = saveState
     fun wasCommentButtonPressed(): Boolean = commentButtonPressed
-    fun wasCommentMade(): Boolean = commentMade
 
     // Increment replay count
     fun incrementReplayCount() {
@@ -280,11 +278,6 @@ class CustomPlayer(
     // Get the mute state
     fun getIsMuted(): Boolean {
         return isMuted
-    }
-
-    // Set comment made status
-    fun setCommentMade(status: Boolean) {
-        commentMade = status
     }
 
     private fun getCurrentTimestamp(): String {

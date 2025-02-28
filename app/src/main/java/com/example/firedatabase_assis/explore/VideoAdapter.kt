@@ -178,8 +178,7 @@ class VideoAdapter(
                     isMuted = customPlayer.getIsMuted(),
                     likeState = customPlayer.getLikeState(),
                     saveState = customPlayer.getSaveState(),
-                    commentButtonPressed = customPlayer.wasCommentButtonPressed(),
-                    commentMade = customPlayer.wasCommentMade()
+                    commentButtonPressed = customPlayer.wasCommentButtonPressed()
                 )
             }
         }

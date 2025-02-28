@@ -41,6 +41,9 @@ class SettingsActivity : BaseActivity() {
         setContentView(bind.root)
         setupBottomNavigation(R.id.bottom_menu_settings)
 
+        ActivityNavigationHelper.setLastOpenedSettingsActivity(this::class.java)
+
+
         userViewModel = UserViewModel.getInstance(application)
 
         // Set username from intent
@@ -84,15 +87,14 @@ class SettingsActivity : BaseActivity() {
         setBackgroundResource(outValue.resourceId)
     }
 
+
     private fun setupToolbar(title: String) {
         setSupportActionBar(bind.toolbar)
         supportActionBar?.apply {
-            setDisplayHomeAsUpEnabled(true)  // Shows back button
-            setDisplayShowTitleEnabled(true) // Shows title
+            setDisplayHomeAsUpEnabled(false)  // Hide back button
+            setDisplayShowHomeEnabled(false)  // Hide home icon
+            setDisplayShowTitleEnabled(true)  // Show title
             setTitle(title)  // Sets the title
-        }
-        bind.toolbar.setNavigationOnClickListener {
-            finish()
         }
     }
 

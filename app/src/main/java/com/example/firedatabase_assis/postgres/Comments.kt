@@ -31,4 +31,15 @@ interface Comments {
     suspend fun getReplyCountsForComments(
         @Query("parentIds") parentIds: List<Int>
     ): Response<List<ReplyCountDto>>
+
+    @GET("/api/comments/{commentId}/root-parent")
+    suspend fun getRootParentComment(@Path("commentId") commentId: Int): Response<CommentDto>
+
+    @GET("/api/comments/{userId}")
+    suspend fun getCommentsByUserIdAndType(
+        @Path("userId") userId: Int,
+        @Query("commentType") commentType: String,
+        @Query("page") page: Int = 0,
+        @Query("pageSize") pageSize: Int = 10
+    ): Response<List<CommentDto>>
 }

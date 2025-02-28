@@ -40,7 +40,7 @@ data class UserRequest(
     @SerializedName("avoid_genres") val avoidGenres: List<Int>
 )
 
-
+@Parcelize
 data class CommentDto(
     @SerializedName("comment_id") val commentId: Int?,
     @SerializedName("user_id") val userId: Int,
@@ -49,8 +49,9 @@ data class CommentDto(
     @SerializedName("content") val content: String,
     @SerializedName("sentiment") val sentiment: String?,
     @SerializedName("timestamp") val timestamp: String?,
-    @SerializedName("parent_comment_id") val parentCommentId: Int? = null
-)
+    @SerializedName("parent_comment_id") val parentCommentId: Int? = null,
+    @SerializedName("comment_type") val commentType: String
+) : Parcelable
 
 data class ReplyDto(
     @SerializedName("post_id") val postId: Int,
@@ -70,7 +71,6 @@ data class TrailerInteractionDto(
     @SerializedName("like_state") val likeState: Boolean,
     @SerializedName("save_state") val saveState: Boolean,
     @SerializedName("comment_button_pressed") val commentButtonPressed: Boolean,
-    @SerializedName("comment_made") val commentMade: Boolean
 )
 
 data class UserPostInteractionDto(
@@ -82,7 +82,6 @@ data class UserPostInteractionDto(
     @SerializedName("like_state") val likeState: Boolean = false,
     @SerializedName("save_state") val saveState: Boolean = false,
     @SerializedName("comment_button_pressed") val commentButtonPressed: Boolean = false,
-    @SerializedName("comment_made") val commentMade: Boolean = false
 )
 
 @Parcelize

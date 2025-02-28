@@ -1,14 +1,18 @@
 package com.example.firedatabase_assis.interactions
 
+import android.os.Parcelable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.example.firedatabase_assis.login_setup.UserViewModel
+import com.example.firedatabase_assis.postgres.CommentDto
 import com.example.firedatabase_assis.postgres.PostDto
+import kotlinx.parcelize.Parcelize
 
 data class InteractionsState(
     val selectedInteraction: InteractionType = InteractionType.LIKED,
     val contentType: ContentType = ContentType.POSTS,
-    val items: List<PostDto> = emptyList(),  // Changed from itemIds: List<Int>
+    val items: List<PostDto> = emptyList(),
+    val objects: List<PostWithComments> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -17,12 +21,19 @@ sealed class InteractionEvent {
     data class SelectInteractionType(val type: InteractionType) : InteractionEvent()
     data class SelectContentType(val type: ContentType) : InteractionEvent()
     data class SelectItem(val itemId: Int) : InteractionEvent()
+    data class NavigateToSingleItem(val item: PostWithComments) : InteractionEvent()
+
     object NavigateBack : InteractionEvent()
 }
 
 sealed class InteractionUiEvent {
-    data class NavigateToFeed(val item: PostDto, val isComment: Boolean) : InteractionUiEvent()
+    data class NavigateToFeed(val item: PostDto) : InteractionUiEvent()
+
+    data class NavigateToSingleItem(val item: PostWithComments) : InteractionUiEvent()
+
     object NavigateBack : InteractionUiEvent()
+
+
 }
 
 
@@ -71,5 +82,13 @@ class InteractionsViewModelFactory(private val userViewModel: UserViewModel) :
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
+
+
+@Parcelize
+data class PostWithComments(
+    val post: PostDto,
+    val comments: List<CommentDto>
+) : Parcelable
+
 
 

@@ -2,7 +2,6 @@ package com.example.firedatabase_assis.home_page
 
 import android.content.Context
 import android.util.Log
-import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
@@ -32,9 +31,15 @@ class CommentsAdapter(
 ) : RecyclerView.Adapter<CommentsAdapter.CommentViewHolder>() {
 
 
-    private var commentsList: MutableList<CommentDto> = mutableListOf()
     private lateinit var webSocketManager: CommentWebSocketManager
 
+    var onCommentsListChanged: ((List<CommentDto>) -> Unit)? = null
+
+    var commentsList: MutableList<CommentDto> = mutableListOf()
+        set(value) {
+            field = value
+            onCommentsListChanged?.invoke(value)
+        }
 
     init {
         commentsList = if (comments.isEmpty()) {
@@ -130,101 +135,96 @@ class CommentsAdapter(
 
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CommentViewHolder {
-        val view = LayoutInflater.from(context).inflate(R.layout.comment_item, parent, false)
-        return CommentViewHolder(view)
+        val commentItemView = CommentItemView(parent.context).apply {
+            layoutParams = RecyclerView.LayoutParams(
+                RecyclerView.LayoutParams.MATCH_PARENT,
+                RecyclerView.LayoutParams.WRAP_CONTENT
+            ).apply {
+                // Set default margins
+                marginStart = 0
+                marginEnd = 0
+                topMargin = 4
+                bottomMargin = 4
+            }
+        }
+        return CommentViewHolder(commentItemView)
     }
 
     override fun onBindViewHolder(holder: CommentViewHolder, position: Int) {
         val comment = commentsList[position]
-        holder.username.text = comment.username
-        holder.content.text = comment.content
+        val commentItemView = holder.itemView as CommentItemView
 
-        // Apply indentation for replies using marginStart
-        (holder.itemView.layoutParams as? ViewGroup.MarginLayoutParams)?.apply {
-            if (comment.parentCommentId != null) {
-                // Apply 50dp margin for replies (matching your original layout)
-                marginStart = (50 * context.resources.displayMetrics.density).toInt()
-            } else {
-                // Reset margin for root comments
-                marginStart = 0
+        // Set tag and data
+        val isSelected = viewModel.selectedComments.value.contains(comment.commentId)
+        commentItemView.setComment(
+            comment = comment,
+            isSelected = isSelected,
+            onSelection = { commentId, selected ->
+                viewModel.setCommentSelected(commentId, selected)
             }
+        )
+
+        // Handle selection state
+        handleSelectionState(holder, comment)
+
+        // Apply indentation for replies using new LayoutParams each time
+        commentItemView.layoutParams = RecyclerView.LayoutParams(
+            RecyclerView.LayoutParams.MATCH_PARENT,
+            RecyclerView.LayoutParams.WRAP_CONTENT
+        ).apply {
+            marginStart = if (comment.parentCommentId != null) {
+                (40 * commentItemView.context.resources.displayMetrics.density).toInt()
+            } else {
+                0
+            }
+            marginEnd = 0
+            topMargin = 4
+            bottomMargin = 4
         }
 
-        // Handle reply counts and visibility for parent comments
+        // Handle reply counts and visibility using binding
         if (comment.parentCommentId == null) {
             comment.commentId?.let { commentId ->
                 val replyCount = viewModel.replyCountsMap.value[commentId] ?: 0
+                val isVisible = viewModel.visibleReplySections.value.contains(commentId)
 
-                if (replyCount > 0) {
-                    holder.viewRepliesButton.apply {
-                        visibility = View.VISIBLE
-                        text = if (viewModel.visibleReplySections.value.contains(commentId)) {
-                            "Hide Replies ($replyCount)"
-                        } else {
-                            "View Replies ($replyCount)"
-                        }
-                        setOnClickListener {
-                            toggleRepliesVisibility(holder, comment)
-                        }
-                    }
-                } else {
-                    holder.viewRepliesButton.visibility = View.GONE
-                }
-            }
-        } else {
-            holder.viewRepliesButton.visibility = View.GONE
-        }
-
-        // Handle reply button visibility
-        holder.replyButton.apply {
-            visibility = View.VISIBLE
-            Log.d(
-                "CommentsAdapter",
-                "Setting up reply button for comment ID: ${comment.commentId}"
-            )
-            setOnClickListener {
-                Log.d(
-                    "CommentsAdapter",
-                    "Reply button clicked for comment ID: ${comment.commentId}"
-                )
-                comment.commentId?.let { parentId ->
-                    Log.d("CommentsAdapter", "Calling onReplyClicked with parentId: $parentId")
-                    onReplyClicked(parentId)
-                } ?: Log.e("CommentsAdapter", "Comment ID is null when reply clicked")
-            }
-        }
-
-        // Handle "replied to" username display
-        if (comment.parentCommentId != null) {
-            coroutineScope.launch {
-                try {
-                    val response = withContext(Dispatchers.IO) {
-                        getRepliedTo(comment.parentCommentId)
-                    }
-                    if (response.isSuccessful && response.body()?.success == true) {
-                        withContext(Dispatchers.Main) {
-                            holder.repliedToUser.apply {
-                                visibility = View.VISIBLE
-                                text = "Replying to @${response.body()?.message}"
-                            }
-                        }
+                commentItemView.binding.viewRepliesButton.apply {
+                    visibility = if (replyCount > 0) View.VISIBLE else View.GONE
+                    text = if (isVisible) {
+                        "Hide Replies ($replyCount)"
                     } else {
-                        withContext(Dispatchers.Main) {
-                            holder.repliedToUser.visibility = View.GONE
+                        "View Replies ($replyCount)"
+                    }
+
+                    if (isVisible && !isCommentAvailable(commentId)) {
+                        val cachedReplies = viewModel.getCachedReplies(commentId)
+                        if (cachedReplies != null) {
+                            showRepliesInline(holder, commentId, cachedReplies)
                         }
                     }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        holder.repliedToUser.visibility = View.GONE
+
+                    setOnClickListener {
+                        toggleRepliesVisibility(holder, comment)
                     }
                 }
             }
         } else {
-            holder.repliedToUser.visibility = View.GONE
+            commentItemView.binding.viewRepliesButton.visibility = View.GONE
+        }
+
+        // Handle reply button using binding
+        commentItemView.binding.replyButton.apply {
+            visibility = View.VISIBLE
+            setOnClickListener {
+                comment.commentId?.let { parentId ->
+                    onReplyClicked(parentId)
+                }
+            }
         }
     }
 
-    private fun toggleRepliesVisibility(holder: CommentViewHolder, comment: CommentDto) {
+
+    fun toggleRepliesVisibility(holder: CommentViewHolder, comment: CommentDto) {
         val commentId = comment.commentId ?: return
         val isVisible = viewModel.visibleReplySections.value.contains(commentId)
 
@@ -277,6 +277,7 @@ class CommentsAdapter(
             }
         }
     }
+
 
     private fun hideReplies(parentId: Int) {
         val position = getPositionForComment(parentId)
@@ -348,19 +349,26 @@ class CommentsAdapter(
 
 
     fun updateComments(newComments: List<CommentDto>) {
-        Log.d(
-            "CommentsAdapter",
-            "Updating comments. New size: ${newComments.size}, isNested: $isNestedAdapter"
-        )
-        commentsList.clear()
         if (isNestedAdapter) {
-            commentsList.addAll(newComments.filter { it.parentCommentId == parentId })
+            commentsList = newComments.filter { it.parentCommentId == parentId }.toMutableList()
         } else {
-            commentsList.addAll(newComments.filter { it.parentCommentId == null })
-            // Fetch reply counts for all comments after updating
+            commentsList = newComments.filter { it.parentCommentId == null }.toMutableList()
             fetchReplyCountsForAllComments()
         }
         notifyDataSetChanged()
+    }
+
+    private fun isCommentAvailable(commentId: Int): Boolean {
+        // Check if comment exists in current list
+        if (getPositionForComment(commentId) != -1) return true
+
+        // Check if comment exists in any visible reply sections
+        for (parentId in viewModel.visibleReplySections.value) {
+            viewModel.getCachedReplies(parentId)?.let { replies ->
+                if (replies.any { it.commentId == commentId }) return true
+            }
+        }
+        return false
     }
 
 
@@ -392,6 +400,29 @@ class CommentsAdapter(
             .build()
     }
 
+    private fun handleSelectionState(holder: CommentViewHolder, comment: CommentDto) {
+        comment.commentId?.let { commentId ->
+            val isSelected = viewModel.selectedComments.value.contains(commentId)
+            (holder.itemView as CommentItemView).setSelected(isSelected)
+        }
+    }
+
+    fun selectComment(commentId: Int) {
+        viewModel.setCommentSelected(commentId, true)
+        val position = getPositionForComment(commentId)
+        if (position != -1) {
+            notifyItemChanged(position)
+        }
+    }
+
+    fun deselectComment(commentId: Int) {
+        viewModel.setCommentSelected(commentId, false)
+        val position = getPositionForComment(commentId)
+        if (position != -1) {
+            notifyItemChanged(position)
+        }
+    }
+
     override fun getItemCount(): Int = commentsList.size
 
     fun getPositionForComment(commentId: Int): Int {
@@ -402,7 +433,9 @@ class CommentsAdapter(
         when {
             comment.parentCommentId == null -> {
                 // Add root comment at the top
-                commentsList.add(0, comment)
+                val newList = commentsList.toMutableList()
+                newList.add(0, comment)
+                commentsList = newList
                 notifyItemInserted(0)
 
                 // Initialize empty reply count for new comment
@@ -420,8 +453,10 @@ class CommentsAdapter(
                 if (parentPosition != -1) {
                     // Only update UI if replies are visible
                     if (viewModel.visibleReplySections.value.contains(parentId)) {
+                        val newList = commentsList.toMutableList()
                         val insertPosition = parentPosition + 1
-                        commentsList.add(insertPosition, comment)
+                        newList.add(insertPosition, comment)
+                        commentsList = newList
                         notifyItemInserted(insertPosition)
                     }
 

@@ -15,6 +15,7 @@ import com.example.firedatabase_assis.home_page.MyPostAdapter
 import com.example.firedatabase_assis.login_setup.UserViewModel
 import com.example.firedatabase_assis.postgres.PostDto
 import com.example.firedatabase_assis.search.SearchViewModel
+import com.example.firedatabase_assis.settings.ActivityNavigationHelper
 
 class FeedActivity : BaseActivity() {
     private lateinit var binding: ActivityFeedBinding
@@ -27,6 +28,8 @@ class FeedActivity : BaseActivity() {
         binding = ActivityFeedBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setupBottomNavigation(R.id.bottom_menu_settings)
+        ActivityNavigationHelper.setLastOpenedSettingsActivity(this::class.java)
+
 
 
         userViewModel = UserViewModel.getInstance(application)
@@ -106,11 +109,16 @@ class FeedActivity : BaseActivity() {
     private fun setupToolbar(title: String) {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.apply {
-            setDisplayHomeAsUpEnabled(true)  // Shows back button
-            setDisplayShowTitleEnabled(true) // Shows title
-            setTitle(title)  // Sets the title
+            setDisplayHomeAsUpEnabled(true)
+            setDisplayShowTitleEnabled(true)
+            setTitle(title)
         }
         binding.toolbar.setNavigationOnClickListener {
+            // Navigate back to SettingsActivity
+            val intent = Intent(this, InteractionsActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+            }
+            startActivity(intent)
             finish()
         }
     }

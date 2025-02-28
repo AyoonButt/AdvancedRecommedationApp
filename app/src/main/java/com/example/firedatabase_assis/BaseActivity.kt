@@ -10,6 +10,7 @@ import com.example.firedatabase_assis.databinding.ActivityBaseBinding
 import com.example.firedatabase_assis.explore.LoadVideos
 import com.example.firedatabase_assis.home_page.HomePage
 import com.example.firedatabase_assis.search.SearchActivity
+import com.example.firedatabase_assis.settings.ActivityNavigationHelper
 import com.example.firedatabase_assis.settings.SettingsActivity
 
 abstract class BaseActivity : AppCompatActivity() {
@@ -20,6 +21,7 @@ abstract class BaseActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setupNightMode()
     }
+    
 
     override fun setContentView(layoutResId: Int) {
         baseBinding = ActivityBaseBinding.inflate(layoutInflater)
@@ -91,16 +93,24 @@ abstract class BaseActivity : AppCompatActivity() {
                 }
 
                 R.id.bottom_menu_settings -> {
-                    if (menuItem.itemId != selectedItemId) {
-                        val intent = Intent(this, SettingsActivity::class.java).apply {
+                    // Check if there's a last opened settings activity
+                    val lastActivity = ActivityNavigationHelper.getLastOpenedSettingsActivity()
+
+                    if (lastActivity != null && lastActivity != SettingsActivity::class.java) {
+                        // If a specific settings-related activity was last opened, go to that
+                        val intent = Intent(this, lastActivity).apply {
                             flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                         }
                         startActivity(intent)
                     } else {
-                        startActivity(Intent(this, SettingsActivity::class.java))
-                        finish()
+                        // Default to SettingsActivity
+                        val intent = Intent(this, SettingsActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        }
+                        startActivity(intent)
                     }
                 }
+
             }
             menuItem.itemId == selectedItemId
         }

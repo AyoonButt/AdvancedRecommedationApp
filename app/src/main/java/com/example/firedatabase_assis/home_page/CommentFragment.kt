@@ -2,6 +2,7 @@ package com.example.firedatabase_assis.home_page
 
 
 import android.content.Context
+import android.graphics.Rect
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -28,13 +29,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-class CommentFragment(private val postId: Int) : Fragment() {
+class CommentFragment(private val postId: Int, private val commentType: String) : Fragment() {
 
     private lateinit var commentsRecyclerView: RecyclerView
     private lateinit var commentsAdapter: CommentsAdapter
@@ -60,6 +62,16 @@ class CommentFragment(private val postId: Int) : Fragment() {
 
         override fun onSlide(bottomSheet: View, slideOffset: Float) {
             // Optional: Add slide animations
+        }
+    }
+
+    private var readyCallback: (() -> Unit)? = null
+
+    fun onReady(callback: () -> Unit) {
+        if (::commentsAdapter.isInitialized) {
+            callback()
+        } else {
+            readyCallback = callback
         }
     }
 
@@ -134,6 +146,11 @@ class CommentFragment(private val postId: Int) : Fragment() {
             viewModel = commentsViewModel
         )
 
+        readyCallback?.let {
+            it()
+            readyCallback = null
+        }
+
         // Handle focus changes
         commentInput.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus && !isReplyMode) {
@@ -175,6 +192,7 @@ class CommentFragment(private val postId: Int) : Fragment() {
         return view
     }
 
+
     private fun showKeyboard() {
         val imm =
             requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
@@ -183,6 +201,173 @@ class CommentFragment(private val postId: Int) : Fragment() {
         }
     }
 
+    private fun toggleReplySection(commentId: Int, show: Boolean) {
+        Log.d(
+            "CommentFragment",
+            "Attempting to toggle reply section for comment $commentId, show: $show"
+        )
+
+        // Then wait for next frame to ensure views are laid out
+        commentsRecyclerView.post {
+            val position = commentsAdapter.getPositionForComment(commentId)
+            Log.d("CommentFragment", "Position for comment $commentId: $position")
+
+            if (position != -1) {
+                val comment = commentsAdapter.commentsList[position]
+                val holder =
+                    commentsRecyclerView.findViewHolderForAdapterPosition(position) as? CommentsAdapter.CommentViewHolder
+                Log.d("CommentFragment", "Found holder for position $position: ${holder != null}")
+
+                if (holder != null) {
+                    Log.d("CommentFragment", "Using adapter toggle function for comment $commentId")
+                    commentsAdapter.toggleRepliesVisibility(holder, comment)
+                } else {
+                    Log.d("CommentFragment", "Holder still not found after post, will try again")
+                    // Try one more time after a short delay
+                    commentsRecyclerView.postDelayed({
+                        val retryHolder =
+                            commentsRecyclerView.findViewHolderForAdapterPosition(position) as? CommentsAdapter.CommentViewHolder
+                        retryHolder?.let {
+                            commentsAdapter.toggleRepliesVisibility(it, comment)
+                        }
+                    }, 100)
+                }
+            }
+        }
+    }
+
+    fun handleInitialComments(comments: List<CommentDto>) {
+        Log.d("CommentFragment", "Starting to handle ${comments.size} comments")
+
+        lifecycleScope.launch {
+            try {
+                commentsViewModel.clearSelections()
+                val processedComments = mutableSetOf<Int>()
+                val processedParents = mutableSetOf<Int>()
+
+                // First handle parent comments
+                comments.filter { it.parentCommentId == null }.forEach { comment ->
+                    comment.commentId?.let {
+                        commentsAdapter.selectComment(it)
+                        processedComments.add(it)
+                    }
+                }
+
+                // Then handle replies after adapter is updated
+                commentsAdapter.onCommentsListChanged = { visibleComments ->
+                    // Only process if we have new visible comments
+                    val newVisibleComments = visibleComments.filter {
+                        it.commentId != null && !processedComments.contains(it.commentId)
+                    }
+
+                    if (newVisibleComments.isNotEmpty()) {
+                        lifecycleScope.launch {
+                            comments.filter { it.parentCommentId != null }.forEach { comment ->
+                                try {
+                                    val parentId = comment.parentCommentId!!
+                                    if (!processedParents.contains(parentId)) {
+                                        when {
+                                            // Direct reply - parent exists in visible comments
+                                            visibleComments.any { it.commentId == parentId } -> {
+                                                Log.d(
+                                                    "CommentFragment",
+                                                    "Processing parent $parentId for reply ${comment.commentId}"
+                                                )
+                                                processedParents.add(parentId)
+                                                toggleReplySection(parentId, true)
+
+                                                delay(100)
+
+                                                if (!processedComments.contains(comment.commentId)) {
+                                                    comment.commentId?.let {
+                                                        commentsAdapter.selectComment(it)
+                                                        processedComments.add(it)
+                                                    }
+                                                }
+                                            }
+
+                                            // Nested reply case
+                                            else -> {
+                                                val rootParentResponse =
+                                                    withContext(Dispatchers.IO) {
+                                                        retrofit.create(Comments::class.java)
+                                                            .getRootParentComment(parentId)
+                                                    }
+
+                                                rootParentResponse.body()?.let { rootComment ->
+                                                    if (!processedParents.contains(rootComment.commentId)) {
+                                                        processedParents.add(rootComment.commentId!!)
+
+                                                        if (visibleComments.any { it.commentId == rootComment.commentId }) {
+                                                            toggleReplySection(
+                                                                rootComment.commentId,
+                                                                true
+                                                            )
+                                                        } else {
+                                                            commentsAdapter.addNewComment(
+                                                                rootComment
+                                                            )
+                                                            toggleReplySection(
+                                                                rootComment.commentId,
+                                                                true
+                                                            )
+                                                        }
+
+                                                        delay(100)
+
+                                                        if (!processedComments.contains(comment.commentId)) {
+                                                            comment.commentId?.let {
+                                                                commentsAdapter.selectComment(it)
+                                                                processedComments.add(it)
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e(
+                                        "CommentFragment",
+                                        "Error processing comment ${comment.commentId}",
+                                        e
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                comments.firstOrNull()?.commentId?.let { firstCommentId ->
+                    val firstCommentView =
+                        commentsRecyclerView.findViewWithTag<View>(firstCommentId)
+                    firstCommentView?.let { scrollToView(it) }
+                }
+
+                // Initial update to trigger the callback
+                commentsAdapter.updateComments(comments)
+
+            } catch (e: Exception) {
+                Log.e("CommentFragment", "Error in handleInitialComments", e)
+            }
+        }
+    }
+
+    private fun scrollToView(view: View) {
+        commentsRecyclerView.post {
+            val scrollBounds = Rect()
+            commentsRecyclerView.getHitRect(scrollBounds)
+
+            // Calculate offset to position the view slightly from the top
+            val offsetPixels = resources.getDimensionPixelSize(R.dimen.comment_scroll_offset)
+
+            if (!view.getLocalVisibleRect(scrollBounds)) {
+                val location = IntArray(2)
+                view.getLocationInWindow(location)
+                commentsRecyclerView.smoothScrollBy(0, location[1] - offsetPixels)
+            }
+        }
+    }
 
     override fun onDestroyView() {
         webSocketManager.disconnect()
@@ -223,7 +408,8 @@ class CommentFragment(private val postId: Int) : Fragment() {
                             content = commentText,
                             sentiment = "Neutral",
                             timestamp = System.currentTimeMillis().toString(),
-                            parentCommentId = if (isReplyMode) parentCommentId else null
+                            parentCommentId = if (isReplyMode) parentCommentId else null,
+                            commentType = commentType
                         )
                     }
 

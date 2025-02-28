@@ -261,36 +261,57 @@ class ApiWorker(
     }
 
     private fun selectBestVideoKey(videos: List<Video>): String? {
-        println("Selecting the best video key from results: $videos")
+        Log.d("Video Selection", "Selecting the best video key from ${videos.size} results")
 
-        // Define the priority order for video types
-        val priorityOrder = listOf("Short", "Trailer", "Teaser", "Featurette", "Clip")
+        // First, try to find official videos with preferred types
+        val priorityOrder = listOf("Trailer", "Teaser", "Clip", "Featurette", "Short")
 
-        // Filter and sort videos based on priority and official status
-        val filteredVideos = videos
-            .filter { video ->
-                video.isOfficial == true && priorityOrder.contains(video.type)
-            }
-            .sortedWith(
-                compareBy(
-                    { priorityOrder.indexOf(it.type) },  // Prioritize by type
-                    { it.publishedAt ?: "" }  // Handle null values
-                )
+        // Filter for YouTube site first (as it's most likely to work)
+        val youtubeVideos =
+            videos.filter { it.publishedAt?.equals("YouTube", ignoreCase = true) == true }
+        val otherVideos =
+            videos.filter { it.publishedAt?.equals("YouTube", ignoreCase = true) != true }
+
+        // Sort videos with various fallback options
+        val rankedVideos = listOf(
+            // 1. Official YouTube videos by priority type
+            youtubeVideos.filter { it.isOfficial == true && priorityOrder.contains(it.type) }
+                .sortedBy { priorityOrder.indexOf(it.type) },
+
+            // 2. Any official YouTube videos
+            youtubeVideos.filter { it.isOfficial == true },
+
+            // 3. Unofficial YouTube trailers
+            youtubeVideos.filter { it.type == "Trailer" },
+
+            // 4. Any YouTube videos
+            youtubeVideos,
+
+            // 5. Official videos from other sites
+            otherVideos.filter { it.isOfficial == true },
+
+            // 6. Any remaining videos
+            otherVideos
+        ).flatten()
+
+        // Among equally ranked videos, prefer more recent ones
+        val bestVideo = rankedVideos
+            .sortedWith(compareByDescending { it.publishedAt ?: "" })
+            .firstOrNull()
+
+        val selectedKey = bestVideo?.key
+
+        if (selectedKey != null) {
+            Log.d(
+                "Video Selection", "type: ${bestVideo.type}, " +
+                        "site: ${bestVideo.publishedAt}, official: ${bestVideo.isOfficial}, key: $selectedKey"
             )
+        } else {
+            Log.e("Video Selection", "No suitable video found from available options")
+        }
 
-        // If no official videos found, look for unofficial trailers or most recently published videos
-        val bestVideo = filteredVideos.lastOrNull()
-            ?: videos
-                .filter { video ->
-                    video.type == "Trailer" && video.isOfficial == false
-                }
-                .maxByOrNull { it.publishedAt ?: "" }  // Handle null values
-            ?: videos.maxByOrNull { it.publishedAt ?: "" }  // Handle null values
-
-        // Return the selected video's key or null if no videos are available
-        return bestVideo?.key
+        return selectedKey
     }
-
 
     private suspend fun processProvidersForUser(userId: Int, userPreferences: UserPreferencesDto?) =
         coroutineScope {
@@ -447,8 +468,10 @@ class ApiWorker(
                                 videoKey = videoKey
                             )
 
+                            val providerIdInt = providerId.toInt()
+
                             // Insert post and fetch credits
-                            postsApi.addPosts(mediaType, providerId, listOf(postEntity))
+                            postsApi.addPosts(mediaType, providerIdInt, listOf(postEntity))
                             insertCreditsBasedOnType(
                                 tmdbApiService,
                                 data.id,
@@ -481,7 +504,6 @@ class ApiWorker(
     }
 
 
-    // Function to retrieve the best video key from TMDB based on post type
     private suspend fun getVideoKeyFromTmdb(
         tmdbApiService: ApiService,
         tmdbId: Int,
@@ -490,6 +512,33 @@ class ApiWorker(
     ): String? {
         Log.d("Language", "Language used for request: $language")
 
+        // First try with the specified language
+        var videoKey = tryGetVideoKey(tmdbApiService, tmdbId, type, language)
+
+        // If no key found, fall back to English
+        if (videoKey == null && language != "en-US") {
+            Log.d("Video Fetch", "No video found in $language, trying fallback to en-US")
+            videoKey = tryGetVideoKey(tmdbApiService, tmdbId, type, "en-US")
+        }
+
+        // If still no key, try with null language (to get all available videos)
+        if (videoKey == null) {
+            Log.d(
+                "Video Fetch",
+                "No video found in specific languages, trying without language filter"
+            )
+            videoKey = tryGetVideoKey(tmdbApiService, tmdbId, type, null)
+        }
+
+        return videoKey
+    }
+
+    private suspend fun tryGetVideoKey(
+        tmdbApiService: ApiService,
+        tmdbId: Int,
+        type: String,
+        language: String?
+    ): String? {
         return try {
             // Log the request details
             Log.d(
@@ -500,12 +549,12 @@ class ApiWorker(
             val videoResponse = when (type) {
                 "movie" -> {
                     Log.d("Video Fetch", "Fetching videos for movie ID: $tmdbId")
-                    tmdbApiService.getMovieVideos(tmdbId, language, BuildConfig.TMDB_API_KEY)
+                    tmdbApiService.getMovieVideos(tmdbId, language ?: "", BuildConfig.TMDB_API_KEY)
                 }
 
                 "tv" -> {
                     Log.d("Video Fetch", "Fetching videos for TV show ID: $tmdbId")
-                    tmdbApiService.getTvVideos(tmdbId, language, BuildConfig.TMDB_API_KEY)
+                    tmdbApiService.getTvVideos(tmdbId, language ?: "", BuildConfig.TMDB_API_KEY)
                 }
 
                 else -> {
@@ -530,7 +579,6 @@ class ApiWorker(
             } else {
                 Log.d("Video Fetch", "Response body for tmdbId: $tmdbId: $rawBody")
             }
-
 
             // Process the results
             rawBody.results.let { results ->
@@ -577,13 +625,6 @@ class ApiWorker(
                 else -> null
             }
 
-            val postIdResponse = postsApi.getPostIdByTmdbId(tmdbId)
-            val postId = postIdResponse.body()  // Assuming this API returns Response<Int?>
-
-            if (postId == null) {
-                Log.e("Post ID Error", "No post found for tmdbId: $tmdbId")
-                return
-            }
 
             val gson = Gson()
             val creditsJson = try {
@@ -594,12 +635,12 @@ class ApiWorker(
                 return
             }
 
-            Log.d("CreditsJSON", "Credits JSON for postId $postId: $creditsJson")
+            Log.d("CreditsJSON", "Credits JSON for tmdbId $tmdbId: $creditsJson")
 
             creditsJson.let {
-                val creditsApiResponse = creditsApi.insertCredits(postId, it)
+                val creditsApiResponse = creditsApi.insertCredits(tmdbId, it)
                 if (!creditsApiResponse.isSuccessful) {
-                    Log.e("API Error", "Failed to insert credits for postId: $postId")
+                    Log.e("API Error", "Failed to insert credits for postId: $tmdbId")
                 }
             }
 

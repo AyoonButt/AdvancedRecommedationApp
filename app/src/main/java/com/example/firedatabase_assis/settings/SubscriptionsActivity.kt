@@ -2,6 +2,7 @@ package com.example.firedatabase_assis.settings
 
 
 import android.content.ClipData
+import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -47,6 +48,8 @@ class SubscriptionsActivity : BaseActivity() {
         binding = ActivitySubscriptionsBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setupBottomNavigation(R.id.bottom_menu_settings)
+        ActivityNavigationHelper.setLastOpenedSettingsActivity(this::class.java)
+
 
         userViewModel = UserViewModel.getInstance(application)
 
@@ -63,11 +66,16 @@ class SubscriptionsActivity : BaseActivity() {
     private fun setupToolbar(title: String) {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.apply {
-            setDisplayHomeAsUpEnabled(true)  // Shows back button
-            setDisplayShowTitleEnabled(true) // Shows title
-            setTitle(title)  // Sets the title
+            setDisplayHomeAsUpEnabled(true)
+            setDisplayShowTitleEnabled(true)
+            setTitle(title)
         }
         binding.toolbar.setNavigationOnClickListener {
+            // Navigate back to SettingsActivity
+            val intent = Intent(this, SettingsActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
             finish()
         }
     }

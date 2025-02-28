@@ -6,12 +6,15 @@ import android.os.Bundle
 import android.view.View
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.firedatabase_assis.BaseActivity
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.databinding.ActivityInteractionsBinding
 import com.example.firedatabase_assis.login_setup.UserViewModel
 import com.example.firedatabase_assis.postgres.Posts
+import com.example.firedatabase_assis.settings.ActivityNavigationHelper
+import com.example.firedatabase_assis.settings.SettingsActivity
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -20,12 +23,16 @@ class InteractionsActivity : BaseActivity() {
     private lateinit var viewModel: InteractionsViewModel
     private lateinit var userViewModel: UserViewModel
     private lateinit var gridAdapter: InteractionsGridAdapter
+    private lateinit var commentsAdapter: CommentInteractionsAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityInteractionsBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setupBottomNavigation(R.id.bottom_menu_settings)
+
+        ActivityNavigationHelper.setLastOpenedSettingsActivity(this::class.java)
+
 
         userViewModel = UserViewModel.getInstance(application)
         viewModel = ViewModelProvider(
@@ -48,7 +55,12 @@ class InteractionsActivity : BaseActivity() {
             setTitle(title)
         }
         binding.toolbar.setNavigationOnClickListener {
-            viewModel.onEvent(InteractionEvent.NavigateBack)
+            // Navigate back to SettingsActivity
+            val intent = Intent(this, SettingsActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+            finish()
         }
     }
 
@@ -74,8 +86,44 @@ class InteractionsActivity : BaseActivity() {
             }
             adapter = gridAdapter
             setHasFixedSize(true)
-            visibility = View.VISIBLE  // Set initial visibility
+            visibility = View.GONE  // Initially hidden
         }
+
+        commentsAdapter = CommentInteractionsAdapter { postWithComments ->
+            viewModel.onEvent(
+                InteractionEvent.NavigateToSingleItem(
+                    item = postWithComments,
+                )
+            )
+        }
+
+        binding.interactionsRecyclerView.apply {
+            layoutManager = LinearLayoutManager(this@InteractionsActivity)
+            adapter = commentsAdapter
+            setHasFixedSize(true)
+            visibility = View.GONE  // Initially hidden
+        }
+
+        viewModel.state.observe(this) { state ->
+            when {
+                state.selectedInteraction == InteractionType.LIKED &&
+                        state.contentType == ContentType.POSTS -> {
+                    binding.interactionsGrid.visibility = View.VISIBLE
+                    binding.interactionsRecyclerView.visibility = View.GONE
+                }
+
+                state.selectedInteraction == InteractionType.COMMENTED -> {
+                    binding.interactionsGrid.visibility = View.GONE
+                    binding.interactionsRecyclerView.visibility = View.VISIBLE
+                }
+                // Add more conditions as needed
+                else -> {
+                    binding.interactionsGrid.visibility = View.GONE
+                    binding.interactionsRecyclerView.visibility = View.GONE
+                }
+            }
+        }
+
     }
 
     private fun setupToggleGroups() {
@@ -175,18 +223,24 @@ class InteractionsActivity : BaseActivity() {
             errorText.visibility = if (state.error != null) View.VISIBLE else View.GONE
             errorText.text = state.error
 
-            // Update content visibility
-            interactionsGrid.visibility =
-                if (!state.isLoading && state.error == null) View.VISIBLE else View.GONE
+            // Update content visibility for comments
+            if (state.selectedInteraction == InteractionType.COMMENTED) {
+                interactionsRecyclerView.visibility =
+                    if (!state.isLoading && state.error == null) View.VISIBLE else View.GONE
 
-            // Update grid content
-            if (!state.isLoading && state.error == null) {
-                val items = state.items
-                println("Submitting items to adapter: ${items.size}")
-                println("Item IDs: ${items.map { it.title }}")
-                gridAdapter.submitList(items)
+                // Create PostWithComments list
+                if (!state.isLoading && state.error == null) {
+                    commentsAdapter.submitList(state.objects)
+                }
+            } else {
+                // For other interactions, use grid
+                interactionsGrid.visibility =
+                    if (!state.isLoading && state.error == null) View.VISIBLE else View.GONE
+
+                if (!state.isLoading && state.error == null) {
+                    gridAdapter.submitList(state.items)
+                }
             }
-
 
             // Update button states
             updateInteractionTypeButtons(state.selectedInteraction)
@@ -194,34 +248,34 @@ class InteractionsActivity : BaseActivity() {
         }
     }
 
+
     private fun handleNavigationEvent(event: InteractionUiEvent) {
         when (event) {
             is InteractionUiEvent.NavigateToFeed -> {
-                if (event.isComment) {
-                    startActivity(
-                        SingleItemActivity.newIntent(
-                            context = this,
-                            postDto = event.item,  // Pass the complete PostDto
-                            openComments = true
-                        )
+                startActivity(
+                    FeedActivity.newIntent(
+                        context = this,
+                        items = viewModel.getCurrentPosts(),  // Pass the current list of PostDto
+                        scrollToItem = event.item,  // Pass the complete PostDto to scroll to
+                        isVideo = viewModel.getCurrentContentType() == ContentType.VIDEOS,
+                        interactionType = viewModel.getCurrentInteractionType().name
                     )
-                } else {
-                    startActivity(
-                        FeedActivity.newIntent(
-                            context = this,
-                            items = viewModel.getCurrentPosts(),  // Pass the current list of PostDto
-                            scrollToItem = event.item,  // Pass the complete PostDto to scroll to
-                            isVideo = viewModel.getCurrentContentType() == ContentType.VIDEOS,
-                            interactionType = viewModel.getCurrentInteractionType().name
-                        )
+                )
+            }
+
+            is InteractionUiEvent.NavigateToSingleItem -> {
+                startActivity(
+                    SingleItemActivity.newIntent(
+                        context = this,
+                        postComments = event.item,
+                        openComments = true
                     )
-                }
+                )
             }
 
             InteractionUiEvent.NavigateBack -> finish()
         }
     }
-
 
     private fun updateInteractionTypeButtons(selected: InteractionType) {
         binding.apply {

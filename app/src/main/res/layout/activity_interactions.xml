@@ -95,6 +95,14 @@
         android:padding="8dp"
         android:visibility="gone" />
 
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/interactions_recycler_view"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="8dp"
+        android:visibility="gone" />
+
     <!-- Loading and Error States -->
     <ProgressBar
         android:id="@+id/loading_indicator"
