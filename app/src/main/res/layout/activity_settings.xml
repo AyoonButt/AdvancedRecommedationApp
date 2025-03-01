@@ -59,80 +59,6 @@
                 android:textColor="@color/black"
                 android:id="@+id/Edituser" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginTop="40dp"
-                android:layout_marginEnd="20dp"
-                android:background="@drawable/lightor_backgroung"
-                android:orientation="vertical"
-                android:padding="15dp">
-
-                <!--NighMode-->
-                <RelativeLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
-
-                    <ImageView
-                        android:id="@+id/nightmodelogo"
-                        android:layout_width="39dp"
-                        android:layout_height="39dp"
-                        android:padding="11dp"
-                        android:src="@drawable/moon" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_centerVertical="true"
-                        android:layout_toEndOf="@id/nightmodelogo"
-                        android:text="Night Mode"
-                        android:textColor="@color/black"
-                        android:textStyle="normal" />
-
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/nightmode"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:layout_centerVertical="true"
-                        android:switchMinWidth="50dp" />
-
-                </RelativeLayout>
-
-                <!--Notifications-->
-                <RelativeLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
-
-                    <ImageView
-                        android:id="@+id/notifications"
-                        android:layout_width="39dp"
-                        android:layout_height="39dp"
-                        android:padding="11dp"
-                        android:src="@drawable/notification" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_centerVertical="true"
-                        android:layout_toEndOf="@id/notifications"
-                        android:text="Notifications"
-                        android:textColor="@color/black"
-                        android:textStyle="normal" />
-
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switch_notifications"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:layout_centerVertical="true"
-                        android:switchMinWidth="50dp" />
-
-                </RelativeLayout>
-
-
-            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -144,41 +70,6 @@
                 android:orientation="vertical"
                 android:padding="15dp">
 
-
-                <!--Security & Privacy-->
-                <RelativeLayout
-                    android:id="@+id/securityLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackground">
-
-                    <ImageView
-                        android:id="@+id/security"
-                        android:layout_width="39dp"
-                        android:layout_height="39dp"
-                        android:padding="11dp"
-                        android:src="@drawable/security" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_centerVertical="true"
-                        android:layout_toEndOf="@id/security"
-                        android:text="Security &amp; Privacy"
-                        android:textColor="@color/black"
-                        android:textStyle="normal" />
-
-                    <Button
-                        android:id="@+id/btSecurity"
-                        android:layout_width="30dp"
-                        android:layout_height="30dp"
-                        android:layout_alignParentEnd="true"
-                        android:background="@drawable/arrow_forward"
-                        android:padding="11dp" />
-
-                </RelativeLayout>
 
                 <!-- Activity Section -->
                 <RelativeLayout

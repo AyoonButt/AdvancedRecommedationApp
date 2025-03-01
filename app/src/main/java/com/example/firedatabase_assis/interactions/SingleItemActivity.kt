@@ -40,7 +40,7 @@ class SingleItemActivity : BaseActivity() {
         setupBottomNavigation(R.id.bottom_menu_settings)
         ActivityNavigationHelper.setLastOpenedSettingsActivity(this::class.java)
 
-        
+
         setupToolbar("Comments")
 
         userViewModel = UserViewModel.getInstance(application)
@@ -130,6 +130,7 @@ class SingleItemActivity : BaseActivity() {
             val intent = Intent(this, InteractionsActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
             }
+            ActivityNavigationHelper.removeLastOpenedSettingsActivity()
             startActivity(intent)
             finish()
         }

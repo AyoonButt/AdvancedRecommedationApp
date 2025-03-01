@@ -213,9 +213,26 @@ class VideoAdapter(
         super.onViewDetachedFromWindow(holder)
     }
 
-    fun addItems(newVideos: List<PostDto>) {
-        val initialSize = videos.size
-        videos.addAll(newVideos)
-        notifyItemRangeInserted(initialSize, newVideos.size)
+    fun addItemsAtBeginning(newItems: List<PostDto>) {
+        if (newItems.isEmpty()) return
+
+        // Add at the beginning of the list
+        videos.addAll(0, newItems)
+
+        // Notify the adapter about the insertion
+        notifyItemRangeInserted(0, newItems.size)
+    }
+
+    fun addItems(newItems: List<PostDto>) {
+        if (newItems.isEmpty()) return
+
+        // Track the insertion position
+        val startPosition = videos.size
+
+        // Add to the end of the list
+        videos.addAll(newItems)
+
+        // Notify adapter about the range insertion
+        notifyItemRangeInserted(startPosition, newItems.size)
     }
 }

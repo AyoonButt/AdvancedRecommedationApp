@@ -5,14 +5,32 @@
     android:layout_height="match_parent"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recycler_view"
+    <!-- Wrap RecyclerView with SwipeRefreshLayout -->
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipe_refresh"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_margin="8dp"
-        android:scrollbars="vertical"
-        android:nestedScrollingEnabled="true"
-        tools:listitem="@layout/custom_player" />
+        android:layout_height="match_parent">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_margin="8dp"
+            android:scrollbars="vertical"
+            android:nestedScrollingEnabled="true"
+            tools:listitem="@layout/custom_player" />
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+    <!-- Empty state view -->
+    <TextView
+        android:id="@+id/empty_state"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:text="No content available"
+        android:textSize="18sp"
+        android:visibility="gone" />
 
     <FrameLayout
         android:id="@+id/poster_fragment_container"
@@ -37,6 +55,5 @@
             app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior" />
 
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
-
 
 </RelativeLayout>

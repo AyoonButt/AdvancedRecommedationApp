@@ -71,6 +71,7 @@ class LoginForm : AppCompatActivity() {
                                 setupWorkManager()
                                 val intent = Intent(this@LoginForm, HomePage::class.java).apply {
                                     putExtra("username", username)
+                                    putExtra("is_navigation", false)
                                 }
                                 startActivity(intent)
                             }

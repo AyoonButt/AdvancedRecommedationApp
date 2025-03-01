@@ -33,7 +33,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 class MyPostAdapter(
     private val context: Context,
-    private val movies: List<PostDto>,
+    private val movies: MutableList<PostDto>,
     private val userViewModel: UserViewModel,
     private val searchViewModel: SearchViewModel
 
@@ -269,9 +269,14 @@ class MyPostAdapter(
         }
     }
 
-    private fun calculateEndTimestamp(startTimestamp: String, timeSpent: Long): String {
-        val startTime = startTimestamp.toLong()
-        return (startTime + timeSpent).toString()
+    fun updateData(newData: List<PostDto>) {
+        // Clear and update with a safe pattern
+        val oldSize = movies.size
+        movies.clear()
+        notifyItemRangeRemoved(0, oldSize)
+
+        movies.addAll(newData)
+        notifyItemRangeInserted(0, newData.size)
     }
 
 

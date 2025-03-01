@@ -103,7 +103,6 @@ class SettingsActivity : BaseActivity() {
 
             // Settings options clickable areas
             listOf(
-                R.id.securityLayout,
                 R.id.activityLayout,
                 R.id.languageLayout,
                 R.id.preferencesLayout,
@@ -122,10 +121,6 @@ class SettingsActivity : BaseActivity() {
                 showEditDialog()
             }
 
-            // Settings options
-            findViewById<RelativeLayout>(R.id.securityLayout).setOnClickListener {
-                openSecurity()
-            }
 
             findViewById<RelativeLayout>(R.id.activityLayout).setOnClickListener {
                 openUserActivity()
@@ -152,7 +147,6 @@ class SettingsActivity : BaseActivity() {
 
     private fun setupNightMode() {
         sharedPreferences = getSharedPreferences("NightModeSett", Context.MODE_PRIVATE)
-        nightModeSwitch = findViewById(R.id.nightmode)
 
         // Set initial switch state from saved preferences
         nightModeSwitch.isChecked = sharedPreferences.getBoolean("night", false)
@@ -174,7 +168,6 @@ class SettingsActivity : BaseActivity() {
     }
 
     private fun setupNotifications() {
-        notificationsSwitch = findViewById(R.id.switch_notifications)
         notificationsSwitch.setOnCheckedChangeListener { _, isChecked ->
             val message = if (isChecked) {
                 "You will now receive notifications on any news relating to your preferences!"

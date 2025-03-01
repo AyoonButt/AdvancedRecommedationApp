@@ -59,6 +59,7 @@ class InteractionsActivity : BaseActivity() {
             val intent = Intent(this, SettingsActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
+            ActivityNavigationHelper.removeLastOpenedSettingsActivity()
             startActivity(intent)
             finish()
         }

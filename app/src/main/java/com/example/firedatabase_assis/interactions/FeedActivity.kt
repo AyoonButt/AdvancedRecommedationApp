@@ -118,6 +118,7 @@ class FeedActivity : BaseActivity() {
             val intent = Intent(this, InteractionsActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
             }
+            ActivityNavigationHelper.removeLastOpenedSettingsActivity()
             startActivity(intent)
             finish()
         }
