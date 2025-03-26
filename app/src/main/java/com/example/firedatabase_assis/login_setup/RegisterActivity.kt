@@ -11,14 +11,10 @@ import com.jakewharton.threetenabp.AndroidThreeTen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class RegisterActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-
-
-    private val providerManager = ProvidersManager()  // Initialize ProvidersApi
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,10 +46,6 @@ class RegisterActivity : AppCompatActivity() {
                 // Start the async initialization of genres and providers
                 CoroutineScope(Dispatchers.Main).launch {
                     try {
-                        // Initialize genres and providers concurrently
-                        withContext(Dispatchers.IO) {
-                            providerManager.fetchAndSendProviders()
-                        }
 
                         // Once initialized, proceed to SetupActivity
                         val intent =

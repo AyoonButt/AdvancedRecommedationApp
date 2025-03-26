@@ -40,10 +40,9 @@ class VideoAdapter(
 
     // Create the Retrofit instance
     private val retrofit = Retrofit.Builder()
-        .baseUrl(BuildConfig.POSTRGRES_API_URL)  // Replace with your API base URL
+        .baseUrl(BuildConfig.POSTRGRES_API_URL)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
-
 
     private val interactionsApi = retrofit.create(TrailerInteractions::class.java)
 
@@ -55,27 +54,48 @@ class VideoAdapter(
         var youTubePlayer: YouTubePlayer? = null
         lateinit var customPlayer: CustomPlayer
 
+        // Track the currently bound video to ensure we're working with the right data
+        private var boundVideoId: Int? = null
+
         init {
             lifecycleOwner.lifecycle.addObserver(youtubePlayerView)
+
+            // Setup the YouTube player
+            initializeYouTubePlayer()
+        }
+
+        private fun initializeYouTubePlayer() {
             youtubePlayerView.initialize(object : AbstractYouTubePlayerListener() {
                 override fun onReady(youTubePlayer: YouTubePlayer) {
-                    Log.d(
-                        "YouTubePlayer",
-                        "Player initialized for position: $bindingAdapterPosition"
-                    )
                     this@ViewHolder.youTubePlayer = youTubePlayer
-
                     startTimestamp = getCurrentTimestamp()
 
-                    if (bindingAdapterPosition != RecyclerView.NO_POSITION) {
-                        val videoKey = videos[bindingAdapterPosition].videoKey
-                        videoKey.let {
+                    // Get current binding position
+                    val position = bindingAdapterPosition
+                    if (position != RecyclerView.NO_POSITION && position < videos.size) {
+                        // Get video at current position
+                        val video = videos[position]
+                        boundVideoId = video.postId
+
+                        // Log which video is being initialized
+                        Log.d(
+                            "VideoAdapter", "Initializing player at position $position:" +
+                                    " postId=${video.postId}, tmdbId=${video.tmdbId}, type=${video.type}"
+                        )
+
+                        // Load the video
+                        video.videoKey.let {
                             youTubePlayer.cueVideo(it, 0f)
                         }
-                    }
 
-                    setupCustomPlayer(youTubePlayer)
-                    setupAutoplayAndLoop(youTubePlayer)
+                        // Setup custom player
+                        setupCustomPlayer(youTubePlayer, video)
+                    } else {
+                        Log.e(
+                            "VideoAdapter",
+                            "Invalid position: $position, videos size: ${videos.size}"
+                        )
+                    }
                 }
 
                 override fun onError(
@@ -87,51 +107,107 @@ class VideoAdapter(
             }, IFramePlayerOptions.Builder().controls(0).build())
         }
 
-        private fun setupCustomPlayer(youTubePlayer: YouTubePlayer) {
-            val video = videos[bindingAdapterPosition]
+        fun bind(position: Int) {
+            if (position >= videos.size) {
+                Log.e("VideoAdapter", "Attempted to bind invalid position: $position")
+                return
+            }
+
+            val video = videos[position]
+            boundVideoId = video.postId
+
+            Log.d(
+                "VideoAdapter", "Binding position $position with video:" +
+                        " postId=${video.postId}, tmdbId=${video.tmdbId}, type=${video.type}"
+            )
+
+            // If player is ready, set the video
+            youTubePlayer?.let { player ->
+                video.videoKey.let {
+                    player.cueVideo(it, 0f)
+                }
+
+                // If CustomPlayer is already initialized, update its video reference
+                if (::customPlayer.isInitialized) {
+                    // We need to update the CustomPlayer's reference to the video
+                    // but we can't directly update it, so we'll recreate it
+                    setupCustomPlayer(player, video)
+                }
+            }
+
+            // Set up info button click listener directly in the ViewHolder
+            // This ensures the correct video data is used when clicked
+            itemView.findViewById<View>(R.id.info).setOnClickListener {
+                try {
+                    // Use the currently bound video (which should be the most up-to-date)
+                    val currentVideo = videos[bindingAdapterPosition]
+
+                    // Determine if it's a movie based on the video type
+                    val isMovie = currentVideo.type == "movie"
+
+                    Log.d(
+                        "VideoAdapter", "Info button clicked for:" +
+                                " postId=${currentVideo.postId}, tmdbId=${currentVideo.tmdbId}," +
+                                " type=${currentVideo.type}, isMovie=$isMovie"
+                    )
+
+                    // Navigate using the SearchViewModel
+                    searchViewModel.navigate(
+                        SearchViewModel.NavigationState.ShowPoster(
+                            currentVideo.tmdbId,
+                            isMovie
+                        )
+                    )
+                } catch (e: Exception) {
+                    Log.e("VideoAdapter", "Error in info button click", e)
+                }
+            }
+        }
+
+        private fun setupCustomPlayer(youTubePlayer: YouTubePlayer, video: PostDto) {
             customPlayer = CustomPlayer(
                 itemView.context,
                 itemView,
                 youTubePlayer,
-                youtubePlayerView,
                 video,
                 searchViewModel,
-                userViewModel
+                userViewModel,
+                // Pass a lambda that will be called when info button is clicked
+                infoButtonClickListener = {
+                    val position = bindingAdapterPosition
+                    if (position != RecyclerView.NO_POSITION && position < videos.size) {
+                        val currentVideo = videos[position]
+                        val isMovie = currentVideo.type == "movie"
+
+                        Log.d(
+                            "VideoAdapter", "Info button clicked via lambda for:" +
+                                    " postId=${currentVideo.postId}, tmdbId=${currentVideo.tmdbId}," +
+                                    " type=${currentVideo.type}, isMovie=$isMovie"
+                        )
+
+                        searchViewModel.navigate(
+                            SearchViewModel.NavigationState.ShowPoster(
+                                currentVideo.tmdbId,
+                                isMovie
+                            )
+                        )
+                    } else {
+                        Log.e("VideoAdapter", "Invalid position for info click: $position")
+                    }
+                }
             )
+            setupAutoplayAndLoop(youTubePlayer)
         }
 
         private fun setupAutoplayAndLoop(youTubePlayer: YouTubePlayer) {
             youTubePlayer.play()
-            youTubePlayer.addListener(object : AbstractYouTubePlayerListener() {
-                override fun onStateChange(
-                    youTubePlayer: YouTubePlayer,
-                    state: PlayerConstants.PlayerState
-                ) {
-                    when (state) {
-                        PlayerConstants.PlayerState.ENDED -> {
-                            youTubePlayer.seekTo(0f)
-                            youTubePlayer.play()
-                            customPlayer.incrementReplayCount()
-                            customPlayer.startTrackingTime()
-                        }
-
-                        PlayerConstants.PlayerState.PLAYING -> {
-                            currentlyPlayingPlayer?.pause()
-                            currentlyPlayingPlayer = youTubePlayer
-                            customPlayer.startTrackingTime()
-                        }
-
-                        else -> Unit
-                    }
-                }
-            })
+            customPlayer.setAutoStart(true)
+            currentlyPlayingPlayer = youTubePlayer
         }
-
 
         suspend fun saveTrailerInteractionData(bindingAdapterPosition: Int) =
             withContext(Dispatchers.IO) {
                 try {
-
                     Log.d("SaveInteraction", "User found: $currentUser")
 
                     val interactionData =
@@ -163,6 +239,11 @@ class VideoAdapter(
             position: Int,
             user: UserEntity
         ): TrailerInteractionDto? {
+            if (position < 0 || position >= videos.size) {
+                Log.e("VideoAdapter", "Invalid position for interaction: $position")
+                return null
+            }
+
             val video = videos[position]
             val postId = video.postId
             val currentTime = getCurrentTimestamp()
@@ -174,16 +255,15 @@ class VideoAdapter(
                     postId = it,
                     startTimestamp = startTimestamp,
                     endTimestamp = currentTime,
-                    replayCount = customPlayer.getReplayCount(),
-                    isMuted = customPlayer.getIsMuted(),
-                    likeState = customPlayer.getLikeState(),
-                    saveState = customPlayer.getSaveState(),
-                    commentButtonPressed = customPlayer.wasCommentButtonPressed()
+                    replayCount = if (::customPlayer.isInitialized) customPlayer.getReplayCount() else 0,
+                    isMuted = if (::customPlayer.isInitialized) customPlayer.getIsMuted() else false,
+                    likeState = if (::customPlayer.isInitialized) customPlayer.getLikeState() else false,
+                    saveState = if (::customPlayer.isInitialized) customPlayer.getSaveState() else false,
+                    commentButtonPressed = if (::customPlayer.isInitialized) customPlayer.wasCommentButtonPressed() else false
                 )
             }
         }
     }
-
 
     private fun getCurrentTimestamp(): String {
         val current = LocalDateTime.now()
@@ -198,8 +278,8 @@ class VideoAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val video = videos[position]
-        holder.youTubePlayer?.cueVideo(video.videoKey, 0f)
+        // Bind the video data to the view holder
+        holder.bind(position)
     }
 
     override fun getItemCount(): Int {
@@ -208,19 +288,21 @@ class VideoAdapter(
 
     override fun onViewDetachedFromWindow(holder: ViewHolder) {
         CoroutineScope(Dispatchers.IO).launch {
-            holder.saveTrailerInteractionData(holder.bindingAdapterPosition)
+            val position = holder.bindingAdapterPosition
+            if (position != RecyclerView.NO_POSITION) {
+                holder.saveTrailerInteractionData(position)
+            }
         }
         super.onViewDetachedFromWindow(holder)
     }
 
-    fun addItemsAtBeginning(newItems: List<PostDto>) {
-        if (newItems.isEmpty()) return
+    fun clearAndAddItems(newItems: List<PostDto>) {
+        // Clear existing items
+        videos.clear()
 
-        // Add at the beginning of the list
-        videos.addAll(0, newItems)
+        // Add new items
+        videos.addAll(newItems)
 
-        // Notify the adapter about the insertion
-        notifyItemRangeInserted(0, newItems.size)
     }
 
     fun addItems(newItems: List<PostDto>) {
@@ -234,5 +316,9 @@ class VideoAdapter(
 
         // Notify adapter about the range insertion
         notifyItemRangeInserted(startPosition, newItems.size)
+    }
+
+    fun getItems(): List<PostDto> {
+        return videos
     }
 }

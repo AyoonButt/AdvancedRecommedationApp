@@ -163,6 +163,7 @@ class SearchViewModel : ViewModel() {
                 when (it) {
                     is Movie -> synchronized(moviesList) { moviesList.add(it) }
                     is TV -> synchronized(tvList) { tvList.add(it) }
+                    else -> {}
                 }
             }
 

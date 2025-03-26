@@ -315,33 +315,31 @@ class ApiWorker(
 
     private suspend fun processProvidersForUser(userId: Int, userPreferences: UserPreferencesDto?) =
         coroutineScope {
-            val providers = getProvidersByPriority(userId)
+            val providers =
+                getProvidersByPriority(userId) // Get providers, but we'll process them concurrently
             Log.d("ProvidersProcessing", "Processing ${providers.size} providers for user: $userId")
 
-            // Concurrently process all providers
-            providers.map { providerId ->
-                async {
-                    Log.d("ProviderProcessing", "Processing provider $providerId for user: $userId")
-
-                    // Process movies and TV series concurrently for each provider
-                    coroutineScope {
-                        val movieJob = async {
-                            if (userPreferences != null) {
-                                processMediaType("movie", userPreferences, providerId)
-                            }
+            // Launch all provider processing concurrently
+            val jobs = providers.flatMap { providerId ->
+                // For each provider, create two jobs (one for movies, one for TV)
+                listOf(
+                    async {
+                        Log.d("MediaProcessing", "Processing movies for provider $providerId")
+                        if (userPreferences != null) {
+                            processMediaType("movie", userPreferences, providerId)
                         }
-                        val tvJob = async {
-                            if (userPreferences != null) {
-                                processMediaType("tv", userPreferences, providerId)
-                            }
+                    },
+                    async {
+                        Log.d("MediaProcessing", "Processing TV for provider $providerId")
+                        if (userPreferences != null) {
+                            processMediaType("tv", userPreferences, providerId)
                         }
-
-                        // Wait for both movie and TV processing to complete
-                        movieJob.await()
-                        tvJob.await()
                     }
-                }
-            }.awaitAll() // Wait for all provider processing to complete
+                )
+            }
+
+            // Wait for all processing to complete
+            jobs.awaitAll()
 
             Log.d("ProvidersProcessing", "Completed processing all providers for user: $userId")
         }
@@ -447,9 +445,12 @@ class ApiWorker(
             // Concurrent post insertion and credit fetching
             val postInsertionDeferred = batch.zip(videoKeys).map { (data, videoKey) ->
                 async {
+                    // Inside the try block of postInsertionDeferred
                     try {
                         val title = data.title
-                        if (title.isNotEmpty() && videoKey != null) {
+
+
+                        if (!title.isNullOrEmpty() && videoKey != null) {
                             val postEntity = PostDto(
                                 postId = null,
                                 tmdbId = data.id,
@@ -468,18 +469,37 @@ class ApiWorker(
                                 videoKey = videoKey
                             )
 
-                            val providerIdInt = providerId.toInt()
-
-                            // Insert post and fetch credits
-                            postsApi.addPosts(mediaType, providerIdInt, listOf(postEntity))
-                            insertCreditsBasedOnType(
-                                tmdbApiService,
-                                data.id,
+                            // Insert post and wait for the response
+                            val postResponse = postsApi.addPosts(
                                 mediaType,
-                                inputData.getString("language") ?: "en-US"
+                                inputData.getString("language") ?: "en-US",
+                                providerId,
+                                listOf(postEntity)
                             )
-                            synchronized(this) {
-                                processedCount++ // Increment the counter
+
+                            // Only proceed with credits if post insertion was successful
+                            if (postResponse.isSuccessful) {
+                                Log.d(
+                                    "PostInsert",
+                                    "Successfully added post for TMDB ID: ${data.id}"
+                                )
+
+                                // Now insert credits
+                                insertCreditsBasedOnType(
+                                    tmdbApiService,
+                                    data.id,
+                                    mediaType,
+                                    inputData.getString("language") ?: "en-US"
+                                )
+
+                                synchronized(this) {
+                                    processedCount++ // Increment the counter
+                                }
+                            } else {
+                                Log.e(
+                                    "PostInsertError",
+                                    "Failed to add post for TMDB ID: ${data.id}. Response: ${postResponse.code()} - ${postResponse.message()}"
+                                )
                             }
                         } else {
                             Log.w(

@@ -17,6 +17,7 @@ import com.example.firedatabase_assis.databinding.ActivityHomePageBinding
 import com.example.firedatabase_assis.login_setup.UserViewModel
 import com.example.firedatabase_assis.postgres.PostDto
 import com.example.firedatabase_assis.postgres.Posts
+import com.example.firedatabase_assis.postgres.Recommendations
 import com.example.firedatabase_assis.search.NavigationManager
 import com.example.firedatabase_assis.search.PersonDetailFragment
 import com.example.firedatabase_assis.search.PosterFragment
@@ -30,7 +31,8 @@ class HomePage : BaseActivity() {
     private lateinit var binding: ActivityHomePageBinding
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: MyPostAdapter
-    private lateinit var postsService: Posts
+    private lateinit var recommendations: Recommendations
+    private lateinit var posts: Posts
     private lateinit var userViewModel: UserViewModel
     private lateinit var searchViewModel: SearchViewModel
     private lateinit var navigationManager: NavigationManager
@@ -42,8 +44,10 @@ class HomePage : BaseActivity() {
 
     private var isReturningFromActivity = false
     private var offset = 0
-    private val limit = 10
+    private val limit = 20
     private var hasMoreData = true  // Add this flag to track when there's no more data
+    private var lastFetchTimestamp = 0L
+    private var useTimestampBasedFetching = false
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,7 +81,8 @@ class HomePage : BaseActivity() {
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
 
-        postsService = retrofit.create(Posts::class.java)
+        recommendations = retrofit.create(Recommendations::class.java)
+        posts = retrofit.create(Posts::class.java)
 
 
         handleInitialLoadOrRefresh()
@@ -94,12 +99,13 @@ class HomePage : BaseActivity() {
                 val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
 
                 // Check if we need to load more data
-                // Load when user has scrolled to the last 2-3 items
+                // Load when user has scrolled to the last 3 items
                 val threshold = 3
                 if (!isLoading && hasMoreData &&
                     (visibleItemCount + firstVisibleItemPosition + threshold >= totalItemCount) &&
                     firstVisibleItemPosition >= 0
                 ) {
+                    Log.d("HomePage", "Near end of list, loading more data...")
                     loadData()
                 }
             }
@@ -131,6 +137,8 @@ class HomePage : BaseActivity() {
                         FragmentManager.POP_BACK_STACK_INCLUSIVE
                     )
                 }
+
+                else -> {}
             }
         }
 
@@ -171,54 +179,101 @@ class HomePage : BaseActivity() {
         // Show the refresh indicator
         swipeRefreshLayout.isRefreshing = true
 
-        // Get the current offset (to load newer content)
-        val currentOffset = offset
-
-        // We'll load newer content, so keep hasMoreData true
+        // Reset pagination variables
+        offset = 0
+        lastFetchTimestamp = 0L
         hasMoreData = true
 
-        // Show loading indicator
-
-        // Load fresh data
         lifecycleScope.launch {
             try {
-                // Get a new page of content (different than what we have)
-                val newPageOffset = offset + limit
-                val response = postsService.getPosts(limit, newPageOffset)
+                val userId = userViewModel.currentUser.value?.userId ?: return@launch
 
-                if (response.isSuccessful) {
-                    val newMovies = response.body() ?: emptyList()
+                // Check post count first to determine which API to use
+                val language = userViewModel.currentUser.value?.language ?: "en"
+                val countResponse = posts.getPostCountByLanguage(language)
 
-                    if (newMovies.isEmpty()) {
-                        // No newer content available, show a message
-                        hasMoreData = false
-                        showError("No new content available")
+                if (countResponse.isSuccessful) {
+                    val count = countResponse.body()?.get("count") ?: 0
+
+                    val response = if (count < 50) {
+                        // Use timestamp-based fetching for small datasets
+                        useTimestampBasedFetching = true
+                        posts.getPostsAfterTimestamp(0) // Start from beginning
                     } else {
-                        // Insert at the beginning (newer content appears at the top)
-                        postData.addAll(0, newMovies)
-                        adapter.notifyItemRangeInserted(0, newMovies.size)
+                        // Use recommendations for larger datasets
+                        useTimestampBasedFetching = false
+                        recommendations.getRecommendations(userId, "posts", limit, 0)
+                    }
 
-                        // Scroll to show the new content
+                    if (response.isSuccessful) {
+                        val newPosts = response.body() ?: emptyList()
+
+                        // Update timestamp if using timestamp-based fetching
+                        if (useTimestampBasedFetching && newPosts.isNotEmpty()) {
+                            val lastPost = newPosts.last()
+                            val newTimestamp =
+                                System.currentTimeMillis() // Assuming posts have a timestamp field
+                            lastFetchTimestamp = newTimestamp
+                        }
+
+                        // Clear existing data and add new data
+                        postData.clear()
+                        postData.addAll(newPosts)
+                        adapter.notifyDataSetChanged()
+
+                        // Update offset for next page if using recommendations
+                        if (!useTimestampBasedFetching) {
+                            offset = newPosts.size
+                        }
+
+                        // Check if there might be more data
+                        hasMoreData = newPosts.size >= limit
+
+                        // Scroll to top
                         recyclerView.scrollToPosition(0)
-
-                        // Update offset to include the new items
-                        offset += newMovies.size
+                    } else {
+                        handleApiError(response.code(), response.message())
                     }
                 } else {
-                    Log.e(
-                        "HomePage",
-                        "Error refreshing: ${response.code()} - ${response.message()}"
-                    )
-                    showError("Failed to refresh: ${response.message()}")
+                    // Fall back to recommendations
+                    useTimestampBasedFetching = false
+                    val response = recommendations.getRecommendations(userId, "posts", limit, 0)
+
+                    if (response.isSuccessful) {
+                        handleRefreshResponse(response)
+                    } else {
+                        handleApiError(response.code(), response.message())
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("HomePage", "Exception during refresh", e)
                 showError("Error refreshing: ${e.message}")
             } finally {
-                // Hide both indicators
+                // Hide refresh indicator
                 swipeRefreshLayout.isRefreshing = false
             }
         }
+    }
+
+    // Helper function to handle refresh response
+    private fun handleRefreshResponse(response: retrofit2.Response<List<PostDto>>) {
+        val newPosts = response.body() ?: emptyList()
+
+        // Clear existing data and add new data
+        postData.clear()
+        postData.addAll(newPosts)
+        adapter.notifyDataSetChanged()
+
+        // Update offset for next page if using recommendations
+        if (!useTimestampBasedFetching) {
+            offset = newPosts.size
+        }
+
+        // Check if there might be more data
+        hasMoreData = newPosts.size >= limit
+
+        // Scroll to top
+        recyclerView.scrollToPosition(0)
     }
 
     private fun loadData() {
@@ -226,43 +281,76 @@ class HomePage : BaseActivity() {
 
         isLoading = true
 
-
         lifecycleScope.launch {
             try {
-                // Make the API call
-                val response = postsService.getPosts(limit, offset)
+                val userId = userViewModel.currentUser.value?.userId ?: return@launch
 
-                // Check if the response is successful
-                if (response.isSuccessful) {
-                    val newMovies = response.body() ?: emptyList()
+                // First, check the count of posts in the user's language
+                val language = userViewModel.currentUser.value?.language ?: "en"
+                val countResponse = posts.getPostCountByLanguage(language)
 
-                    if (newMovies.isEmpty()) {
-                        // No more data available
-                        hasMoreData = false
-                    } else {
-                        // Log fetched movies
-                        newMovies.forEach { movie ->
-                            Log.d("HomePage", "Movie: id=${movie.postId}, title=${movie.title}")
-                        }
+                if (countResponse.isSuccessful) {
+                    val count = countResponse.body()?.get("count") ?: 0
 
-                        // Update the data
-                        val startPosition = postData.size
-                        postData.addAll(newMovies)
+                    // Decide which API to use based on the count
+                    if (count < 50) {
+                        // Use timestamp-based fetching for small datasets
+                        useTimestampBasedFetching = true
 
-                        // Better notification - only update the new items
-                        if (startPosition == 0) {
-                            adapter.notifyDataSetChanged()
+                        // Get posts after the last timestamp we've seen
+                        val response = posts.getPostsAfterTimestamp(lastFetchTimestamp)
+
+                        if (response.isSuccessful) {
+                            val newPosts = response.body() ?: emptyList()
+
+                            if (newPosts.isEmpty()) {
+                                hasMoreData = false
+                                if (postData.isEmpty()) {
+                                    showError("No posts available")
+                                }
+                            } else {
+                                // Update lastFetchTimestamp to the oldest timestamp in the batch
+                                // This assumes the API returns posts in descending order by timestamp
+                                if (newPosts.isNotEmpty()) {
+                                    // Update timestamp based on the batch size or what the server returned
+                                    val lastPost = newPosts.last()
+                                    val newTimestamp =
+                                        System.currentTimeMillis() // Assuming posts have a timestamp field
+                                    lastFetchTimestamp = newTimestamp
+                                }
+
+                                processFetchedPosts(newPosts)
+                            }
                         } else {
-                            adapter.notifyItemRangeInserted(startPosition, newMovies.size)
+                            handleApiError(response.code(), response.message())
                         }
+                    } else {
+                        // Use recommendations for larger datasets
+                        useTimestampBasedFetching = false
 
-                        // Update offset for next page
-                        offset += newMovies.size
+                        // Make the API call with the current offset using recommendations
+                        val response =
+                            recommendations.getRecommendations(userId, "posts", limit, offset)
+
+                        if (response.isSuccessful) {
+                            val newPosts = response.body() ?: emptyList()
+                            processFetchedPosts(newPosts)
+                        } else {
+                            handleApiError(response.code(), response.message())
+                        }
                     }
                 } else {
-                    // Log or handle the error response
-                    Log.e("HomePage", "Error: ${response.code()} - ${response.message()}")
-                    showError("Failed to load data: ${response.message()}")
+                    // Fall back to recommendations if count check fails
+                    useTimestampBasedFetching = false
+                    val response =
+                        recommendations.getRecommendations(userId, "posts", limit, offset)
+
+                    if (response.isSuccessful) {
+                        val newPosts = response.body() ?: emptyList()
+                        processFetchedPosts(newPosts)
+                    } else {
+                        handleApiError(response.code(), response.message())
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("HomePage", "Exception during data loading", e)
@@ -274,6 +362,52 @@ class HomePage : BaseActivity() {
         }
     }
 
+    private fun handleApiError(code: Int, message: String) {
+        Log.e("HomePage", "Error: $code - $message")
+        showError("Failed to load data: $message")
+    }
+
+    private fun processFetchedPosts(newPosts: List<PostDto>) {
+        if (newPosts.isEmpty()) {
+            // No more data available
+            hasMoreData = false
+            if (postData.isEmpty()) {
+                showError("No posts available")
+            }
+        } else {
+            // Filter out posts we already have to avoid duplicates
+            val existingIds = postData.map { it.postId }.toSet()
+            val uniqueNewPosts = newPosts.filter { it.postId !in existingIds }
+
+            if (uniqueNewPosts.isEmpty()) {
+                // All posts were duplicates, no more new data
+                hasMoreData = false
+                return
+            }
+
+            // Log fetched posts
+            Log.d("HomePage", "Loaded ${uniqueNewPosts.size} more posts")
+
+            // Update the data
+            val startPosition = postData.size
+            postData.addAll(uniqueNewPosts)
+
+            // Better notification - only update the new items
+            if (startPosition == 0) {
+                adapter.notifyDataSetChanged()
+            } else {
+                adapter.notifyItemRangeInserted(startPosition, uniqueNewPosts.size)
+            }
+
+            // Update offset for next page when using recommendations
+            if (!useTimestampBasedFetching) {
+                offset += uniqueNewPosts.size
+            }
+
+            // Determine if there might be more data
+            hasMoreData = uniqueNewPosts.size >= limit / 2 // Allow for some filtering
+        }
+    }
 
     private fun showError(message: String) {
         // Show error message to user

@@ -22,17 +22,11 @@
             android:layout_height="wrap_content"
             android:hint="Search genres" />
 
-        <ScrollView
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerViewGenreSearch"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <LinearLayout
-                android:id="@+id/linearLayoutGenreSearch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone" />
-        </ScrollView>
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -42,24 +36,52 @@
             android:layout_marginTop="16dp"
             android:layout_marginBottom="8dp" />
 
-        <ScrollView
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerViewGenres"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1">
+            android:layout_weight="1" />
 
-            <LinearLayout
-                android:id="@+id/linearLayoutGenres"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical" />
-        </ScrollView>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Genres to Avoid:"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/editTextAvoidGenres"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Search genres"
+            android:layout_marginTop="10dp" />
+
+        <LinearLayout
+            android:id="@+id/linearLayoutAvoidGenres"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="vertical" />
+
+        <TextView
+            android:id="@+id/textViewSelectedGenres"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Genres to Avoid: " />
+
+        <Button
+            android:id="@+id/buttonAdd"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Add Genres To Avoid"
+            android:layout_gravity="center_horizontal" />
 
         <Button
             android:id="@+id/saveButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Save Changes" />
-
     </LinearLayout>
-
 </LinearLayout>

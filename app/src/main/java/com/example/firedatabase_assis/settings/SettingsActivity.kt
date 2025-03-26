@@ -4,26 +4,25 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
-import android.widget.RelativeLayout
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.appcompat.widget.SwitchCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.firedatabase_assis.BaseActivity
 import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.databinding.ActivitySettingsBinding
 import com.example.firedatabase_assis.interactions.InteractionsActivity
+import com.example.firedatabase_assis.login_setup.LoginForm
 import com.example.firedatabase_assis.login_setup.UserViewModel
 import com.example.firedatabase_assis.postgres.UserUpdate
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
 
 class SettingsActivity : BaseActivity() {
     private lateinit var bind: ActivitySettingsBinding
-    private lateinit var nightModeSwitch: SwitchCompat
-    private lateinit var notificationsSwitch: SwitchCompat
     private lateinit var userViewModel: UserViewModel
     private lateinit var sharedPreferences: SharedPreferences
 
@@ -43,50 +42,27 @@ class SettingsActivity : BaseActivity() {
 
         ActivityNavigationHelper.setLastOpenedSettingsActivity(this::class.java)
 
-
         userViewModel = UserViewModel.getInstance(application)
 
         // Set username from intent
         userViewModel.currentUser.observe(this) { user ->
             if (user != null) {
                 bind.DisplayUsername.text = user.name
-            }
-            if (user != null) {
                 bind.username.text = user.username
-            }
-            if (user != null) {
                 bind.email.text = user.email
             }
         }
 
         setupToolbar("Settings")
 
-        setupClickableLayouts()
-
-
         // Setup clickable layouts
         setupClickListeners()
-
-        // Setup night mode
-        setupNightMode()
-
-        // Setup notifications
-        setupNotifications()
     }
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         setIntent(intent)
     }
-
-    private fun RelativeLayout.makeClickable() {
-        isClickable = true
-        isFocusable = true
-        val outValue = android.util.TypedValue()
-        context.theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
-        setBackgroundResource(outValue.resourceId)
-    }
-
 
     private fun setupToolbar(title: String) {
         setSupportActionBar(bind.toolbar)
@@ -98,86 +74,40 @@ class SettingsActivity : BaseActivity() {
         }
     }
 
-    private fun setupClickableLayouts() {
-        with(bind) {
-
-            // Settings options clickable areas
-            listOf(
-                R.id.activityLayout,
-                R.id.languageLayout,
-                R.id.preferencesLayout,
-                R.id.subscriptionLayout,
-                R.id.genresLayout
-            ).mapNotNull { findViewById<RelativeLayout>(it) }
-                .forEach { it.makeClickable() }
-        }
-    }
-
     private fun setupClickListeners() {
         with(bind) {
+            
+            findViewById<LinearLayout>(R.id.logoutLayout).setOnClickListener {
+                logOut()
+            }
 
             // Edit Profile
             Edituser.setOnClickListener {
                 showEditDialog()
             }
 
-
-            findViewById<RelativeLayout>(R.id.activityLayout).setOnClickListener {
+            findViewById<MaterialCardView>(R.id.activityLayout).setOnClickListener {
                 openUserActivity()
             }
 
-            findViewById<RelativeLayout>(R.id.languageLayout).setOnClickListener {
+            findViewById<MaterialCardView>(R.id.languageLayout).setOnClickListener {
                 openLanguage()
             }
 
-            findViewById<RelativeLayout>(R.id.subscriptionLayout).setOnClickListener {
+            findViewById<MaterialCardView>(R.id.subscriptionLayout).setOnClickListener {
                 openSubscriptions()
             }
 
             // Handle both Genre and Media Preferences with separate layouts
-            findViewById<RelativeLayout>(R.id.genresLayout).setOnClickListener {
+            findViewById<MaterialCardView>(R.id.genresLayout).setOnClickListener {
                 openPreferences()
             }
 
-            findViewById<RelativeLayout>(R.id.preferencesLayout).setOnClickListener {
+            findViewById<MaterialCardView>(R.id.preferencesLayout).setOnClickListener {
                 preferencesActivity()
             }
         }
     }
-
-    private fun setupNightMode() {
-        sharedPreferences = getSharedPreferences("NightModeSett", Context.MODE_PRIVATE)
-
-        // Set initial switch state from saved preferences
-        nightModeSwitch.isChecked = sharedPreferences.getBoolean("night", false)
-
-        nightModeSwitch.setOnCheckedChangeListener { _, isChecked ->
-            val editor = sharedPreferences.edit()
-            if (isChecked) {
-                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-                editor.putBoolean("night", true)
-            } else {
-                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-                editor.putBoolean("night", false)
-            }
-            editor.apply()
-
-            // Recreate activity to apply theme changes
-            recreate()
-        }
-    }
-
-    private fun setupNotifications() {
-        notificationsSwitch.setOnCheckedChangeListener { _, isChecked ->
-            val message = if (isChecked) {
-                "You will now receive notifications on any news relating to your preferences!"
-            } else {
-                "Notifications Disabled :("
-            }
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-        }
-    }
-
 
     private fun showEditDialog() {
         val dialogView = layoutInflater.inflate(R.layout.edit_user, null)
@@ -247,7 +177,6 @@ class SettingsActivity : BaseActivity() {
         dialog.show()
     }
 
-
     private fun validateInput(name: String, username: String, email: String): Boolean {
         if (name.isEmpty()) {
             Toast.makeText(this, "Name cannot be empty", Toast.LENGTH_SHORT).show()
@@ -268,6 +197,10 @@ class SettingsActivity : BaseActivity() {
         return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
     }
 
+    private fun logOut() {
+        startActivity(Intent(this, LoginForm::class.java))
+    }
+
     private fun openLanguage() {
         startActivity(Intent(this, LanguageActivity::class.java))
     }
@@ -280,10 +213,6 @@ class SettingsActivity : BaseActivity() {
         startActivity(Intent(this, SubscriptionsActivity::class.java))
     }
 
-    private fun openSecurity() {
-        startActivity(Intent(this, SecurityActivity::class.java))
-    }
-
     private fun openUserActivity() {
         startActivity(Intent(this, InteractionsActivity::class.java))
     }
@@ -291,5 +220,4 @@ class SettingsActivity : BaseActivity() {
     private fun preferencesActivity() {
         startActivity(Intent(this, PreferencesActivity::class.java))
     }
-
 }

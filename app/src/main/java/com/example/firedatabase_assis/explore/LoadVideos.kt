@@ -19,13 +19,12 @@ import com.example.firedatabase_assis.databinding.ActivityLoadVideosBinding
 import com.example.firedatabase_assis.login_setup.UserViewModel
 import com.example.firedatabase_assis.postgres.PostDto
 import com.example.firedatabase_assis.postgres.Posts
+import com.example.firedatabase_assis.postgres.Recommendations
 import com.example.firedatabase_assis.search.PersonDetailFragment
 import com.example.firedatabase_assis.search.PosterFragment
 import com.example.firedatabase_assis.search.SearchViewModel
 import com.google.android.material.snackbar.Snackbar
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -36,7 +35,7 @@ class LoadVideos : BaseActivity() {
     private lateinit var userViewModel: UserViewModel
     private lateinit var searchViewModel: SearchViewModel
     private lateinit var swipeRefreshLayout: SwipeRefreshLayout
-    private lateinit var postsService: Posts
+    private lateinit var recommendations: Recommendations
 
     // Create the Retrofit instance
     private val retrofit = Retrofit.Builder()
@@ -44,14 +43,16 @@ class LoadVideos : BaseActivity() {
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 
-    // Instantiate your Posts API
-    private lateinit var postsApi: Posts
+    private lateinit var posts: Posts
 
     private var offset = 0
     private val limit = 10
     private var isLoading = false
     private var hasMoreData = true
     private var isReturningFromActivity = false
+
+    private var lastFetchTimestamp = 0L
+    private var useTimestampBasedFetching = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,11 +90,11 @@ class LoadVideos : BaseActivity() {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
-        postsService = retrofit.create(Posts::class.java)
-        postsApi = postsService // Assign to the existing postsApi field
+        recommendations = retrofit.create(Recommendations::class.java)
+        posts = retrofit.create(Posts::class.java)
 
         // Initial data load
-        loadMoviesAndSeriesFromBottomUp()
+        loadTrailers()
 
         searchViewModel.navigationEvent.observe(this) { event ->
             when (event) {
@@ -136,17 +137,18 @@ class LoadVideos : BaseActivity() {
                 val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
 
                 // Check if we need to load more
-                val threshold = 3
+                val threshold = 2 // Slightly smaller threshold for videos since they're larger
                 if (!isLoading && hasMoreData &&
                     (visibleItemCount + firstVisibleItemPosition + threshold >= totalItemCount) &&
+                    totalItemCount > 0 && // Ensure we have some items
                     firstVisibleItemPosition >= 0
                 ) {
-                    userViewModel.currentUser.value?.userId?.let {
-                        loadMoviesAndSeriesFromBottomUp()
-                    }
+                    Log.d("LoadVideos", "Near end of list, loading more trailers...")
+                    loadTrailers()
                 }
             }
         })
+
 
         recyclerView.addOnChildAttachStateChangeListener(object :
             RecyclerView.OnChildAttachStateChangeListener {
@@ -195,74 +197,243 @@ class LoadVideos : BaseActivity() {
         // Show the refresh indicator
         swipeRefreshLayout.isRefreshing = true
 
-        // Get the current offset (to load newer content)
-        val currentOffset = offset
-
-        // We'll load newer content, so keep hasMoreData true
+        // Reset pagination variables
+        offset = 0
+        lastFetchTimestamp = 0L
         hasMoreData = true
 
-        // Load fresh data
         lifecycleScope.launch {
             try {
-                // Get a new page of content - preferably newer than current
-                val newPageOffset = offset + limit
-                val videos = withContext(Dispatchers.IO) {
-                    fetchVideosFromApi(limit, newPageOffset)
-                }
+                val userId = userViewModel.currentUser.value?.userId ?: return@launch
 
-                if (videos.isEmpty()) {
-                    // No newer content available, show a message
-                    hasMoreData = false
-                    showError("No new content available")
+                // Check post count first to determine which API to use
+                val language = userViewModel.currentUser.value?.language ?: "en"
+                val countResponse = posts.getPostCountByLanguage(language)
+
+                if (countResponse.isSuccessful) {
+                    val count = countResponse.body()?.get("count") ?: 0
+
+                    val response = if (count < 200) {
+                        // Use timestamp-based fetching for small datasets
+                        useTimestampBasedFetching = true
+                        posts.getPostsAfterTimestamp(0) // Start from beginning
+                    } else {
+                        // Use recommendations for larger datasets
+                        useTimestampBasedFetching = false
+                        recommendations.getRecommendations(userId, "trailers", limit, 0)
+                    }
+
+                    if (response.isSuccessful) {
+                        val allVideos = response.body() ?: emptyList()
+                        val videos = if (useTimestampBasedFetching) {
+                            // Filter for videos only
+                            allVideos.filter { it.videoKey.isNotEmpty() }
+                        } else {
+                            allVideos
+                        }
+
+                        // Update timestamp if using timestamp-based fetching
+                        if (useTimestampBasedFetching && videos.isNotEmpty()) {
+                            val lastVideo = videos.last()
+                            val newTimestamp =
+                                System.currentTimeMillis() // Assuming posts have a timestamp field
+                            lastFetchTimestamp = newTimestamp
+                        }
+
+                        if (videos.isEmpty()) {
+                            // No content available, show a message
+                            hasMoreData = false
+                            showError("No trailers available")
+                        } else {
+                            // Clear existing videos and add new ones
+                            adapter.clearAndAddItems(videos)
+
+                            // Scroll to top
+                            recyclerView.scrollToPosition(0)
+
+                            // Update offset for next page if using recommendations
+                            if (!useTimestampBasedFetching) {
+                                offset = videos.size
+                            }
+
+                            // Check if there might be more data
+                            hasMoreData = videos.size >= limit
+                        }
+                    } else {
+                        handleApiError(response.code(), response.message())
+                    }
                 } else {
-                    // Insert at the beginning (newer content appears at the top)
-                    adapter.addItemsAtBeginning(videos)
+                    // Fall back to recommendations
+                    useTimestampBasedFetching = false
+                    val response = recommendations.getRecommendations(userId, "trailers", limit, 0)
 
-                    // Scroll to show the new content
-                    recyclerView.scrollToPosition(0)
+                    if (response.isSuccessful) {
+                        val videos = response.body() ?: emptyList()
 
-                    // Update offset to include the new items
-                    offset += videos.size
+                        if (videos.isEmpty()) {
+                            // No content available, show a message
+                            hasMoreData = false
+                            showError("No trailers available")
+                        } else {
+                            // Clear existing videos and add new ones
+                            adapter.clearAndAddItems(videos)
+
+                            // Scroll to top
+                            recyclerView.scrollToPosition(0)
+
+                            // Update offset for next page
+                            offset = videos.size
+
+                            // Check if there might be more data
+                            hasMoreData = videos.size >= limit
+                        }
+                    } else {
+                        handleApiError(response.code(), response.message())
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("LoadVideos", "Exception during refresh", e)
                 showError("Error refreshing: ${e.message}")
             } finally {
-                // Hide indicators
+                // Hide refresh indicator
                 swipeRefreshLayout.isRefreshing = false
             }
         }
     }
 
-    private fun loadMoviesAndSeriesFromBottomUp() {
+    // Replace loadTrailers with this implementation
+    private fun loadTrailers() {
         if (isLoading || !hasMoreData) return
 
         isLoading = true
 
         lifecycleScope.launch {
             try {
-                val videos = withContext(Dispatchers.IO) {
-                    fetchVideosFromApi(limit, offset)
-                }
+                val userId = userViewModel.currentUser.value?.userId ?: return@launch
 
-                if (videos.isEmpty()) {
-                    hasMoreData = false
+                // First, check the count of posts with videos in the user's language
+                val language = userViewModel.currentUser.value?.language ?: "en"
+                val countResponse = posts.getPostCountByLanguage(language)
+
+                if (countResponse.isSuccessful) {
+                    val count = countResponse.body()?.get("count") ?: 0
+
+                    if (count < 200) {
+                        // Use timestamp-based fetching for small datasets
+                        useTimestampBasedFetching = true
+
+                        // Get videos after the last timestamp we've seen
+                        val response = posts.getPostsAfterTimestamp(lastFetchTimestamp)
+
+                        if (response.isSuccessful) {
+                            val newVideos = response.body()?.filter {
+                                // Only include posts with video keys
+                                it.videoKey.isNotEmpty()
+                            } ?: emptyList()
+
+                            if (newVideos.isEmpty()) {
+                                hasMoreData = false
+                                Log.d("LoadVideos", "No more trailers available")
+                            } else {
+                                // Update lastFetchTimestamp to the oldest timestamp in the batch
+                                if (newVideos.isNotEmpty()) {
+                                    // Update timestamp based on the batch size or what the server returned
+                                    val lastVideo = newVideos.last()
+                                    val newTimestamp =
+                                        System.currentTimeMillis() // Assuming posts have a timestamp field
+                                    lastFetchTimestamp = newTimestamp
+                                }
+
+                                processVideoResults(newVideos)
+                            }
+                        } else {
+                            handleApiError(response.code(), response.message())
+                        }
+                    } else {
+                        // Use recommendations for larger datasets
+                        useTimestampBasedFetching = false
+
+                        // Make the API call with the current offset using recommendations
+                        val response =
+                            recommendations.getRecommendations(userId, "trailers", limit, offset)
+
+                        if (response.isSuccessful) {
+                            val newVideos = response.body() ?: emptyList()
+                            processVideoResults(newVideos)
+                        } else {
+                            handleApiError(response.code(), response.message())
+                        }
+                    }
                 } else {
-                    offset += videos.size
-                    processMovieVideos(videos)
+                    // Fall back to recommendations if count check fails
+                    useTimestampBasedFetching = false
+                    val response =
+                        recommendations.getRecommendations(userId, "trailers", limit, offset)
+
+                    if (response.isSuccessful) {
+                        val newVideos = response.body() ?: emptyList()
+                        processVideoResults(newVideos)
+                    } else {
+                        handleApiError(response.code(), response.message())
+                    }
                 }
             } catch (e: Exception) {
-                Log.e("LoadVideos", "Error loading videos", e)
-                showError("Failed to load videos: ${e.message}")
+                Log.e("LoadVideos", "Error loading trailers", e)
+                showError("Failed to load trailers: ${e.message}")
             } finally {
                 isLoading = false
             }
         }
     }
 
+    private fun processVideoResults(newVideos: List<PostDto>) {
+        if (newVideos.isEmpty()) {
+            hasMoreData = false
+            Log.d("LoadVideos", "No more trailers available")
+            return
+        }
+
+        // Filter out videos we already have to avoid duplicates
+        val existingIds = adapter.getItems().map { it.postId }.toSet()
+        val uniqueNewVideos = newVideos.filter { it.postId !in existingIds }
+
+        if (uniqueNewVideos.isEmpty()) {
+            // All videos were duplicates, no more new data
+            hasMoreData = false
+            return
+        }
+
+        // Log loading information
+        Log.d(
+            "LoadVideos",
+            "Loaded ${uniqueNewVideos.size} trailers, new offset: ${offset + uniqueNewVideos.size}"
+        )
+
+        // Update offset for next page when using recommendations
+        if (!useTimestampBasedFetching) {
+            offset += uniqueNewVideos.size
+        }
+
+        // Process videos and add to adapter
+        processMovieVideos(uniqueNewVideos)
+
+        // Update hasMoreData flag
+        hasMoreData = uniqueNewVideos.size >= limit / 2 // Allow for some filtering
+    }
+
+    // Helper function to handle API errors
+    private fun handleApiError(code: Int, message: String) {
+        Log.e("LoadVideos", "Error: $code - $message")
+        showError("Failed to load trailers: $message")
+    }
+
+
     private suspend fun fetchVideosFromApi(limit: Int, offset: Int): List<PostDto> {
         return try {
-            val response = postsApi.getPosts(limit, offset)
+            val userId = userViewModel.currentUser.value?.userId ?: return emptyList()
+
+            val response = recommendations.getRecommendations(userId, "trailers", limit, offset)
+
             Log.d("API_RESPONSE", "Response body: ${response.body()}")
 
             if (response.isSuccessful) {
@@ -271,6 +442,7 @@ class LoadVideos : BaseActivity() {
                 Log.e("API_ERROR", "Error: ${response.errorBody()?.string()}")
                 emptyList()
             }
+
         } catch (e: Exception) {
             Log.e("API_EXCEPTION", "Exception: ${e.message}")
             emptyList()

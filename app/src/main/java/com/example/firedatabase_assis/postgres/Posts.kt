@@ -11,9 +11,10 @@ import retrofit2.http.Query
 
 interface Posts {
 
-    @POST("/api/posts/batch/{mediaType}/{providerId}")
+    @POST("/api/posts/batch/{mediaType}/{language}/{providerId}")
     suspend fun addPosts(
         @Path("mediaType") mediaType: String,
+        @Path("language") language: String,
         @Path("providerId") providerId: Int,
         @Body dataList: List<PostDto>
     ): Response<String>
@@ -37,5 +38,14 @@ interface Posts {
         @Query("pageSize") pageSize: Int = 20
     ): Response<List<PostDto>>
 
+    @GET("/api/posts/language/count/{language}")
+    suspend fun getPostCountByLanguage(
+        @Path("language") language: String
+    ): Response<Map<String, Int>>
+
+    @GET("/api/posts/after/{timestamp}")
+    suspend fun getPostsAfterTimestamp(
+        @Path("timestamp") timestamp: Long
+    ): Response<List<PostDto>>
 
 }

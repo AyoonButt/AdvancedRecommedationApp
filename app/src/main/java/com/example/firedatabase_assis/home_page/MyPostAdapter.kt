@@ -28,6 +28,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.threeten.bp.LocalDateTime
+import org.threeten.bp.format.DateTimeFormatter
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -104,6 +106,7 @@ class MyPostAdapter(
         holder.cardView.setOnClickListener(object : DoubleClickListener() {
             override fun onDoubleClick(v: View?) {
                 // Apply animations regardless of the current state
+                holder.likeState = true
                 holder.heart.setImageResource(R.drawable.heart_red)
                 holder.heart.tag = "liked"
                 val zoomInAnim = AnimationUtils.loadAnimation(context, R.anim.zoom_in)
@@ -133,14 +136,17 @@ class MyPostAdapter(
 
         // Add single click listener to heart ImageView
         holder.heart.setOnClickListener {
-            holder.likeState = holder.heart.tag != "liked"
+            holder.likeState = !holder.likeState  // Toggle state directly
+
+            // Update UI immediately
+            holder.heart.setImageResource(
+                if (holder.likeState) R.drawable.heart_red else R.drawable.heart_outline
+            )
+            holder.heart.tag = if (holder.likeState) "liked" else "unliked"
+
+            // Update like count in database if liked
             if (holder.likeState) {
-                holder.heart.setImageResource(R.drawable.heart_red)
-                holder.heart.tag = "liked"
-                updateLikeCount(holder.postId) // Increment like count in database
-            } else {
-                holder.heart.setImageResource(R.drawable.heart_outline)
-                holder.heart.tag = "unliked"
+                updateLikeCount(holder.postId)
             }
         }
 
@@ -181,17 +187,14 @@ class MyPostAdapter(
             }
         }
 
-        var isSaved = false
         holder.saved.setOnClickListener {
-            isSaved = !isSaved
-            holder.saveState = isSaved
-            if (isSaved) {
-                holder.saved.setImageResource(R.drawable.icon_bookmark_filled)
-                holder.saved.tag = "saved"
-            } else {
-                holder.saved.setImageResource(R.drawable.icon_bookmark_unfilled)
-                holder.saved.tag = "not_saved"
-            }
+            holder.saveState = !holder.saveState
+
+            // Update UI immediately
+            holder.saved.setImageResource(
+                if (holder.saveState) R.drawable.icon_bookmark_filled else R.drawable.icon_bookmark_unfilled
+            )
+            holder.saved.tag = if (holder.saveState) "saved" else "not_saved"
         }
 
         holder.info.setOnClickListener {
@@ -215,12 +218,12 @@ class MyPostAdapter(
 
     override fun onViewAttachedToWindow(holder: PostHolder) {
         super.onViewAttachedToWindow(holder)
-        holder.viewStartTime = System.currentTimeMillis()
+        holder.viewStartTime = getCurrentTimestamp()
     }
 
     override fun onViewDetachedFromWindow(holder: PostHolder) {
-        holder.viewEndTime = System.currentTimeMillis()
-        if (holder.viewStartTime != 0L) {
+        holder.viewEndTime = getCurrentTimestamp()
+        if (holder.viewStartTime != "") {
             updateData(holder, holder.postId)
         }
         super.onViewDetachedFromWindow(holder)
@@ -240,8 +243,8 @@ class MyPostAdapter(
                     interactionId = 0,
                     userId = userEntity.userId,
                     postId = myPostId,
-                    startTimestamp = holder.viewStartTime.toString(),
-                    endTimestamp = holder.viewEndTime.toString(),
+                    startTimestamp = holder.viewStartTime,
+                    endTimestamp = holder.viewEndTime,
                     likeState = holder.likeState,
                     saveState = holder.saveState,
                     commentButtonPressed = holder.commentButtonPressed,
@@ -268,17 +271,6 @@ class MyPostAdapter(
             }
         }
     }
-
-    fun updateData(newData: List<PostDto>) {
-        // Clear and update with a safe pattern
-        val oldSize = movies.size
-        movies.clear()
-        notifyItemRangeRemoved(0, oldSize)
-
-        movies.addAll(newData)
-        notifyItemRangeInserted(0, newData.size)
-    }
-
 
     private fun updateLikeCount(postId: Int) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -308,7 +300,7 @@ class MyPostAdapter(
     // Force save function without throttling for activity lifecycle events
     private fun saveInteraction(
         holder: PostHolder,
-        currentTime: Long = System.currentTimeMillis()
+        currentTime: String
     ) {
         holder.viewEndTime = currentTime
         updateData(holder, holder.postId)
@@ -320,12 +312,19 @@ class MyPostAdapter(
         val layoutManager = recyclerView.layoutManager as LinearLayoutManager
         val firstVisible = layoutManager.findFirstVisibleItemPosition()
         val lastVisible = layoutManager.findLastVisibleItemPosition()
-        val currentTime = System.currentTimeMillis()
+        val currentTime = getCurrentTimestamp()
 
         for (i in firstVisible..lastVisible) {
             val holder = recyclerView.findViewHolderForAdapterPosition(i) as? PostHolder ?: continue
             saveInteraction(holder, currentTime)
         }
+    }
+
+
+    private fun getCurrentTimestamp(): String {
+        val current = LocalDateTime.now()
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+        return current.format(formatter)
     }
 
 
@@ -340,15 +339,14 @@ class MyPostAdapter(
         var saved: ImageView = itemView.findViewById(R.id.saved)
         var info: ImageView = itemView.findViewById(R.id.info)
 
-        var viewStartTime: Long = 0
-        var viewEndTime: Long = 0
+        var viewStartTime: String = ""
+        var viewEndTime: String = ""
 
         var postId: Int = 0 // Add this field to store postId
         var likeState: Boolean = false
         var saveState: Boolean = false
         var commentButtonPressed: Boolean = false
 
-        var lastInteractionUpdate: Long = 0
-
+        var lastInteractionUpdate: String = ""
     }
 }

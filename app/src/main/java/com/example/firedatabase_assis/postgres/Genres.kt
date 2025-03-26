@@ -5,6 +5,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -36,5 +37,16 @@ interface Genres {
         @Path("userId") userId: Int,
         @Body genres: List<UserGenreDto>
     ): Response<List<UserGenreDto>>
+
+    @GET("/api/genres/users/{userId}/avoidGenres")
+    suspend fun getUserAvoidGenres(
+        @Path("userId") userId: Int
+    ): Response<List<GenreEntity>>
+
+    @PUT("/api/genres/users/{userId}/avoidGenres/update")
+    suspend fun updateUserAvoidGenres(
+        @Path("userId") userId: Int,
+        @Body avoidGenreIds: List<Int>
+    ): Response<List<GenreEntity>>
 
 }

@@ -428,4 +428,8 @@ fun getIso6391(englishName: String): String {
 
 data class Provider(val provider_name: String, val provider_id: Int)
 
+data class GenreItem(val id: Int, val name: String)
+
+data class SubscriptionItem(val id: Int, val name: String)
+
 

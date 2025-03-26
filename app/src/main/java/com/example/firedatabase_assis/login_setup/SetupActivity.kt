@@ -3,7 +3,6 @@ package com.example.firedatabase_assis.login_setup
 
 import SpinnerUtils
 import android.app.DatePickerDialog
-import android.content.ClipData
 import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
@@ -11,8 +10,8 @@ import android.text.TextWatcher
 import android.util.Log
 import android.view.DragEvent
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
@@ -20,7 +19,11 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.postgres.GenreEntity
@@ -30,6 +33,9 @@ import com.example.firedatabase_assis.postgres.SubscriptionProvider
 import com.example.firedatabase_assis.postgres.UserDto
 import com.example.firedatabase_assis.postgres.UserRequest
 import com.example.firedatabase_assis.postgres.Users
+import com.example.firedatabase_assis.settings.GenreAdapter
+import com.example.firedatabase_assis.settings.SubscriptionAdapter
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -48,8 +54,9 @@ SetupActivity : AppCompatActivity() {
     private lateinit var spinnerRegion: Spinner
     private lateinit var textViewSelectedOldestDate: TextView
     private lateinit var textViewSelectedMostRecentDate: TextView
-    private lateinit var linearLayoutGenres: LinearLayout
     private lateinit var linearLayoutSubscriptions: LinearLayout
+    private lateinit var recyclerViewGenres: RecyclerView
+    private lateinit var recyclerViewSubscriptions: RecyclerView
     private lateinit var linearLayoutProviders: LinearLayout
     private lateinit var linearLayoutGenresSearch: LinearLayout
     private lateinit var buttonSave: Button
@@ -64,6 +71,11 @@ SetupActivity : AppCompatActivity() {
     private lateinit var spinnerMax: Spinner
     private lateinit var spinnerMinTV: Spinner
     private lateinit var spinnerMaxTV: Spinner
+
+    private lateinit var genresAdapter: GenreAdapter
+    private lateinit var subscriptionsAdapter: SubscriptionAdapter
+    private val genresList = mutableListOf<GenreItem>()
+    private val subscriptionsList = mutableListOf<SubscriptionItem>()
 
     private var selectedOldestDate: String = ""
     private var selectedMostRecentDate: String = ""
@@ -92,10 +104,47 @@ SetupActivity : AppCompatActivity() {
         GenreEntity(10749, "Romance")
     )
 
-    private var minValues: List<String> =
-        mutableListOf("10", "20", "30", "40", "60", "75", "90", "100", "120")
-    private var maxValues: List<String> =
-        mutableListOf("60", "75", "90", "100", "120", "150", "180", "210", "240")
+    private val minTvRanges = listOf(
+        15 to "15 min",
+        20 to "20 min",
+        25 to "25 min",
+        30 to "30 min",
+        35 to "35 min",
+        40 to "40 min",
+        45 to "45 min",
+        50 to "50 min"
+    )
+
+    private val maxTvRanges = listOf(
+        30 to "30 min",
+        35 to "35 min",
+        40 to "40 min",
+        45 to "45 min",
+        50 to "50 min",
+        55 to "55 min",
+        60 to "1 hour",
+        70 to "70 min",
+        80 to "80 min"
+    )
+
+    // Movie duration ranges (minutes)
+    private val minMovieRanges = listOf(
+        60 to "1 hour",
+        75 to "1.25 hours",
+        90 to "1.5 hours",
+        105 to "1.75 hours",
+        120 to "2 hours"
+    )
+
+    private val maxMovieRanges = listOf(
+        120 to "2 hours",
+        135 to "2.25 hours",
+        150 to "2.5 hours",
+        165 to "2.75 hours",
+        180 to "3 hours",
+        210 to "3.5 hours",
+        240 to "4 hours"
+    )
 
 
     private var isSaved = false
@@ -125,8 +174,9 @@ SetupActivity : AppCompatActivity() {
         spinnerRegion = findViewById(R.id.spinnerRegion)
         textViewSelectedOldestDate = findViewById(R.id.textViewSelectedOldestDate)
         textViewSelectedMostRecentDate = findViewById(R.id.textViewSelectedMostRecentDate)
-        linearLayoutGenres = findViewById(R.id.linearLayoutGenres)
         linearLayoutSubscriptions = findViewById(R.id.linearLayoutSubscriptions)
+        recyclerViewGenres = findViewById(R.id.recyclerViewGenres)
+        recyclerViewSubscriptions = findViewById(R.id.recyclerViewSubscriptions)
         buttonSave = findViewById(R.id.buttonSave)
         editTextAddSubscription = findViewById(R.id.editTextAddSubscription)
         editTextAddGenre = findViewById(R.id.editTextAddGenre)
@@ -142,20 +192,76 @@ SetupActivity : AppCompatActivity() {
         spinnerMinTV = findViewById(R.id.spinner_minTV)
         spinnerMaxTV = findViewById(R.id.spinner_maxTV)
 
+        recyclerViewGenres.layoutManager = LinearLayoutManager(this)
+        genresAdapter = GenreAdapter(genresList)
+        recyclerViewGenres.adapter = genresAdapter
 
-        // Add initial custom View elements to LinearLayout
+        val genresTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN,
+            ItemTouchHelper.RIGHT
+        ) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                val fromPos = viewHolder.adapterPosition
+                val toPos = target.adapterPosition
+
+                // Update the data
+                val item = genresList.removeAt(fromPos)
+                genresList.add(toPos, item)
+                genresAdapter.notifyItemMoved(fromPos, toPos)
+                return true
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.adapterPosition
+                genresList.removeAt(position)
+                genresAdapter.notifyItemRemoved(position)
+            }
+        })
+        genresTouchHelper.attachToRecyclerView(recyclerViewGenres)
+        genresAdapter.setItemTouchHelper(genresTouchHelper)
+
         genres.forEach { genre ->
-            val genreView = createGenreView(genre.genreName)
-            linearLayoutGenres.addView(genreView)
+            genresList.add(GenreItem(genre.genreId, genre.genreName))
         }
 
-        // Set up drag listeners for LinearLayouts
-        linearLayoutGenres.setOnDragListener { v, event ->
-            handleDragEvent(v, event, linearLayoutGenres)
-        }
-        linearLayoutSubscriptions.setOnDragListener { v, event ->
-            handleDragEvent(v, event, linearLayoutSubscriptions)
-        }
+
+        recyclerViewSubscriptions.layoutManager = LinearLayoutManager(this)
+        subscriptionsAdapter = SubscriptionAdapter(subscriptionsList)
+        recyclerViewSubscriptions.adapter = subscriptionsAdapter
+
+        // Set up ItemTouchHelper for drag-and-drop and swipe for subscriptions
+        val subscriptionsTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN,
+            ItemTouchHelper.RIGHT
+        ) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                val fromPos = viewHolder.adapterPosition
+                val toPos = target.adapterPosition
+
+                // Update the data
+                val item = subscriptionsList.removeAt(fromPos)
+                subscriptionsList.add(toPos, item)
+                subscriptionsAdapter.notifyItemMoved(fromPos, toPos)
+                return true
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.adapterPosition
+                subscriptionsList.removeAt(position)
+                subscriptionsAdapter.notifyItemRemoved(position)
+            }
+        })
+        subscriptionsTouchHelper.attachToRecyclerView(recyclerViewSubscriptions)
+        subscriptionsAdapter.setItemTouchHelper(subscriptionsTouchHelper)
+
 
         // Set up save button click listener
         buttonSave.setOnClickListener {
@@ -176,21 +282,96 @@ SetupActivity : AppCompatActivity() {
         setupLanguageSpinner()
         setupRegionSpinner()
 
-        val minAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, minValues)
-        minAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerMin.setAdapter(minAdapter)
+        // Setup TV show duration spinners
+        val minTvAdapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            minTvRanges.map { it.second } // Display the formatted time strings
+        )
+        minTvAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerMinTV.adapter = minTvAdapter
 
-        val maxAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, maxValues)
-        maxAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerMax.setAdapter(maxAdapter)
-
-        minAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerMinTV.setAdapter(minAdapter)
-
-        maxAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerMaxTV.setAdapter(maxAdapter)
+        val maxTvAdapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            maxTvRanges.map { it.second } // Display the formatted time strings
+        )
+        maxTvAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerMaxTV.adapter = maxTvAdapter
 
 
+        // Setup Movie duration spinners
+        val minMovieAdapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            minMovieRanges.map { it.second } // Display the formatted time strings
+        )
+        minMovieAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerMin.adapter = minMovieAdapter
+
+        val maxMovieAdapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            maxMovieRanges.map { it.second } // Display the formatted time strings
+        )
+        maxMovieAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerMax.adapter = maxMovieAdapter
+
+
+        // Set listeners to ensure min <= max for TV shows
+        spinnerMinTV.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>?,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                val selectedMinValue = minTvRanges[position].first
+                val currentMaxPosition = spinnerMaxTV.selectedItemPosition
+                val currentMaxValue = maxTvRanges[currentMaxPosition].first
+
+                // If min > max, adjust max
+                if (selectedMinValue > currentMaxValue) {
+                    // Find the first max value that's >= the selected min value
+                    val newMaxPosition = maxTvRanges.indexOfFirst { it.first >= selectedMinValue }
+                    if (newMaxPosition != -1) {
+                        spinnerMaxTV.setSelection(newMaxPosition)
+                    }
+                }
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                // No action needed
+            }
+        }
+
+        // Set listeners to ensure min <= max for Movies
+        spinnerMin.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>?,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                val selectedMinValue = minMovieRanges[position].first
+                val currentMaxPosition = spinnerMax.selectedItemPosition
+                val currentMaxValue = maxMovieRanges[currentMaxPosition].first
+
+                // If min > max, adjust max
+                if (selectedMinValue > currentMaxValue) {
+                    // Find the first max value that's >= the selected min value
+                    val newMaxPosition =
+                        maxMovieRanges.indexOfFirst { it.first >= selectedMinValue }
+                    if (newMaxPosition != -1) {
+                        spinnerMax.setSelection(newMaxPosition)
+                    }
+                }
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                // No action needed
+            }
+        }
 
 
         findViewById<Button>(R.id.buttonSelectOldestDate).setOnClickListener {
@@ -267,11 +448,42 @@ SetupActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.buttonAdd).setOnClickListener {
-            val query = editTextAvoidGenres.text.toString()
+            val query = editTextAvoidGenres.text.toString().trim()
             if (query.isNotEmpty()) {
-                selectedGenres.add(query)
-                updateSelectedGenresTextView()
-                editTextAvoidGenres.text.clear()
+                // First check if genre exists in preferred genres
+                val existsInPreferred = genresList.any { it.name == query }
+
+                if (existsInPreferred) {
+                    // If genre exists in preferred list, ask user what to do
+                    MaterialAlertDialogBuilder(this)
+                        .setTitle("Genre Conflict")
+                        .setMessage("'$query' is already in your preferred genres. Do you want to move it to avoided genres instead?")
+                        .setPositiveButton("Yes") { _, _ ->
+                            // Remove from preferred genres
+                            val indexToRemove = genresList.indexOfFirst { it.name == query }
+                            if (indexToRemove != -1) {
+                                genresList.removeAt(indexToRemove)
+                                genresAdapter.notifyItemRemoved(indexToRemove)
+                            }
+
+                            // Add to avoid genres
+                            if (!selectedGenres.contains(query)) {
+                                selectedGenres.add(query)
+                                updateSelectedGenresTextView()
+                            }
+
+                            editTextAvoidGenres.setText("")
+                        }
+                        .setNegativeButton("No", null)
+                        .show()
+                } else {
+                    // Normal flow - just add to avoid genres
+                    if (!selectedGenres.contains(query)) {
+                        selectedGenres.add(query)
+                        updateSelectedGenresTextView()
+                        editTextAvoidGenres.setText("")
+                    }
+                }
             }
         }
 
@@ -406,7 +618,27 @@ SetupActivity : AppCompatActivity() {
             val textViewGenreName = genreView.findViewById<TextView>(R.id.genres_name)
             textViewGenreName.text = genre.genreName
             genreView.setOnClickListener {
+                // Set text in edit field
                 editTextAddGenre.setText(genre.genreName)
+
+                // Add to preferred genres list immediately
+                if (!genresList.any { it.name == genre.genreName }) {
+                    genresList.add(GenreItem(genre.genreId, genre.genreName))
+                    genresAdapter.notifyItemInserted(genresList.size - 1)
+
+                    // Check if this genre exists in avoid genres and remove it
+                    if (selectedGenres.contains(genre.genreName)) {
+                        selectedGenres.remove(genre.genreName)
+                        updateSelectedGenresTextView()
+                        Toast.makeText(
+                            this@SetupActivity,
+                            "Removed '${genre.genreName}' from avoided genres",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+
+                // Clear search results
                 linearLayoutGenresSearch.removeAllViews()
             }
             linearLayoutGenresSearch.addView(genreView)
@@ -421,8 +653,39 @@ SetupActivity : AppCompatActivity() {
             val textViewGenreName = genreView.findViewById<TextView>(R.id.genres_name)
             textViewGenreName.text = genre.genreName
             genreView.setOnClickListener {
-                editTextAvoidGenres.setText(genre.genreName)
-                linearLayoutAvoidGenres.removeAllViews()
+                // Check if this genre exists in preferred genres
+                val existsInPreferred = genresList.any { it.name == genre.genreName }
+
+                if (existsInPreferred) {
+                    // If genre exists in preferred list, ask user what to do
+                    MaterialAlertDialogBuilder(this)
+                        .setTitle("Genre Conflict")
+                        .setMessage("'${genre.genreName}' is already in your preferred genres. Do you want to move it to avoided genres instead?")
+                        .setPositiveButton("Yes") { _, _ ->
+                            // Remove from preferred genres
+                            val indexToRemove =
+                                genresList.indexOfFirst { it.name == genre.genreName }
+                            if (indexToRemove != -1) {
+                                genresList.removeAt(indexToRemove)
+                                genresAdapter.notifyItemRemoved(indexToRemove)
+                            }
+
+                            // Add to avoid genres
+                            if (!selectedGenres.contains(genre.genreName)) {
+                                selectedGenres.add(genre.genreName)
+                                updateSelectedGenresTextView()
+                            }
+
+                            editTextAvoidGenres.setText("")
+                            linearLayoutAvoidGenres.visibility = View.GONE
+                        }
+                        .setNegativeButton("No", null)
+                        .show()
+                } else {
+                    // Normal flow - just set the text and hide results
+                    editTextAvoidGenres.setText(genre.genreName)
+                    linearLayoutAvoidGenres.visibility = View.GONE
+                }
             }
             linearLayoutAvoidGenres.addView(genreView)
         }
@@ -431,64 +694,6 @@ SetupActivity : AppCompatActivity() {
     private fun updateSelectedGenresTextView() {
         val genresText = selectedGenres.joinToString(", ")
         textViewSelectedGenres.text = "Selected Genres: $genresText"
-    }
-
-
-    private fun createGenreView(name: String): View {
-        val inflater = LayoutInflater.from(this)
-        val genreView = inflater.inflate(R.layout.genre_item, linearLayoutGenres, false)
-        val textView = genreView.findViewById<TextView>(R.id.textViewGenreName)
-        textView.text = name
-
-        genreView.setOnTouchListener { v, event ->
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                val shadowBuilder = View.DragShadowBuilder(v)
-                val dragData = ClipData.newPlainText("", "")
-
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-                    v.startDragAndDrop(dragData, shadowBuilder, v, 0)
-                } else {
-                    @Suppress("DEPRECATION")
-                    v.startDrag(dragData, shadowBuilder, v, 0)
-                }
-
-                v.visibility = View.INVISIBLE
-                true
-            } else {
-                false
-            }
-        }
-
-        return genreView
-    }
-
-    private fun createSubscriptionView(name: String): View {
-        val inflater = LayoutInflater.from(this)
-        val subscriptionView =
-            inflater.inflate(R.layout.subscription_item, linearLayoutSubscriptions, false)
-        val textView = subscriptionView.findViewById<TextView>(R.id.textViewSubscriptionName)
-        textView.text = name
-
-        subscriptionView.setOnTouchListener { v, event ->
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                val shadowBuilder = View.DragShadowBuilder(v)
-                val dragData = ClipData.newPlainText("", "")
-
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-                    v.startDragAndDrop(dragData, shadowBuilder, v, 0)
-                } else {
-                    @Suppress("DEPRECATION")
-                    v.startDrag(dragData, shadowBuilder, v, 0)
-                }
-
-                v.visibility = View.INVISIBLE
-                true
-            } else {
-                false
-            }
-        }
-
-        return subscriptionView
     }
 
     private fun handleSaveButtonClick() {
@@ -502,27 +707,34 @@ SetupActivity : AppCompatActivity() {
             }
         }
 
-        // Clear existing checkboxes
-        linearLayoutSubscriptions.removeAllViews()
-        linearLayoutSubscriptions.setBackgroundResource(R.color.light_blue_600)
+        // Clear existing adapter data
+        subscriptionsList.clear()
 
-        // Add checked subscriptions dynamically as views
+        // Add checked subscriptions to the RecyclerView's data list
         checkedSubscriptions.forEach { subscription ->
-            val subscriptionView = createSubscriptionView(subscription)
-            linearLayoutSubscriptions.addView(subscriptionView)
+            // Using placeholder ID of 0; you'll need to get the real ID from API
+            subscriptionsList.add(SubscriptionItem(0, subscription))
         }
+
+        // Notify adapter of changes
+        subscriptionsAdapter.notifyDataSetChanged()
+
+        // Hide checkbox layout and show RecyclerView
+        linearLayoutSubscriptions.visibility = View.GONE
+        recyclerViewSubscriptions.visibility = View.VISIBLE
 
         // Set the flag to indicate that the save button has been pressed
         isSaved = true
     }
 
+
     private fun handleAddSubscriptionButtonClick() {
         val subscriptionName = editTextAddSubscription.text.toString().trim()
         if (subscriptionName.isNotEmpty()) {
             if (isSaved) {
-                // Add as subscription view
-                val subscriptionView = createSubscriptionView(subscriptionName)
-                linearLayoutSubscriptions.addView(subscriptionView)
+                // Add to RecyclerView list
+                subscriptionsList.add(SubscriptionItem(0, subscriptionName))
+                subscriptionsAdapter.notifyItemInserted(subscriptionsList.size - 1)
             } else {
                 // Add as checkbox
                 val checkBox = CheckBox(this)
@@ -536,8 +748,21 @@ SetupActivity : AppCompatActivity() {
     private fun handleAddGenreButtonClick() {
         val genreName = editTextAddGenre.text.toString().trim()
         if (genreName.isNotEmpty()) {
-            val genreView = createGenreView(genreName)
-            linearLayoutGenres.addView(genreView)
+            // Add to preferred genres list
+            genresList.add(GenreItem(0, genreName))
+            genresAdapter.notifyItemInserted(genresList.size - 1)
+
+            // Check if this genre exists in avoid genres and remove it
+            if (selectedGenres.contains(genreName)) {
+                selectedGenres.remove(genreName)
+                updateSelectedGenresTextView()
+                Toast.makeText(
+                    this@SetupActivity,
+                    "Removed '$genreName' from avoided genres",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
             editTextAddGenre.text.clear()
         }
     }
@@ -630,38 +855,19 @@ SetupActivity : AppCompatActivity() {
     }
 
 
-    private fun getOrderOfItemNames(layout: LinearLayout): List<String> {
-        val order = mutableListOf<String>()
-        for (i in 0 until layout.childCount) {
-            val view = layout.getChildAt(i)
-            val textView = view.findViewById<TextView>(R.id.textViewGenreName)
-            if (textView != null) {
-                order.add(textView.text.toString())
-            } else {
-                Log.e(
-                    "SetupActivity",
-                    "TextView with ID textViewGenreName not found in child view at index $i"
-                )
-            }
-        }
-        return order
+    private fun getOrderOfItemNames(): List<String> {
+        return genresList.map { it.name }
     }
 
-    private fun getOrderOfSubscriptionItemNames(layout: LinearLayout): List<String> {
-        val sequence = mutableListOf<String>()
-        for (i in 0 until layout.childCount) {
-            val view = layout.getChildAt(i)
-            val textView = view.findViewById<TextView>(R.id.textViewSubscriptionName)
-            if (textView != null) {
-                sequence.add(textView.text.toString())
-            } else {
-                Log.e(
-                    "SetupActivity",
-                    "TextView with ID textViewGenreName not found in child view at index $i"
-                )
-            }
+    private fun getOrderOfSubscriptionItemNames(): List<String> {
+        // If we're still in checkbox mode, return empty list or handle appropriately
+        if (!isSaved) {
+            // You might want to collect checked item names here
+            return emptyList()
         }
-        return sequence
+
+        // If we're in RecyclerView mode, get names from the adapter's data
+        return subscriptionsList.map { it.name }
     }
 
     private fun getCurrentTimestamp(): String {
@@ -683,14 +889,14 @@ SetupActivity : AppCompatActivity() {
         val languageId = getIso6391(selectedLanguage)
         val countryId = getIsoCode(selectedRegion)
 
-        val selectedMin = spinnerMin.selectedItem.toString().toInt()
-        val selectedMax = spinnerMax.selectedItem.toString().toInt()
-        val selectedMinTV = spinnerMinTV.selectedItem.toString().toInt()
-        val selectedMaxTV = spinnerMaxTV.selectedItem.toString().toInt()
+        val selectedMin = minMovieRanges[spinnerMin.selectedItemPosition].first
+        val selectedMax = maxMovieRanges[spinnerMax.selectedItemPosition].first
+        val selectedMinTV = minTvRanges[spinnerMinTV.selectedItemPosition].first
+        val selectedMaxTV = maxTvRanges[spinnerMaxTV.selectedItemPosition].first
 
         val genresToAvoid = selectedGenres.joinToString(", ")
-        val subscriptionNames = getOrderOfSubscriptionItemNames(linearLayoutSubscriptions)
-        val genreNames = getOrderOfItemNames(linearLayoutGenres)
+        val subscriptionNames = getOrderOfSubscriptionItemNames()
+        val genreNames = getOrderOfItemNames()
         val subscriptionIds = getProviderIds(subscriptionNames)
         val genreIds = getGenreIds(genreNames)
 
@@ -732,7 +938,7 @@ SetupActivity : AppCompatActivity() {
         // Check if the response is successful
         if (response.isSuccessful) {
             // Handle successful user creation (e.g., navigate to login)
-            // Navigate to LoginForm
+            // Navigate to Login
             val intent = Intent(this, LoginForm::class.java)
             startActivity(intent)
             finish()

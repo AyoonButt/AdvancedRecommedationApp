@@ -89,12 +89,7 @@ class LoginForm : AppCompatActivity() {
             val intent = Intent(this, RegisterActivity::class.java)
             startActivity(intent)
         }
-
-        // Observe LiveData on the Main thread
-        userViewModel.currentUser.observe(this) { user ->
-            // Log the updated user value
-            Log.d("LogIn", "LiveData User after setUser: $user")
-        }
+        
     }
 
 

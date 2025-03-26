@@ -3,7 +3,7 @@ package com.example.firedatabase_assis.explore
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import android.view.MotionEvent
+import android.util.Log
 import android.view.View
 import android.view.animation.Animation
 import android.view.animation.AnimationSet
@@ -24,13 +24,10 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstan
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.utils.YouTubePlayerTracker
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.threeten.bp.LocalDateTime
-import org.threeten.bp.format.DateTimeFormatter
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -38,10 +35,11 @@ class CustomPlayer(
     private val context: Context,
     customPlayerUi: View,
     private val youTubePlayer: YouTubePlayer,
-    youTubePlayerView: YouTubePlayerView,
     private val video: PostDto,
     private val searchViewModel: SearchViewModel,
-    private val userViewModel: UserViewModel
+    private val userViewModel: UserViewModel,
+    // Add a lambda function parameter for info button click
+    private val infoButtonClickListener: (() -> Unit)? = null
 ) : AbstractYouTubePlayerListener() {
 
     private val playerTracker: YouTubePlayerTracker = YouTubePlayerTracker()
@@ -49,8 +47,8 @@ class CustomPlayer(
     private val insideHeart = customPlayerUi.findViewById<ImageView>(R.id.insideHeart)
     private val muteIcon = customPlayerUi.findViewById<ImageView>(R.id.unmute)
 
-
     private var isMuted = false
+    private var isPlaying = true // Track play/pause state
     private var playTime: Long = 0
     private var isTrackingTime = false
     private val handler = Handler(Looper.getMainLooper())
@@ -69,6 +67,7 @@ class CustomPlayer(
     private var saveState: Boolean = false
     private var commentButtonPressed: Boolean = false
     private var replayCount = 0
+    private var autoStart = true // Default to auto-start
 
     // Create the Retrofit instance
     private val retrofit = Retrofit.Builder()
@@ -84,18 +83,19 @@ class CustomPlayer(
         youTubePlayer.removeListener(playerTracker)
         youTubePlayer.addListener(this)
 
-
         isMovie = video.type == "movie"
+
+        // Log initialization details
+        Log.d(
+            "CustomPlayer", "Initializing player for video:" +
+                    " postId=${video.postId}, tmdbId=${video.tmdbId}," +
+                    " type=${video.type}, isMovie=$isMovie"
+        )
 
         initViews(customPlayerUi)
 
-        // Disable built-in touch interactions
-        youTubePlayerView.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP -> true
-                else -> false
-            }
-        }
+        // Start tracking playback time
+        startTrackingTime()
     }
 
     private fun initViews(customPlayerUi: View) {
@@ -126,7 +126,6 @@ class CustomPlayer(
             }
         }
 
-
         heart.setOnClickListener {
             toggleLike(heart)
         }
@@ -149,7 +148,6 @@ class CustomPlayer(
                             .addToBackStack(null)
                             .commit()
                     }
-
                 }
             }
         }
@@ -158,18 +156,35 @@ class CustomPlayer(
             toggleMute()
         }
 
+        // Set up info button to use the lambda if provided, otherwise use direct navigation
         info.setOnClickListener {
-            searchViewModel.navigate(
-                SearchViewModel.NavigationState.ShowPoster(
-                    video.tmdbId,
-                    isMovie
-                )
-            )
+            if (infoButtonClickListener != null) {
+                // Use the lambda from the adapter to get fresh data
+                infoButtonClickListener.invoke()
+            } else {
+                // Fallback to direct navigation if no lambda provided
+                try {
+                    Log.d(
+                        "CustomPlayer", "Info button clicked (direct):" +
+                                " postId=${video.postId}, tmdbId=${video.tmdbId}," +
+                                " type=${video.type}, isMovie=$isMovie"
+                    )
+
+                    // For backwards compatibility, still support direct navigation
+                    searchViewModel.navigate(
+                        SearchViewModel.NavigationState.ShowPoster(
+                            video.tmdbId,
+                            isMovie
+                        )
+                    )
+                } catch (e: Exception) {
+                    Log.e("CustomPlayer", "Error in direct info button click", e)
+                }
+            }
         }
     }
 
     private fun toggleLike(heart: ImageView) {
-
         likeState = heart.tag != "liked" // Fix the logic here
 
         heart.setImageResource(
@@ -211,9 +226,7 @@ class CustomPlayer(
         // Update like count and timestamp
         video.postId?.let {
             updateLikeCount(it)
-
         }
-
     }
 
     private fun toggleSave(saved: ImageView) {
@@ -232,14 +245,37 @@ class CustomPlayer(
     }
 
     override fun onReady(youTubePlayer: YouTubePlayer) {
-        youTubePlayer.play()
+        if (autoStart) {
+            youTubePlayer.play()
+            isPlaying = true
+        }
     }
 
     override fun onStateChange(youTubePlayer: YouTubePlayer, state: PlayerState) {
         panel.setBackgroundColor(ContextCompat.getColor(context, android.R.color.transparent))
-        if (state == PlayerState.ENDED) {
-            youTubePlayer.seekTo(0f) // Loop the video
-            youTubePlayer.play()
+
+        when (state) {
+            PlayerState.ENDED -> {
+                // Loop the video when it ends
+                youTubePlayer.seekTo(0f)
+                youTubePlayer.play()
+                replayCount++
+                isPlaying = true
+            }
+
+            PlayerState.PLAYING -> {
+                isPlaying = true
+                // Start tracking play time if not already started
+                if (!isTrackingTime) {
+                    startTrackingTime()
+                }
+            }
+
+            PlayerState.PAUSED -> {
+                isPlaying = false
+            }
+
+            else -> {} // Handle other states if needed
         }
     }
 
@@ -261,15 +297,30 @@ class CustomPlayer(
         }
     }
 
+    // Set auto-start behavior
+    fun setAutoStart(autoStartEnabled: Boolean) {
+        autoStart = autoStartEnabled
+    }
+
+    // Play/pause control methods
+    fun play() {
+        youTubePlayer.play()
+        isPlaying = true
+    }
+
+    fun pause() {
+        youTubePlayer.pause()
+        isPlaying = false
+    }
+
+    fun isPlaying(): Boolean {
+        return isPlaying
+    }
+
     // Get current states
     fun getLikeState(): Boolean = likeState
     fun getSaveState(): Boolean = saveState
     fun wasCommentButtonPressed(): Boolean = commentButtonPressed
-
-    // Increment replay count
-    fun incrementReplayCount() {
-        replayCount++
-    }
 
     fun getReplayCount(): Int {
         return replayCount
@@ -280,13 +331,6 @@ class CustomPlayer(
         return isMuted
     }
 
-    private fun getCurrentTimestamp(): String {
-        val current = LocalDateTime.now()
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-        return current.format(formatter)
-    }
-
-
     private suspend fun getStates(userId: Int, postId: Int): InteractionStates {
         return try {
             val response = interactionsApi.getTrailerInteractionStates(userId, postId)
@@ -296,9 +340,8 @@ class CustomPlayer(
                 InteractionStates()  // Default to false states if request fails
             }
         } catch (e: Exception) {
-            println("Error getting interaction states: ${e.message}")
+            Log.e("CustomPlayer", "Error getting interaction states: ${e.message}")
             InteractionStates()  // Default to false states on error
         }
     }
-
 }

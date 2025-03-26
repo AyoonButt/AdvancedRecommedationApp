@@ -1,29 +1,28 @@
 package com.example.firedatabase_assis.settings
 
-import android.content.ClipData
 import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
-import android.view.DragEvent
-import android.view.GestureDetector
-import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.widget.EditText
-import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.firedatabase_assis.BaseActivity
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.databinding.ActivityGenresBinding
+import com.example.firedatabase_assis.login_setup.GenreItem
 import com.example.firedatabase_assis.login_setup.UserViewModel
 import com.example.firedatabase_assis.postgres.GenreEntity
 import com.example.firedatabase_assis.postgres.Genres
 import com.example.firedatabase_assis.postgres.UserGenreDto
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -31,9 +30,13 @@ import retrofit2.converter.gson.GsonConverterFactory
 class GenresActivity : BaseActivity() {
     private lateinit var binding: ActivityGenresBinding
     private lateinit var userViewModel: UserViewModel
-    private lateinit var linearLayoutGenres: LinearLayout
-    private lateinit var linearLayoutGenreSearch: LinearLayout
+    private lateinit var genresAdapter: GenreAdapter
+    private lateinit var searchAdapter: GenreSearchAdapter
+    private lateinit var genresList: MutableList<GenreItem>
     private lateinit var editTextAddGenre: EditText
+    private lateinit var editTextAvoidGenres: EditText
+    private lateinit var textViewSelectedGenres: TextView
+    private val selectedGenres = mutableListOf<String>()
 
     private val retrofit = Retrofit.Builder()
         .baseUrl(BuildConfig.POSTRGRES_API_URL)
@@ -50,43 +53,21 @@ class GenresActivity : BaseActivity() {
 
         ActivityNavigationHelper.setLastOpenedSettingsActivity(this::class.java)
 
-
         userViewModel = UserViewModel.getInstance(application)
+        genresList = mutableListOf()
 
-        linearLayoutGenres = binding.linearLayoutGenres
-        linearLayoutGenreSearch = binding.linearLayoutGenreSearch
         editTextAddGenre = binding.editTextAddGenre
+        editTextAvoidGenres = binding.editTextAvoidGenres
+        textViewSelectedGenres = binding.textViewSelectedGenres
 
         setupToolbar("Genres")
-        setupGenresList()
+        setupRecyclerViews()
+        loadUserGenres()
+        loadAvoidGenres()
         setupSearchGenre()
+        setupAvoidGenreSearch()
         setupSaveButton()
-    }
-
-    private fun setupGenresList() {
-        lifecycleScope.launch {
-            try {
-                userViewModel.currentUser.value?.let { currentUser ->
-                    val response = genresApi.getUserGenres(currentUser.userId)
-
-                    if (response.isSuccessful) {
-                        val genres = response.body() ?: emptyList()
-                        genres.sortedBy { it.priority }.forEach { genre ->
-                            val genreView = createGenreView(genre.genreName)
-                            linearLayoutGenres.addView(genreView)
-                        }
-                    } else {
-                        throw Exception("Failed to fetch genres")
-                    }
-                }
-            } catch (e: Exception) {
-                Toast.makeText(
-                    this@GenresActivity,
-                    "Error loading genres: ${e.message}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
+        setupAddAvoidGenreButton()
     }
 
     private fun setupToolbar(title: String) {
@@ -101,68 +82,132 @@ class GenresActivity : BaseActivity() {
             val intent = Intent(this, SettingsActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
+            ActivityNavigationHelper.removeLastOpenedSettingsActivity()
             startActivity(intent)
             finish()
         }
     }
 
-    private fun createGenreView(name: String): View {
-        val inflater = LayoutInflater.from(this)
-        val genreView = inflater.inflate(R.layout.genre_item, linearLayoutGenres, false)
-        val textView = genreView.findViewById<TextView>(R.id.textViewGenreName)
-        textView.text = name
+    private fun setupRecyclerViews() {
+        // Setup genres RecyclerView
+        val recyclerViewGenres = binding.recyclerViewGenres
+        recyclerViewGenres.layoutManager = LinearLayoutManager(this)
+        genresAdapter = GenreAdapter(genresList)
+        recyclerViewGenres.adapter = genresAdapter
 
-        val gestureDetector =
-            GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-                override fun onFling(
-                    e1: MotionEvent?,
-                    e2: MotionEvent,
-                    velocityX: Float,
-                    velocityY: Float
-                ): Boolean {
-                    if (e1 == null) return false
+        // Setup ItemTouchHelper for drag-and-drop and swipe
+        val itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN,
+            ItemTouchHelper.RIGHT
+        ) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                val fromPos = viewHolder.adapterPosition
+                val toPos = target.adapterPosition
 
-                    val swipeThreshold = 100
-                    val deltaX = e2.x - e1.x
-
-                    if (deltaX > swipeThreshold) { // Right swipe
-                        genreView.animate()
-                            .translationX(genreView.width.toFloat())
-                            .alpha(0f)
-                            .setDuration(300)
-                            .withEndAction {
-                                linearLayoutGenres.removeView(genreView)
-                            }
-                        return true
-                    }
-                    return false
-                }
-            })
-
-        genreView.setOnTouchListener { v, event ->
-            if (gestureDetector.onTouchEvent(event)) {
-                return@setOnTouchListener true
+                // Update the data
+                val item = genresList.removeAt(fromPos)
+                genresList.add(toPos, item)
+                genresAdapter.notifyItemMoved(fromPos, toPos)
+                return true
             }
 
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                val shadowBuilder = View.DragShadowBuilder(v)
-                val dragData = ClipData.newPlainText("", "")
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.adapterPosition
+                genresList.removeAt(position)
+                genresAdapter.notifyItemRemoved(position)
+            }
+        })
 
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-                    v.startDragAndDrop(dragData, shadowBuilder, v, 0)
-                } else {
-                    @Suppress("DEPRECATION")
-                    v.startDrag(dragData, shadowBuilder, v, 0)
+        itemTouchHelper.attachToRecyclerView(recyclerViewGenres)
+        genresAdapter.setItemTouchHelper(itemTouchHelper)
+
+        // Setup search RecyclerView
+        val recyclerViewSearch = binding.recyclerViewGenreSearch
+        recyclerViewSearch.layoutManager = LinearLayoutManager(this)
+        searchAdapter = GenreSearchAdapter { genre ->
+            // Add the selected genre to user's list
+            if (!genresList.any { it.name == genre.genreName }) {
+                genresList.add(GenreItem(genre.genreId, genre.genreName))
+                genresAdapter.notifyItemInserted(genresList.size - 1)
+
+                // Check if this genre exists in avoid genres and remove it
+                if (selectedGenres.contains(genre.genreName)) {
+                    selectedGenres.remove(genre.genreName)
+                    updateSelectedGenresTextView()
+                    Toast.makeText(
+                        this@GenresActivity,
+                        "Removed '${genre.genreName}' from avoided genres",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
 
-                v.visibility = View.INVISIBLE
-                true
-            } else {
-                false
+                editTextAddGenre.setText("")
+                binding.recyclerViewGenreSearch.visibility = View.GONE
             }
         }
+        recyclerViewSearch.adapter = searchAdapter
+    }
 
-        return genreView
+    private fun loadUserGenres() {
+        lifecycleScope.launch {
+            try {
+                userViewModel.currentUser.value?.let { currentUser ->
+                    val response = genresApi.getUserGenres(currentUser.userId)
+
+                    if (response.isSuccessful) {
+                        val genres = response.body() ?: emptyList()
+                        genresList.clear()
+
+                        genres.sortedBy { it.priority }.forEach { genre ->
+                            genresList.add(GenreItem(genre.genreId, genre.genreName))
+                        }
+
+                        genresAdapter.notifyDataSetChanged()
+                    } else {
+                        throw Exception("Failed to fetch genres")
+                    }
+                }
+            } catch (e: Exception) {
+                Toast.makeText(
+                    this@GenresActivity,
+                    "Error loading genres: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    private fun loadAvoidGenres() {
+        lifecycleScope.launch {
+            try {
+                userViewModel.currentUser.value?.let { currentUser ->
+                    val response = genresApi.getUserAvoidGenres(currentUser.userId)
+
+                    if (response.isSuccessful) {
+                        val genres = response.body() ?: emptyList()
+                        selectedGenres.clear()
+
+                        genres.forEach { genre ->
+                            selectedGenres.add(genre.genreName)
+                        }
+
+                        updateSelectedGenresTextView()
+                    } else {
+                        throw Exception("Failed to fetch avoid genres")
+                    }
+                }
+            } catch (e: Exception) {
+                Toast.makeText(
+                    this@GenresActivity,
+                    "Error loading avoid genres: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
     }
 
     private fun setupSearchGenre() {
@@ -170,85 +215,162 @@ class GenresActivity : BaseActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 val query = s.toString()
-                filterGenres(query)
+                if (query.isNotEmpty()) {
+                    binding.recyclerViewGenreSearch.visibility = View.VISIBLE
+                    filterGenres(query)
+                } else {
+                    binding.recyclerViewGenreSearch.visibility = View.GONE
+                }
             }
 
             override fun afterTextChanged(s: Editable?) {}
         })
+    }
 
-        editTextAddGenre.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
-                linearLayoutGenreSearch.visibility = View.VISIBLE
-            } else if (editTextAddGenre.text.isEmpty()) {
-                linearLayoutGenreSearch.visibility = View.GONE
+    private fun setupAvoidGenreSearch() {
+        editTextAvoidGenres.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val query = s.toString()
+                if (query.isNotEmpty()) {
+                    binding.linearLayoutAvoidGenres.visibility = View.VISIBLE
+                    filterAvoidGenres(query)
+                } else {
+                    binding.linearLayoutAvoidGenres.visibility = View.GONE
+                }
             }
-        }
 
-        linearLayoutGenres.setOnDragListener { v, event ->
-            handleDragEvent(v, event, linearLayoutGenres)
-        }
+            override fun afterTextChanged(s: Editable?) {}
+        })
     }
 
     private fun filterGenres(query: String) {
-        if (query.isNotEmpty()) {
-            lifecycleScope.launch {
-                try {
-                    val response = genresApi.filterGenres(query)
-                    if (response.isSuccessful) {
-                        val filteredGenres = response.body() ?: emptyList()
-                        Log.d(
-                            "GenresActivity",
-                            "API Response: $filteredGenres"
-                        )  // Log the entire response
-                        filteredGenres.forEach { genre ->
-                            Log.d(
-                                "GenresActivity",
-                                "Genre: ${genre.genreName}"
-                            )  // Log each genre name
-                        }
-                        updateGenres(filteredGenres)
-                    }
-                } catch (e: Exception) {
-                    Log.e("GenresActivity", "Error filtering genres", e)
-                    updateGenres(emptyList())
+        lifecycleScope.launch {
+            try {
+                val response = genresApi.filterGenres(query)
+                if (response.isSuccessful) {
+                    val filteredGenres = response.body() ?: emptyList()
+                    searchAdapter.updateGenres(filteredGenres)
+                } else {
+                    searchAdapter.updateGenres(emptyList())
                 }
+            } catch (e: Exception) {
+                Log.e("GenresActivity", "Error filtering genres", e)
+                searchAdapter.updateGenres(emptyList())
             }
-        } else {
-            updateGenres(emptyList())
         }
     }
 
-    private fun updateGenres(genres: List<GenreEntity>) {
-        Log.d("GenresActivity", "Updating genres with ${genres.size} items")
-        linearLayoutGenreSearch.removeAllViews()
+    private fun filterAvoidGenres(query: String) {
+        lifecycleScope.launch {
+            try {
+                val response = genresApi.filterGenres(query)
+                if (response.isSuccessful) {
+                    val filteredGenres = response.body() ?: emptyList()
+                    updateAvoidGenres(filteredGenres)
+                } else {
+                    updateAvoidGenres(emptyList())
+                }
+            } catch (e: Exception) {
+                Log.e("GenresActivity", "Error filtering avoid genres", e)
+                updateAvoidGenres(emptyList())
+            }
+        }
+    }
 
-        genres.forEach { genre ->
-            Log.d("GenresActivity", "Processing genre: ${genre.genreName}")
-
-            val genreView = LayoutInflater.from(this)
-                .inflate(R.layout.genre_search_item, linearLayoutGenreSearch, false)
-
+    private fun updateAvoidGenres(newGenres: List<GenreEntity>) {
+        binding.linearLayoutAvoidGenres.removeAllViews()
+        newGenres.forEach { genre ->
+            val genreView = layoutInflater.inflate(
+                R.layout.genre_search_item,
+                binding.linearLayoutAvoidGenres,
+                false
+            )
             val textViewGenreName = genreView.findViewById<TextView>(R.id.genres_name)
-            if (textViewGenreName == null) {
-                Log.e("GenresActivity", "Failed to find TextView with id: genres_name")
-                return@forEach
-            }
-
             textViewGenreName.text = genre.genreName
-            Log.d("GenresActivity", "Set text to: ${genre.genreName}")
-
-            // Make sure the TextView is visible
-            textViewGenreName.visibility = View.VISIBLE
-
             genreView.setOnClickListener {
-                val newGenreView = createGenreView(genre.genreName)
-                linearLayoutGenres.addView(newGenreView)
-                editTextAddGenre.setText("")
-                linearLayoutGenreSearch.removeAllViews()
-            }
+                // Check if this genre exists in preferred genres
+                val existsInPreferred = genresList.any { it.name == genre.genreName }
 
-            linearLayoutGenreSearch.addView(genreView)
-            Log.d("GenresActivity", "Added view to layout")
+                if (existsInPreferred) {
+                    // If genre exists in preferred list, ask user what to do
+                    MaterialAlertDialogBuilder(this)
+                        .setTitle("Genre Conflict")
+                        .setMessage("'${genre.genreName}' is already in your preferred genres. Do you want to move it to avoided genres instead?")
+                        .setPositiveButton("Yes") { _, _ ->
+                            // Remove from preferred genres
+                            val indexToRemove =
+                                genresList.indexOfFirst { it.name == genre.genreName }
+                            if (indexToRemove != -1) {
+                                genresList.removeAt(indexToRemove)
+                                genresAdapter.notifyItemRemoved(indexToRemove)
+                            }
+
+                            // Add to avoid genres
+                            if (!selectedGenres.contains(genre.genreName)) {
+                                selectedGenres.add(genre.genreName)
+                                updateSelectedGenresTextView()
+                            }
+
+                            editTextAvoidGenres.setText("")
+                            binding.linearLayoutAvoidGenres.visibility = View.GONE
+                        }
+                        .setNegativeButton("No", null)
+                        .show()
+                } else {
+                    // Normal flow - just set the text and hide results
+                    editTextAvoidGenres.setText(genre.genreName)
+                    binding.linearLayoutAvoidGenres.visibility = View.GONE
+                }
+            }
+            binding.linearLayoutAvoidGenres.addView(genreView)
+        }
+    }
+
+    private fun updateSelectedGenresTextView() {
+        val genresText = selectedGenres.joinToString(", ")
+        textViewSelectedGenres.text = "Genres to Avoid: $genresText"
+    }
+
+    private fun setupAddAvoidGenreButton() {
+        binding.buttonAdd.setOnClickListener {
+            val genreName = editTextAvoidGenres.text.toString().trim()
+            if (genreName.isNotEmpty()) {
+                // First check if genre exists in preferred genres
+                val existsInPreferred = genresList.any { it.name == genreName }
+
+                if (existsInPreferred) {
+                    // If genre exists in preferred list, ask user what to do
+                    MaterialAlertDialogBuilder(this)
+                        .setTitle("Genre Conflict")
+                        .setMessage("'$genreName' is already in your preferred genres. Do you want to move it to avoided genres instead?")
+                        .setPositiveButton("Yes") { _, _ ->
+                            // Remove from preferred genres
+                            val indexToRemove = genresList.indexOfFirst { it.name == genreName }
+                            if (indexToRemove != -1) {
+                                genresList.removeAt(indexToRemove)
+                                genresAdapter.notifyItemRemoved(indexToRemove)
+                            }
+
+                            // Add to avoid genres
+                            if (!selectedGenres.contains(genreName)) {
+                                selectedGenres.add(genreName)
+                                updateSelectedGenresTextView()
+                            }
+
+                            editTextAvoidGenres.setText("")
+                        }
+                        .setNegativeButton("No", null)
+                        .show()
+                } else {
+                    // Normal flow - just add to avoid genres
+                    if (!selectedGenres.contains(genreName)) {
+                        selectedGenres.add(genreName)
+                        updateSelectedGenresTextView()
+                        editTextAvoidGenres.setText("")
+                    }
+                }
+            }
         }
     }
 
@@ -257,30 +379,29 @@ class GenresActivity : BaseActivity() {
             lifecycleScope.launch {
                 try {
                     userViewModel.currentUser.value?.let { currentUser ->
-                        val orderedNames = getOrderOfGenreNames(linearLayoutGenres)
-                        val genreIdsResponse = genresApi.getGenreIdsByNames(orderedNames)
-
-                        if (!genreIdsResponse.isSuccessful) {
-                            throw Exception("Failed to get genre IDs")
-                        }
-
-                        val genreIds = genreIdsResponse.body() ?: emptyList()
-
-                        val genres = genreIds.mapIndexed { index, genreId ->
+                        // Update genres
+                        val userGenres = genresList.mapIndexed { index, genreItem ->
                             UserGenreDto(
                                 userId = currentUser.userId,
-                                genreId = genreId,
-                                genreName = orderedNames[index],
+                                genreId = genreItem.id,
+                                genreName = genreItem.name,
                                 priority = index + 1
                             )
                         }
 
-                        val updateResponse = genresApi.updateUserGenres(
+                        val updateGenresResponse = genresApi.updateUserGenres(
                             currentUser.userId,
-                            genres
+                            userGenres
                         )
 
-                        if (updateResponse.isSuccessful) {
+                        // Update avoid genres
+                        val avoidGenreIds = getGenreIds(selectedGenres)
+                        val updateAvoidGenresResponse = genresApi.updateUserAvoidGenres(
+                            currentUser.userId,
+                            avoidGenreIds
+                        )
+
+                        if (updateGenresResponse.isSuccessful && updateAvoidGenresResponse.isSuccessful) {
                             Toast.makeText(
                                 this@GenresActivity,
                                 "Genres updated successfully",
@@ -302,47 +423,17 @@ class GenresActivity : BaseActivity() {
         }
     }
 
-    private fun handleDragEvent(v: View, event: DragEvent, targetLayout: LinearLayout): Boolean {
-        return when (event.action) {
-            DragEvent.ACTION_DRAG_STARTED -> true
-            DragEvent.ACTION_DRAG_ENTERED -> {
-                v.invalidate()
-                true
-            }
+    private suspend fun getGenreIds(names: List<String>): List<Int> {
+        // Call the API to fetch genre IDs based on genre names
+        val response = genresApi.getGenreIdsByNames(names)
 
-            DragEvent.ACTION_DRAG_LOCATION -> true
-            DragEvent.ACTION_DRAG_EXITED -> {
-                v.invalidate()
-                true
-            }
-
-            DragEvent.ACTION_DROP -> {
-                val view = event.localState as View
-                val owner = view.parent as LinearLayout
-                owner.removeView(view)
-                targetLayout.addView(view)
-                view.visibility = View.VISIBLE
-                true
-            }
-
-            DragEvent.ACTION_DRAG_ENDED -> {
-                val view = event.localState as View
-                view.visibility = View.VISIBLE
-                v.invalidate()
-                true
-            }
-
-            else -> false
+        // Check if the response is successful
+        return if (response.isSuccessful) {
+            // Return the list of genre IDs, or an empty list if the body is null
+            response.body() ?: emptyList()
+        } else {
+            // Handle the error case
+            emptyList()
         }
-    }
-
-    private fun getOrderOfGenreNames(layout: LinearLayout): List<String> {
-        val sequence = mutableListOf<String>()
-        for (i in 0 until layout.childCount) {
-            val view = layout.getChildAt(i)
-            val textView = view.findViewById<TextView>(R.id.textViewGenreName)
-            textView?.let { sequence.add(it.text.toString()) }
-        }
-        return sequence
     }
 }
