@@ -16,5 +16,12 @@
     <color name="gray_600">#9E9E9E</color>
     <color name="light_blue_600">#0277BD</color>
     <color name="selected_comment_background">#1A000000</color>
+    <color name="background_color">#F5F5F5</color>
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="accent_color">#2196F3</color>
+    <color name="chip_background">#E0F7FA</color>
+    <color name="purple_100">#EDE7F6</color>
+    <color name="purple_50">#F5F0FA</color>
 
 </resources>

@@ -491,19 +491,146 @@ class CommentFragment(private val postId: Int, private val commentType: String) 
                 // Fetch comments for the postId
                 val commentsList = getCommentsForPost(postId)
 
-                // Log the fetched comments
-                if (commentsList.isNotEmpty()) {
-                    Log.d("CommentFragment", "Successfully fetched ${commentsList.size} comments")
+                // Check if there are any comments
+                if (commentsList.isEmpty()) {
+                    Log.d("CommentFragment", "No comments found, generating demo comments")
+                    generateDemoComments(postId)
+                    fetchComments()
                 } else {
-                    Log.d("CommentFragment", "No comments found for postId: $postId")
+                    Log.d("CommentFragment", "Successfully fetched ${commentsList.size} comments")
+                    // Update the adapter with the fetched comments
+                    commentsAdapter.updateComments(commentsList)
                 }
-
-                // Update the adapter with the fetched comments
-                commentsAdapter.updateComments(commentsList)
-                Log.d("CommentFragment", "Adapter updated with new comments")
             } catch (e: Exception) {
                 // Log any errors that occur
                 Log.e("CommentFragment", "Error fetching comments: ${e.message}")
+            }
+        }
+    }
+
+    private fun generateDemoComments(postId: Int) {
+        // User data provided (userId -> username)
+        val demoUsers = mapOf(
+            5 to "aab",
+            6 to "21j",
+            14 to "ben10",
+            8 to "abcdefg",
+            7 to "bozo",
+            11 to "Freedom",
+            9 to "CJ",
+            4 to "jake",
+            15 to "alfath"
+        )
+
+        lifecycleScope.launch {
+            try {
+                val mainComments = listOf(
+                    "This was one of the most visually stunning films I've seen all year!",
+                    "The character development in this was really well done.",
+                    "I didn't expect that plot twist - completely changed my perspective!",
+                    "The soundtrack perfectly complemented the emotional scenes.",
+                    "This deserves all the award nominations it's getting.",
+                    "I've watched this three times already and notice new details each time.",
+                    "The cinematography was absolutely breathtaking.",
+                    "The lead actor's performance was incredible in this."
+                )
+
+                val replyComments = listOf(
+                    "I agree! What was your favorite scene?",
+                    "I thought the same thing. The director really outdid themselves.",
+                    "Completely agree with your take on this.",
+                    "Have you seen their other work? Just as impressive.",
+                    "You convinced me to give it another watch!",
+                    "I had the exact same reaction when I watched it!",
+                    "Interesting perspective - I hadn't thought of it that way.",
+                    "100% - couldn't have said it better myself."
+                )
+
+                // Add 3-5 main comments
+                val commentCount = (3..5).random()
+                val addedCommentIds = mutableListOf<Int>()
+                val usedUserIds = mutableSetOf<Int>()
+
+                // Get a random selection of users for main comments
+                val mainCommentUsers = demoUsers.keys.shuffled().take(commentCount)
+
+                for (i in 0 until commentCount) {
+                    val userId = mainCommentUsers[i]
+                    val username = demoUsers[userId] ?: continue
+                    val commentText = mainComments.random()
+                    val timestamp = System.currentTimeMillis() - (1000000L..10000000L).random()
+
+                    usedUserIds.add(userId)
+
+                    val newComment = CommentDto(
+                        commentId = null,
+                        userId = userId,
+                        username = username,
+                        postId = postId,
+                        content = commentText,
+                        sentiment = "Neutral",
+                        timestamp = timestamp.toString(),
+                        parentCommentId = null,
+                        commentType = commentType
+                    )
+
+                    val response = insertComment(newComment)
+                    if (response.isSuccessful && response.body()?.success == true) {
+                        response.body()?.commentId?.let {
+                            addedCommentIds.add(it)
+                        }
+                    }
+
+                    // Add small delay between adding comments
+                    delay(200)
+                }
+
+                // Add 2-4 replies to random main comments
+                val replyCount = (2..4).random()
+
+                // Get remaining users for replies
+                val availableReplyUsers = demoUsers.keys.filter { it !in usedUserIds }.shuffled()
+                val replyUsers = if (availableReplyUsers.size >= replyCount) {
+                    availableReplyUsers.take(replyCount)
+                } else {
+                    // If we need more users than available, reuse some
+                    availableReplyUsers + demoUsers.keys.shuffled()
+                        .take(replyCount - availableReplyUsers.size)
+                }
+
+                for (i in 0 until replyCount) {
+                    if (addedCommentIds.isEmpty()) break
+
+                    val parentId = addedCommentIds.random()
+                    val userId = replyUsers[i]
+                    val username = demoUsers[userId] ?: continue
+                    val replyText = replyComments.random()
+                    val timestamp = System.currentTimeMillis() - (100000L..5000000L).random()
+
+                    val replyComment = CommentDto(
+                        commentId = null,
+                        userId = userId,
+                        username = username,
+                        postId = postId,
+                        content = replyText,
+                        sentiment = "Neutral",
+                        timestamp = timestamp.toString(),
+                        parentCommentId = parentId,
+                        commentType = commentType
+                    )
+
+                    insertComment(replyComment)
+                    delay(200)
+                }
+
+                // Reload comments to display the newly added ones
+                val updatedComments = getCommentsForPost(postId)
+                withContext(Dispatchers.Main) {
+                    commentsAdapter.updateComments(updatedComments)
+                }
+
+            } catch (e: Exception) {
+                Log.e("CommentFragment", "Error generating demo comments", e)
             }
         }
     }

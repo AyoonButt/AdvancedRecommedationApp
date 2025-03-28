@@ -9,102 +9,106 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.bumptech.glide.load.DataSource
-import com.bumptech.glide.load.engine.GlideException
-import com.bumptech.glide.request.RequestListener
-import com.bumptech.glide.request.target.Target
+import com.bumptech.glide.RequestManager
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.request.RequestOptions
 import com.example.firedatabase_assis.R
 
 class ProfileAdapter(
-    private val onItemClick: (Person) -> Unit // Lambda to handle profile item clicks
+    private val onItemClick: (Person) -> Unit
 ) : ListAdapter<Person, ProfileAdapter.ProfileViewHolder>(ProfileDiffCallback()) {
 
-    class ProfileViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val imageView: ImageView = view.findViewById(R.id.profile_image)
-        val textView: TextView = view.findViewById(R.id.name)
-        var isViewHolderDestroyed = false
-
-        fun unbind() {
-            try {
-                if (!isViewHolderDestroyed) {
-                    Glide.with(itemView.context).clear(imageView)
-                }
-            } catch (e: Exception) {
-                // Ignore cleanup errors
-            }
-        }
-
-        fun onViewDestroyed() {
-            isViewHolderDestroyed = true
-        }
+    // Use different view types for different items
+    override fun getItemViewType(position: Int): Int {
+        // Return the position as view type to ensure each position gets a unique type
+        // This prevents view recycling issues with images
+        return position
     }
-
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ProfileViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_person, parent, false)
-        return ProfileViewHolder(view)
+        return ProfileViewHolder(view, onItemClick)
     }
 
     override fun onBindViewHolder(holder: ProfileViewHolder, position: Int) {
-        val profile = getItem(position)
-        holder.textView.text = profile.name
-
-        if (!holder.isViewHolderDestroyed) {
-            Glide.with(holder.imageView.context)
-                .load("https://image.tmdb.org/t/p/original${profile.profile_path}")
-                .circleCrop()
-                .listener(object : RequestListener<android.graphics.drawable.Drawable> {
-                    override fun onLoadFailed(
-                        e: GlideException?,
-                        model: Any?,
-                        target: Target<android.graphics.drawable.Drawable>?,
-                        isFirstResource: Boolean
-                    ): Boolean {
-                        return false
-                    }
-
-                    override fun onResourceReady(
-                        resource: android.graphics.drawable.Drawable?,
-                        model: Any?,
-                        target: Target<android.graphics.drawable.Drawable>?,
-                        dataSource: DataSource?,
-                        isFirstResource: Boolean
-                    ): Boolean {
-                        return false
-                    }
-                })
-                .into(holder.imageView)
-        }
-
-        holder.itemView.setOnClickListener {
-            onItemClick(profile)
-        }
+        val person = getItem(position)
+        holder.bind(person)
     }
 
     override fun onViewRecycled(holder: ProfileViewHolder) {
         super.onViewRecycled(holder)
-        holder.unbind()
+        holder.clearImage()
     }
 
-    override fun onViewDetachedFromWindow(holder: ProfileViewHolder) {
-        super.onViewDetachedFromWindow(holder)
-        holder.onViewDestroyed()
+    class ProfileViewHolder(
+        view: View,
+        private val onItemClick: (Person) -> Unit
+    ) : RecyclerView.ViewHolder(view) {
+        private val imageView: ImageView = view.findViewById(R.id.profile_image)
+        private val textView: TextView = view.findViewById(R.id.name)
+        private var currentPersonId: Int = -1
+        private val glideRequest: RequestManager = Glide.with(view.context)
+
+        fun bind(person: Person) {
+            textView.text = person.name
+            currentPersonId = person.id
+
+            // Always clear any existing request first
+            clearImage()
+
+            // Then set the new image if available
+            if (!person.profile_path.isNullOrEmpty()) {
+                val imageUrl = "https://image.tmdb.org/t/p/w185${person.profile_path}"
+
+                glideRequest
+                    .load(imageUrl)
+                    .apply(
+                        RequestOptions()
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .placeholder(R.drawable.person_placeholder)
+                            .error(R.drawable.person_placeholder)
+                    )
+                    .circleCrop()
+                    .into(imageView)
+            } else {
+                // Set placeholder for null profile paths
+                imageView.setImageResource(R.drawable.person_placeholder)
+            }
+
+            itemView.setOnClickListener {
+                onItemClick(person)
+            }
+        }
+
+        fun clearImage() {
+            glideRequest.clear(imageView)
+            imageView.setImageResource(R.drawable.person_placeholder)
+        }
+    }
+
+    class ProfileDiffCallback : DiffUtil.ItemCallback<Person>() {
+        override fun areItemsTheSame(oldItem: Person, newItem: Person): Boolean {
+            return oldItem.id == newItem.id
+        }
+
+        override fun areContentsTheSame(oldItem: Person, newItem: Person): Boolean {
+            return oldItem == newItem
+        }
+    }
+
+    // Override setHasStableIds to ensure stable ids
+    init {
+        setHasStableIds(true)
+    }
+
+    // Provide stable IDs based on person's ID
+    override fun getItemId(position: Int): Long {
+        return getItem(position).id.toLong()
     }
 
     fun cleanup() {
+        // Clear all items
         submitList(null)
-    }
-
-}
-
-
-private class ProfileDiffCallback : DiffUtil.ItemCallback<Person>() {
-    override fun areItemsTheSame(oldItem: Person, newItem: Person): Boolean {
-        return oldItem.id == newItem.id
-    }
-
-    override fun areContentsTheSame(oldItem: Person, newItem: Person): Boolean {
-        return oldItem == newItem
     }
 }

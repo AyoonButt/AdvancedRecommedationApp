@@ -34,7 +34,7 @@ val countries = listOf(
     Country("CM", "Cameroon", "Cameroon"),
     Country("CO", "Colombia", "Colombia"),
     Country("CR", "Costa Rica", "Costa Rica"),
-    Country("CU", "Cuba", "Cuba"),
+    Country("CU", "  ", "Cuba"),
     Country("CV", "Cape Verde", "Cape Verde"),
     Country("CY", "Cyprus", "Cyprus"),
     Country("CZ", "Czech Republic", "Czech Republic"),

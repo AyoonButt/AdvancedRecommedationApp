@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
@@ -70,7 +71,7 @@ class PersonDetailFragment : Fragment() {
             viewModel.navigate(SearchViewModel.NavigationState.Close)
         }
 
-        // Initialize the adapter (this was being re-declared before)
+        // Initialize the adapter
         creditsAdapter = MediaItemAdapter(
             onItemClick = { item ->
                 val isMovie = item is Movie
@@ -86,10 +87,10 @@ class PersonDetailFragment : Fragment() {
             isRecommendation = false
         )
 
-        // Setup RecyclerView for credits (cast in this case)
+        // Setup RecyclerView for credits
         view.findViewById<RecyclerView>(R.id.creditsRecyclerView).apply {
             layoutManager = GridLayoutManager(context, 2)
-            adapter = creditsAdapter  // Set the initialized adapter
+            adapter = creditsAdapter
         }
     }
 
@@ -132,6 +133,14 @@ class PersonDetailFragment : Fragment() {
                         withContext(Dispatchers.Main) {
                             if (!isAdded) return@withContext
                             creditsAdapter.submitList(mediaItems)
+
+                            // Hide or show the credits section based on whether there are items
+                            view?.apply {
+                                findViewById<TextView>(R.id.creditsLabel).visibility =
+                                    if (mediaItems.isNotEmpty()) View.VISIBLE else View.GONE
+                                findViewById<RecyclerView>(R.id.creditsRecyclerView).visibility =
+                                    if (mediaItems.isNotEmpty()) View.VISIBLE else View.GONE
+                            }
                         }
                     }
                 }
@@ -143,20 +152,40 @@ class PersonDetailFragment : Fragment() {
 
     private fun updatePersonUI(person: PersonDetails) {
         view?.apply {
+            // Name is always displayed
             findViewById<TextView>(R.id.name).text = person.name
-            findViewById<TextView>(R.id.placeOfBirth).text = person.placeOfBirth ?: "N/A"
-            findViewById<TextView>(R.id.knownFor).text = person.knownForDepartment ?: "N/A"
 
-            // Calculate age or birth-death range
-            val ageOrRange = person.birthday?.let { birth ->
-                person.deathday?.let { death -> "$birth - $death" }
-                    ?: "Age: ${calculateAge(birth)}"
-            } ?: "N/A"
-            findViewById<TextView>(R.id.age_or_range).text = ageOrRange
+            // Place of birth - hide if empty
+            val birthplace = person.place_of_birth
+            findViewById<TextView>(R.id.placeOfBirth).text = birthplace ?: ""
+            findViewById<LinearLayout>(R.id.birthplaceContainer).visibility =
+                if (!birthplace.isNullOrEmpty()) View.VISIBLE else View.GONE
 
-            findViewById<TextView>(R.id.biography).text = person.biography
+            // Department - hide if empty
+            val department = person.known_for_department
+            findViewById<TextView>(R.id.knownFor).text = department ?: ""
+            findViewById<LinearLayout>(R.id.knownForContainer).visibility =
+                if (!department.isNullOrEmpty()) View.VISIBLE else View.GONE
 
-            person.profilePath?.let { path ->
+            // Age or age range - hide if no birth date
+            val birthDate = person.birthday
+            if (!birthDate.isNullOrEmpty()) {
+                val ageOrRange = person.deathday?.let { death -> "$birthDate - $death" }
+                    ?: "Age: ${calculateAge(birthDate)}"
+                findViewById<TextView>(R.id.age_or_range).text = ageOrRange
+                findViewById<LinearLayout>(R.id.ageContainer).visibility = View.VISIBLE
+            } else {
+                findViewById<LinearLayout>(R.id.ageContainer).visibility = View.GONE
+            }
+
+            // Biography - hide entire card if empty
+            val biography = person.biography
+            findViewById<TextView>(R.id.biography).text = biography
+            findViewById<androidx.cardview.widget.CardView>(R.id.biographyCard).visibility =
+                if (!biography.isNullOrEmpty()) View.VISIBLE else View.GONE
+
+            // Profile image
+            person.profile_path?.let { path ->
                 Glide.with(this)
                     .load("https://image.tmdb.org/t/p/original$path")
                     .into(findViewById(R.id.personImage))
@@ -216,7 +245,6 @@ class PersonDetailFragment : Fragment() {
         }
     }
 
-
     override fun onPause() {
         super.onPause()
         if (!isBackNavigation) {
@@ -230,5 +258,4 @@ class PersonDetailFragment : Fragment() {
         }
         super.onDetach()
     }
-
 }

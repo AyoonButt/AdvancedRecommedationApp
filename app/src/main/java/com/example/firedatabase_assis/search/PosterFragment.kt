@@ -2,6 +2,7 @@ package com.example.firedatabase_assis.search
 
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -18,6 +19,7 @@ import com.bumptech.glide.Glide
 import com.example.firedatabase_assis.BuildConfig
 import com.example.firedatabase_assis.R
 import com.example.firedatabase_assis.login_setup.UserViewModel
+import com.example.firedatabase_assis.postgres.Posts
 import com.example.firedatabase_assis.workers.Video
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
@@ -30,6 +32,8 @@ import okhttp3.Request
 import org.json.JSONObject
 import org.threeten.bp.LocalDateTime
 import org.threeten.bp.format.DateTimeFormatter
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class PosterFragment : Fragment() {
 
@@ -40,6 +44,12 @@ class PosterFragment : Fragment() {
     private lateinit var castRecyclerView: RecyclerView
     private lateinit var castAdapter: CastAdapter
     private lateinit var recommendationsAdapter: MediaItemAdapter
+    private val retrofit = Retrofit.Builder()
+        .baseUrl(BuildConfig.POSTRGRES_API_URL)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    private val postsApi = retrofit.create(Posts::class.java)
     private val client = OkHttpClient()
 
     private var startTimestamp: String? = null
@@ -199,77 +209,110 @@ class PosterFragment : Fragment() {
     private fun updateUI(data: JSONObject, isMovie: Boolean) {
         view?.apply {
             // Basic Info
-            findViewById<TextView>(R.id.title).text =
-                if (isMovie) data.getString("title") else data.getString("name")
-            findViewById<TextView>(R.id.caption).text = data.getString("overview")
+            val title = if (isMovie) data.getString("title") else data.getString("name")
+            findViewById<TextView>(R.id.title).apply {
+                text = title
+                visibility = if (title.isNotEmpty()) View.VISIBLE else View.GONE
+            }
+
+            val overview = data.getString("overview")
+            findViewById<TextView>(R.id.caption).apply {
+                text = overview
+                visibility = if (overview.isNotEmpty()) View.VISIBLE else View.GONE
+            }
+            findViewById<TextView>(R.id.overviewLabel).visibility =
+                if (overview.isNotEmpty()) View.VISIBLE else View.GONE
 
             // Movie-specific fields
-            findViewById<TextView>(R.id.releaseDate).apply {
-                text =
-                    if (isMovie) data.getString("release_date") else data.getString("first_air_date")
+            val releaseDate =
+                if (isMovie) data.getString("release_date") else data.getString("first_air_date")
+            findViewById<TextView>(R.id.releaseDate).text = releaseDate
+            findViewById<LinearLayout>(R.id.releaseDateContainer).visibility =
+                if (releaseDate.isNotEmpty()) View.VISIBLE else View.GONE
+
+            val runtimeValue = if (isMovie) {
+                data.getInt("runtime")
+            } else {
+                data.getJSONArray("episode_run_time").let {
+                    if (it.length() > 0) it.getInt(0) else 0
+                }
             }
-            findViewById<TextView>(R.id.runtime).apply {
-                text = if (isMovie) "${data.getInt("runtime")} min" else "${
-                    data.getJSONArray("episode_run_time").let {
-                        if (it.length() > 0) it.getInt(0) else 0
-                    }
-                } min"
+
+            findViewById<TextView>(R.id.runtime).text =
+                if (runtimeValue > 0) "$runtimeValue min" else ""
+            findViewById<LinearLayout>(R.id.runtimeContainer).visibility =
+                if (runtimeValue > 0) View.VISIBLE else View.GONE
+
+            val actualTmdbId = data.getInt("id")
+            lifecycleScope.launch {
+                val provider = fetchProviderForTmdbId(actualTmdbId)
+                findViewById<TextView>(R.id.subscription).text = provider ?: ""
+                findViewById<LinearLayout>(R.id.subscriptionContainer).visibility =
+                    if (provider != null) View.VISIBLE else View.GONE
             }
 
             // TV-specific fields
-            findViewById<TextView>(R.id.lastAirDate).apply {
-                visibility = if (!isMovie) View.VISIBLE else View.GONE
-                text = if (!isMovie) {
+            findViewById<LinearLayout>(R.id.tvSpecificContainer).visibility =
+                if (!isMovie) View.VISIBLE else View.GONE
+
+            if (!isMovie) {
+                val lastAirDate =
                     if (data.isNull("last_air_date")) "Current" else data.getString("last_air_date")
-                } else null
-            }
+                findViewById<TextView>(R.id.lastAirDate).text = lastAirDate
+                findViewById<LinearLayout>(R.id.lastAirDateContainer).visibility =
+                    if (lastAirDate.isNotEmpty()) View.VISIBLE else View.GONE
 
-            findViewById<TextView>(R.id.inProduction).apply {
-                visibility = if (!isMovie) View.VISIBLE else View.GONE
-                text = if (!isMovie) {
+                val productionStatus =
                     if (data.getBoolean("in_production")) "In Production" else "Ended"
-                } else null
-            }
+                findViewById<TextView>(R.id.inProduction).text = productionStatus
+                findViewById<LinearLayout>(R.id.statusContainer).visibility =
+                    if (productionStatus.isNotEmpty()) View.VISIBLE else View.GONE
 
-            findViewById<TextView>(R.id.nextEpisode).apply {
-                visibility = if (!isMovie) View.VISIBLE else View.GONE
-                text = if (!isMovie) {
-                    data.optJSONObject("next_episode_to_air")?.getString("name")
-                        ?: "No upcoming episodes"
-                } else null
-            }
+                val nextEpisode = data.optJSONObject("next_episode_to_air")?.getString("name")
+                    ?: "No upcoming episodes"
+                findViewById<TextView>(R.id.nextEpisode).text = nextEpisode
+                findViewById<LinearLayout>(R.id.nextEpisodeContainer).visibility =
+                    if (nextEpisode.isNotEmpty()) View.VISIBLE else View.GONE
 
-            findViewById<TextView>(R.id.numberOfEpisodes).apply {
-                visibility = if (!isMovie) View.VISIBLE else View.GONE
-                text = if (!isMovie) "${data.getInt("number_of_episodes")} episodes" else null
-            }
+                val numEpisodes = data.getInt("number_of_episodes")
+                val episodesText = if (numEpisodes > 0) "$numEpisodes episodes" else ""
+                findViewById<TextView>(R.id.numberOfEpisodes).text = episodesText
+                findViewById<LinearLayout>(R.id.episodesContainer).visibility =
+                    if (episodesText.isNotEmpty()) View.VISIBLE else View.GONE
 
-            findViewById<TextView>(R.id.numberOfSeasons).apply {
-                visibility = if (!isMovie) View.VISIBLE else View.GONE
-                text = if (!isMovie) "${data.getInt("number_of_seasons")} seasons" else null
+                val numSeasons = data.getInt("number_of_seasons")
+                val seasonsText = if (numSeasons > 0) "$numSeasons seasons" else ""
+                findViewById<TextView>(R.id.numberOfSeasons).text = seasonsText
+                findViewById<LinearLayout>(R.id.seasonsContainer).visibility =
+                    if (seasonsText.isNotEmpty()) View.VISIBLE else View.GONE
             }
 
             // Common fields
-            val genres = data.getJSONArray("genres")
+            val genresList = data.getJSONArray("genres")
                 .let { 0.until(it.length()).map { i -> it.getJSONObject(i).getString("name") } }
-                .joinToString(", ")
+            val genres = genresList.joinToString(", ")
             findViewById<TextView>(R.id.genres).text = genres
+            findViewById<LinearLayout>(R.id.genresContainer).visibility =
+                if (genres.isNotEmpty()) View.VISIBLE else View.GONE
 
-            val originCountries = data.getJSONArray("origin_country")
+            val countriesList = data.getJSONArray("origin_country")
                 .let { 0.until(it.length()).map { i -> it.getString(i) } }
-                .joinToString(", ")
+            val originCountries = countriesList.joinToString(", ")
             findViewById<TextView>(R.id.countries).text = originCountries
+            findViewById<LinearLayout>(R.id.countriesContainer).visibility =
+                if (originCountries.isNotEmpty()) View.VISIBLE else View.GONE
 
-            val companies = data.getJSONArray("production_companies")
+            val companiesList = data.getJSONArray("production_companies")
                 .let { 0.until(it.length()).map { i -> it.getJSONObject(i).getString("name") } }
-                .joinToString(", ")
+            val companies = companiesList.joinToString(", ")
             findViewById<TextView>(R.id.companies).text = companies
+            findViewById<LinearLayout>(R.id.companiesContainer).visibility =
+                if (companies.isNotEmpty()) View.VISIBLE else View.GONE
 
-            findViewById<TextView>(R.id.collection).apply {
-                visibility =
-                    data.optJSONObject("belongs_to_collection")?.let { View.VISIBLE } ?: View.GONE
-                text = data.optJSONObject("belongs_to_collection")?.getString("name")
-            }
+            val collection = data.optJSONObject("belongs_to_collection")?.getString("name") ?: ""
+            findViewById<TextView>(R.id.collection).text = collection
+            findViewById<LinearLayout>(R.id.collectionContainer).visibility =
+                if (collection.isNotEmpty()) View.VISIBLE else View.GONE
 
             // Media content
             val posterPath = data.getString("poster_path")
@@ -282,6 +325,11 @@ class PosterFragment : Fragment() {
                 parseTVCast(data.getJSONObject("aggregate_credits"))
             }
             castAdapter.submitList(cast)
+
+            findViewById<TextView>(R.id.castLabel).visibility =
+                if (cast.isNotEmpty()) View.VISIBLE else View.GONE
+            findViewById<RecyclerView>(R.id.recyclerViewProfiles).visibility =
+                if (cast.isNotEmpty()) View.VISIBLE else View.GONE
 
             // Recommendations
             val recommendations = data.getJSONObject("recommendations")
@@ -341,8 +389,14 @@ class PosterFragment : Fragment() {
                     }.filterNotNull()
                 }
             recommendationsAdapter.submitList(recommendations)
+
+            findViewById<TextView>(R.id.recommendationsLabel).visibility =
+                if (recommendations.isNotEmpty()) View.VISIBLE else View.GONE
+            findViewById<RecyclerView>(R.id.recyclerViewRecommendations).visibility =
+                if (recommendations.isNotEmpty()) View.VISIBLE else View.GONE
         }
     }
+
 
     private fun setupViewPager(posterPath: String?, videoKey: String?) {
         val items = mutableListOf<ViewPagerItem>()
@@ -435,28 +489,52 @@ class PosterFragment : Fragment() {
                 // Get profile path, or null if not available
                 val profilePath = castObject.optString("profile_path", null)
 
-                // Get roles and episode count (assuming roles array is present)
+                // Get roles array for character name and episode count
                 val rolesArray = castObject.getJSONArray("roles")
-                val episodeCount = if (rolesArray.length() > 0) {
-                    rolesArray.getJSONObject(0).getInt("episode_count")
-                } else {
-                    0 // Default to 0 if there are no roles
-                }
 
-                // Create and add CastMember to the list
-                castList.add(
-                    CastMember(
-                        id = castObject.getInt("id"),
-                        name = castObject.getString("name"),
-                        character = castObject.getString("roles").takeIf { it.isNotEmpty() }
-                            ?: "Unknown",  // Character can be empty, hence a fallback
-                        episodeCount = episodeCount,
-                        profilePath = profilePath
+                if (rolesArray.length() > 0) {
+                    val roleObject = rolesArray.getJSONObject(0)
+                    val character = roleObject.getString("character")
+                    val episodeCount = roleObject.getInt("episode_count")
+
+                    castList.add(
+                        CastMember(
+                            id = castObject.getInt("id"),
+                            name = castObject.getString("name"),
+                            character = character,
+                            episodeCount = episodeCount,
+                            profilePath = profilePath
+                        )
                     )
-                )
+                } else {
+                    // Fallback if no roles information is available
+                    castList.add(
+                        CastMember(
+                            id = castObject.getInt("id"),
+                            name = castObject.getString("name"),
+                            character = "",
+                            episodeCount = 0,
+                            profilePath = profilePath
+                        )
+                    )
+                }
             }
         }
         return castList
+    }
+
+    private suspend fun fetchProviderForTmdbId(tmdbId: Int): String? {
+        return try {
+            val response = postsApi.getProviderNameByTmdbId(tmdbId)
+            if (response.isSuccessful) {
+                response.body()?.get("provider")
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("API", "Error fetching provider for TMDB ID $tmdbId", e)
+            null
+        }
     }
 
 

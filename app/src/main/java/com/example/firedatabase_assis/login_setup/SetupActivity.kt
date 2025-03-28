@@ -8,7 +8,6 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
-import android.view.DragEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.AdapterView
@@ -408,31 +407,49 @@ SetupActivity : AppCompatActivity() {
         }
 
         editTextAddGenre.addTextChangedListener(object : TextWatcher {
-
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 val query = s.toString()
-                filterGenres(query)
+
+                // Only search if field has focus to avoid conflicts
+                if (editTextAddGenre.hasFocus()) {
+                    filterGenres(query)
+                }
             }
 
             override fun afterTextChanged(s: Editable?) {}
         })
 
+
         editTextAddGenre.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
-                linearLayoutGenresSearch.visibility = View.VISIBLE // Show genre suggestions layout
-            } else if (editTextAddGenre.text.isEmpty()) {
-                linearLayoutGenresSearch.visibility =
-                    View.GONE // Hide genre suggestions layout if empty
+                // Show genre search container and hide avoid container
+                linearLayoutGenresSearch.visibility = View.VISIBLE
+                linearLayoutAvoidGenres.visibility = View.GONE
+
+                // If there's text, trigger a search
+                if (editTextAddGenre.text.isNotEmpty()) {
+                    filterGenres(editTextAddGenre.text.toString())
+                }
+            } else {
+                // Only hide if there's no text
+                if (editTextAddGenre.text.isEmpty()) {
+                    linearLayoutGenresSearch.visibility = View.GONE
+                }
             }
         }
 
         editTextAvoidGenres.addTextChangedListener(object : TextWatcher {
-
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 val query = s.toString()
-                filterAvoidGenres(query)
+
+                // Only search if field has focus to avoid conflicts
+                if (editTextAvoidGenres.hasFocus()) {
+                    filterAvoidGenres(query)
+                }
             }
 
             override fun afterTextChanged(s: Editable?) {}
@@ -440,10 +457,19 @@ SetupActivity : AppCompatActivity() {
 
         editTextAvoidGenres.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
-                linearLayoutGenresSearch.visibility = View.VISIBLE // Show genre suggestions layout
-            } else if (editTextAvoidGenres.text.isEmpty()) {
-                linearLayoutGenresSearch.visibility =
-                    View.GONE // Hide genre suggestions layout if empty
+                // Show avoid container and hide genre search container
+                linearLayoutAvoidGenres.visibility = View.VISIBLE
+                linearLayoutGenresSearch.visibility = View.GONE
+
+                // If there's text, trigger a search
+                if (editTextAvoidGenres.text.isNotEmpty()) {
+                    filterAvoidGenres(editTextAvoidGenres.text.toString())
+                }
+            } else {
+                // Only hide if there's no text
+                if (editTextAvoidGenres.text.isEmpty()) {
+                    linearLayoutAvoidGenres.visibility = View.GONE
+                }
             }
         }
 
@@ -531,13 +557,16 @@ SetupActivity : AppCompatActivity() {
 
     private fun updateProviders(newProviders: List<SubscriptionProvider>) {
         linearLayoutProviders.removeAllViews()
-        newProviders.forEach { providerName ->
+        newProviders.forEach { provider ->
             val providerView = LayoutInflater.from(this)
                 .inflate(R.layout.provider_item, linearLayoutProviders, false)
             val textViewProviderName = providerView.findViewById<TextView>(R.id.provider_name)
-            textViewProviderName.text = providerName.toString()
+
+            textViewProviderName.text = provider.providerName
+
             providerView.setOnClickListener {
-                editTextAddSubscription.setText(providerName.toString())
+                // Set the provider name in the edit text
+                editTextAddSubscription.setText(provider.providerName)
                 linearLayoutProviders.removeAllViews()
             }
             linearLayoutProviders.addView(providerView)
@@ -554,7 +583,8 @@ SetupActivity : AppCompatActivity() {
                     if (response.isSuccessful) {
                         val filteredGenres = response.body() ?: emptyList()
                         withContext(Dispatchers.Main) {
-                            updateGenres(filteredGenres)
+                            // Update the search results container
+                            updateGenresSearchResults(filteredGenres)
                         }
                     } else {
                         Log.e(
@@ -562,18 +592,43 @@ SetupActivity : AppCompatActivity() {
                             "Failed to fetch filtered genres: ${response.message()}"
                         )
                         withContext(Dispatchers.Main) {
-                            updateGenres(emptyList())
+                            // Clear container on error
+                            linearLayoutGenresSearch.removeAllViews()
                         }
                     }
                 } catch (e: Exception) {
                     Log.e("GenresManager", "Error fetching filtered genres", e)
                     withContext(Dispatchers.Main) {
-                        updateGenres(emptyList())
+                        // Clear container on error
+                        linearLayoutGenresSearch.removeAllViews()
                     }
                 }
             }
         } else {
-            updateGenres(emptyList())
+            // Clear container when query is empty
+            linearLayoutGenresSearch.removeAllViews()
+        }
+    }
+
+    private fun updateGenresSearchResults(newGenres: List<GenreEntity>) {
+        // Always use the genres search container for regular genre search results
+        linearLayoutGenresSearch.removeAllViews()
+        linearLayoutGenresSearch.visibility = if (newGenres.isEmpty()) View.GONE else View.VISIBLE
+
+        newGenres.forEach { genre ->
+            val genreView = LayoutInflater.from(this)
+                .inflate(R.layout.genre_search_item, linearLayoutGenresSearch, false)
+            val textViewGenreName = genreView.findViewById<TextView>(R.id.genres_name)
+            textViewGenreName.text = genre.genreName
+
+            genreView.setOnClickListener {
+                // Only set the text, don't add to list
+                editTextAddGenre.setText(genre.genreName)
+
+                // Clear the search results
+                linearLayoutGenresSearch.visibility = View.GONE
+            }
+            linearLayoutGenresSearch.addView(genreView)
         }
     }
 
@@ -586,7 +641,8 @@ SetupActivity : AppCompatActivity() {
                     if (response.isSuccessful) {
                         val filteredAvoidGenres = response.body() ?: emptyList()
                         withContext(Dispatchers.Main) {
-                            updateAvoidGenres(filteredAvoidGenres)
+                            // Make sure we're updating the correct container
+                            updateAvoidGenresResults(filteredAvoidGenres)
                         }
                     } else {
                         Log.e(
@@ -594,64 +650,35 @@ SetupActivity : AppCompatActivity() {
                             "Failed to fetch filtered avoid genres: ${response.message()}"
                         )
                         withContext(Dispatchers.Main) {
-                            updateAvoidGenres(emptyList())
+                            // Clear the avoid genres container on error
+                            linearLayoutAvoidGenres.removeAllViews()
                         }
                     }
                 } catch (e: Exception) {
                     Log.e("DataManager", "Error fetching filtered avoid genres", e)
                     withContext(Dispatchers.Main) {
-                        updateAvoidGenres(emptyList())
+                        // Clear the avoid genres container on error
+                        linearLayoutAvoidGenres.removeAllViews()
                     }
                 }
             }
         } else {
-            updateAvoidGenres(emptyList())
+            // Clear the avoid genres container when query is empty
+            linearLayoutAvoidGenres.removeAllViews()
         }
     }
 
-
-    private fun updateGenres(newGenres: List<GenreEntity>) {
-        linearLayoutGenresSearch.removeAllViews()
-        newGenres.forEach { genre ->
-            val genreView = LayoutInflater.from(this)
-                .inflate(R.layout.genre_search_item, linearLayoutGenresSearch, false)
-            val textViewGenreName = genreView.findViewById<TextView>(R.id.genres_name)
-            textViewGenreName.text = genre.genreName
-            genreView.setOnClickListener {
-                // Set text in edit field
-                editTextAddGenre.setText(genre.genreName)
-
-                // Add to preferred genres list immediately
-                if (!genresList.any { it.name == genre.genreName }) {
-                    genresList.add(GenreItem(genre.genreId, genre.genreName))
-                    genresAdapter.notifyItemInserted(genresList.size - 1)
-
-                    // Check if this genre exists in avoid genres and remove it
-                    if (selectedGenres.contains(genre.genreName)) {
-                        selectedGenres.remove(genre.genreName)
-                        updateSelectedGenresTextView()
-                        Toast.makeText(
-                            this@SetupActivity,
-                            "Removed '${genre.genreName}' from avoided genres",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
-
-                // Clear search results
-                linearLayoutGenresSearch.removeAllViews()
-            }
-            linearLayoutGenresSearch.addView(genreView)
-        }
-    }
-
-    private fun updateAvoidGenres(newGenres: List<GenreEntity>) {
+    private fun updateAvoidGenresResults(newGenres: List<GenreEntity>) {
+        // Always use the avoid genres container for avoid genre search results
         linearLayoutAvoidGenres.removeAllViews()
+        linearLayoutAvoidGenres.visibility = if (newGenres.isEmpty()) View.GONE else View.VISIBLE
+
         newGenres.forEach { genre ->
             val genreView = LayoutInflater.from(this)
                 .inflate(R.layout.genre_search_item, linearLayoutAvoidGenres, false)
             val textViewGenreName = genreView.findViewById<TextView>(R.id.genres_name)
             textViewGenreName.text = genre.genreName
+
             genreView.setOnClickListener {
                 // Check if this genre exists in preferred genres
                 val existsInPreferred = genresList.any { it.name == genre.genreName }
@@ -676,6 +703,7 @@ SetupActivity : AppCompatActivity() {
                                 updateSelectedGenresTextView()
                             }
 
+                            // Clear input field and search results
                             editTextAvoidGenres.setText("")
                             linearLayoutAvoidGenres.visibility = View.GONE
                         }
@@ -690,6 +718,7 @@ SetupActivity : AppCompatActivity() {
             linearLayoutAvoidGenres.addView(genreView)
         }
     }
+
 
     private fun updateSelectedGenresTextView() {
         val genresText = selectedGenres.joinToString(", ")
@@ -722,6 +751,7 @@ SetupActivity : AppCompatActivity() {
         // Hide checkbox layout and show RecyclerView
         linearLayoutSubscriptions.visibility = View.GONE
         recyclerViewSubscriptions.visibility = View.VISIBLE
+        buttonSave.visibility = View.GONE
 
         // Set the flag to indicate that the save button has been pressed
         isSaved = true
@@ -748,56 +778,37 @@ SetupActivity : AppCompatActivity() {
     private fun handleAddGenreButtonClick() {
         val genreName = editTextAddGenre.text.toString().trim()
         if (genreName.isNotEmpty()) {
-            // Add to preferred genres list
-            genresList.add(GenreItem(0, genreName))
-            genresAdapter.notifyItemInserted(genresList.size - 1)
+            // Check if genre already exists in the list to avoid duplicates
+            if (!genresList.any { it.name.equals(genreName, ignoreCase = true) }) {
+                // Add to preferred genres list
+                genresList.add(GenreItem(0, genreName))
+                genresAdapter.notifyItemInserted(genresList.size - 1)
 
-            // Check if this genre exists in avoid genres and remove it
-            if (selectedGenres.contains(genreName)) {
-                selectedGenres.remove(genreName)
-                updateSelectedGenresTextView()
+                // Check if this genre exists in avoid genres and remove it
+                if (selectedGenres.contains(genreName)) {
+                    selectedGenres.remove(genreName)
+                    updateSelectedGenresTextView()
+                    Toast.makeText(
+                        this@SetupActivity,
+                        "Removed '$genreName' from avoided genres",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } else {
+                // Notify user that genre already exists
                 Toast.makeText(
                     this@SetupActivity,
-                    "Removed '$genreName' from avoided genres",
+                    "'$genreName' is already in your preferred genres",
                     Toast.LENGTH_SHORT
                 ).show()
             }
 
+            // Clear the input field
             editTextAddGenre.text.clear()
-        }
-    }
 
-    private fun handleDragEvent(v: View, event: DragEvent, targetLayout: LinearLayout): Boolean {
-        return when (event.action) {
-            DragEvent.ACTION_DRAG_STARTED -> true
-            DragEvent.ACTION_DRAG_ENTERED -> {
-                v.invalidate()
-                true
-            }
-
-            DragEvent.ACTION_DRAG_LOCATION -> true
-            DragEvent.ACTION_DRAG_EXITED -> {
-                v.invalidate()
-                true
-            }
-
-            DragEvent.ACTION_DROP -> {
-                val view = event.localState as View
-                val owner = view.parent as LinearLayout
-                owner.removeView(view)
-                targetLayout.addView(view)
-                view.visibility = View.VISIBLE
-                true
-            }
-
-            DragEvent.ACTION_DRAG_ENDED -> {
-                val view = event.localState as View
-                view.visibility = View.VISIBLE
-                v.invalidate()
-                true
-            }
-
-            else -> false
+            // Hide the search results
+            linearLayoutGenresSearch.removeAllViews()
+            linearLayoutGenresSearch.visibility = View.GONE
         }
     }
 

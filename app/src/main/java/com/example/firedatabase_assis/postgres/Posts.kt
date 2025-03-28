@@ -48,4 +48,7 @@ interface Posts {
         @Path("timestamp") timestamp: Long
     ): Response<List<PostDto>>
 
+    @GET("/api/posts/provider/{tmdbId}")
+    suspend fun getProviderNameByTmdbId(@Path("tmdbId") tmdbId: Int): Response<Map<String, String?>>
+
 }

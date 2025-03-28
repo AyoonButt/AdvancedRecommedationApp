@@ -87,9 +87,9 @@ data class PersonDetails(
     val biography: String,
     val birthday: String?,
     val deathday: String?,
-    val placeOfBirth: String?,
-    val profilePath: String?,
-    val knownForDepartment: String?,
+    val place_of_birth: String?,
+    val profile_path: String?,
+    val known_for_department: String?,
 )
 
 data class CastMember(
