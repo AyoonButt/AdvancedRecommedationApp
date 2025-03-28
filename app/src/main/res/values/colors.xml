@@ -23,5 +23,10 @@
     <color name="chip_background">#E0F7FA</color>
     <color name="purple_100">#EDE7F6</color>
     <color name="purple_50">#F5F0FA</color>
+    <color name="dark_nav_background">#121212</color>
+    <color name="dark_surface">#1E1E1E</color>
+    <color name="dark_item_selected">#FFFFFF</color>
+    <color name="dark_item_unselected">#78FFFFFF</color>
+    <color name="dark_ripple_color">#40FFFFFF</color>
 
 </resources>

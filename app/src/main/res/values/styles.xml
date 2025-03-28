@@ -21,4 +21,23 @@
         <item name="cornerSize">50%</item>
     </style>
 
+    <!-- Bottom Navigation Dark Theme -->
+    <style name="DarkBottomNavigationTheme" parent="Theme.MaterialComponents">
+        <item name="android:background">@color/dark_nav_background</item>
+        <item name="itemIconTint">@color/dark_bottom_nav_colors</item>
+        <item name="itemTextColor">@color/dark_bottom_nav_colors</item>
+        <item name="itemRippleColor">@color/dark_ripple_color</item>
+    </style>
+
+    <!-- Theme for entire LoadVideos activity -->
+    <style name="Theme.VideoPlayer" parent="Theme.MaterialComponents.NoActionBar">
+        <item name="android:windowBackground">@color/dark_nav_background</item>
+        <item name="android:statusBarColor">@color/dark_nav_background</item>
+        <item name="android:navigationBarColor">@color/dark_nav_background</item>
+        <item name="colorPrimary">@color/dark_item_selected</item>
+        <item name="colorPrimaryVariant">@color/dark_surface</item>
+        <item name="colorOnPrimary">@color/dark_item_selected</item>
+        <item name="android:textColorPrimary">@color/dark_item_selected</item>
+    </style>
+
 </resources>

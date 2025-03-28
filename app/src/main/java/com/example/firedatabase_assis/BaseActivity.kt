@@ -14,14 +14,12 @@ import com.example.firedatabase_assis.settings.ActivityNavigationHelper
 import com.example.firedatabase_assis.settings.SettingsActivity
 
 abstract class BaseActivity : AppCompatActivity() {
-    private lateinit var baseBinding: ActivityBaseBinding
-
+    protected lateinit var baseBinding: ActivityBaseBinding  // Made protected for subclasses to access
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setupNightMode()
     }
-
 
     override fun setContentView(layoutResId: Int) {
         baseBinding = ActivityBaseBinding.inflate(layoutInflater)
@@ -141,7 +139,6 @@ abstract class BaseActivity : AppCompatActivity() {
                         }
                     }
                 }
-
             }
             menuItem.itemId == selectedItemId
         }

@@ -1,11 +1,13 @@
 package com.example.firedatabase_assis.explore
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.View
+import androidx.annotation.RequiresApi
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -54,11 +56,18 @@ class LoadVideos : BaseActivity() {
     private var lastFetchTimestamp = 0L
     private var useTimestampBasedFetching = false
 
+    @RequiresApi(Build.VERSION_CODES.M)
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Apply dark theme before calling super.onCreate
+        setTheme(R.style.Theme_VideoPlayer)
+
         super.onCreate(savedInstanceState)
         binding = ActivityLoadVideosBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Set up bottom navigation with dark theme
         setupBottomNavigation(R.id.bottom_menu_explore)
+        applyDarkNavigationBar()
 
         // Initialize SwipeRefreshLayout
         swipeRefreshLayout = binding.swipeRefresh
@@ -66,7 +75,13 @@ class LoadVideos : BaseActivity() {
             refreshVideoData()
         }
 
-        // Set colors for refresh animation
+        // Set colors for dark theme refresh animation
+        swipeRefreshLayout.setColorSchemeColors(
+            resources.getColor(R.color.dark_item_selected, null)
+        )
+        swipeRefreshLayout.setProgressBackgroundColorSchemeColor(
+            resources.getColor(R.color.dark_surface, null)
+        )
 
         recyclerView = binding.recyclerView
         recyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false)
@@ -85,11 +100,6 @@ class LoadVideos : BaseActivity() {
         snapHelper.attachToRecyclerView(recyclerView)
 
         // Initialize Retrofit
-        val retrofit = Retrofit.Builder()
-            .baseUrl(BuildConfig.POSTRGRES_API_URL)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-
         recommendations = retrofit.create(Recommendations::class.java)
         posts = retrofit.create(Posts::class.java)
 
@@ -149,7 +159,6 @@ class LoadVideos : BaseActivity() {
             }
         })
 
-
         recyclerView.addOnChildAttachStateChangeListener(object :
             RecyclerView.OnChildAttachStateChangeListener {
             override fun onChildViewAttachedToWindow(view: View) {
@@ -162,6 +171,21 @@ class LoadVideos : BaseActivity() {
                 holder.youTubePlayer?.pause()
             }
         })
+    }
+
+    // Apply dark navigation bar styling
+    @RequiresApi(Build.VERSION_CODES.M)
+    private fun applyDarkNavigationBar() {
+        // Apply dark navigation theme programmatically
+        baseBinding.bottomNavBar.let { navBar ->
+            navBar.setBackgroundColor(resources.getColor(R.color.dark_nav_background, null))
+            navBar.itemIconTintList =
+                resources.getColorStateList(R.color.dark_bottom_nav_colors, null)
+            navBar.itemTextColor = resources.getColorStateList(R.color.dark_bottom_nav_colors, null)
+            // Set navigation bar color to match the dark theme
+            window.navigationBarColor = resources.getColor(R.color.dark_nav_background, null)
+            window.statusBarColor = resources.getColor(R.color.dark_nav_background, null)
+        }
     }
 
     override fun onResume() {
